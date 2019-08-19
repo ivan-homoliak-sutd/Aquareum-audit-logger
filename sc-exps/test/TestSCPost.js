@@ -129,6 +129,8 @@ contract('PostingSC - TEST SUITE 3 [Censored TXs and resolution]:', function(acc
 
     var receipt = await contract.submitCensTx(censTxBytes, args[0], ...args[1], {from: client});
     console.log(`\t \\/== Gas used in submitCensTx:`, receipt.receipt.gasUsed);
+    // console.log("event = ", receipt.logs[0].args)
+
 
     censTxsCnt = await contract.getCntOfCensTxs.call()
     assert.equal(censTxsCnt, 1);

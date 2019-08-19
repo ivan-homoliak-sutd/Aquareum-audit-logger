@@ -9,7 +9,7 @@ PK_E_TEE_SEED = "0x0123"
 
 
 var TEE = function (eth_account) {
-    console.log("eth_account = ", eth_account);
+    // console.log("eth_account = ", eth_account);
     this._eth_account_E_PB = eth_account;
 
     this._PK_E_TEE = h(PK_E_TEE_SEED);
@@ -59,23 +59,22 @@ TEE.prototype.nextLedgerTransition = function(){
 }
 
 TEE.prototype.makeTicket = function(clientAddr, expiration){
+    console.log("clientAddr= ", clientAddr)
+    console.log("expiration= ", parseInt(expiration))
 
-    // console.log("clientAddr= ", clientAddr)
-    // console.log("expiration= ", parseInt(expiration).toString(16))
-
-    var ticket =  concat(clientAddr, "0x" + parseInt(expiration).toString(16));
+    var ticket = web3.eth.abi.encodeParameters(['address','uint256'], [clientAddr, parseInt(expiration)]);
     console.log("ticket= ", ticket)
 
     // sign ticket by SK_E_PB
-    var sigObj = this._eth_account_E_PB.sign(h(ticket));
-    console.log("sigObj = ", sigObj)
+    var msgHash = h(ticket);
+    // console.log("hash of msg = ", msgHash);
+    // var sig = W3.eth.accounts.sign(msgStr, this.privKey); // this prepends some  bull-string, so I've checked the lib and fetched only what is needed
+    var sig = Account.sign(msgHash, this._SK_E_PB);
+    sig = Account.decodeSignature(sig);
+    sig = {r: sig[1], s: sig[2], v: sig[0]};
+    console.log("sig = ", sig);
 
-    var v_decimal = W3.utils.hexToNumber(sigObj.v);
-    if(v_decimal != 27 || v_decimal != 28) {
-        v_decimal += 27
-    }
-
-    return [ticket, [v_decimal, sigObj.r, sigObj.s]]
+    return [ticket, [W3.utils.toDecimal(sig.v.substring(2)), sig.r, sig.s]];
 }
 
 
@@ -87,6 +86,7 @@ function concat(a, b) {
         console.log("a, b = ", a, b)
         throw new Error("Concat supports only hex string arguments");
     }
+    console.log("a, b = ", a, b)
     a = hexToBytes(a);
     b = hexToBytes(b);
     var res = []

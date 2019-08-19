@@ -17,6 +17,7 @@ contract PostingSC {
   ///////////// Events for Client ////////////////
   event RootUpdated(bytes32 root_A, bytes32 root_B);
   // event MsgToRecover(bytes message);
+  event HashOfMsgEvent(bytes32 hash);
 
   ///////////// Modifiers ////////////////
   modifier verifySigEncPB_native() {
@@ -99,20 +100,22 @@ contract PostingSC {
 
   ///////////// Call-Based Methods (not modifying the state) ////////////////
 
-  function _validSignature(bytes memory data, address PK, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) private pure returns (bool) {
-        bytes32 message = _messageToRecover(data);
-        if (PK == ecrecover(message, sig_v, sig_r, sig_s)){
+  function _validSignature(bytes memory data, address PK, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) private returns (bool) {
+        // bytes32 message = _messageToRecover(data);
+        bytes32 hash = keccak256(abi.encodePacked(data));
+        emit HashOfMsgEvent(hash);
+        if(PK == ecrecover(hash, sig_v, sig_r, sig_s)){
           return true;
         }else{
           return false;
         }
     }
 
-  function _messageToRecover(bytes memory message) private pure returns (bytes32) {
-        bytes32 hashedMessage = keccak256(abi.encodePacked(message));
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        return keccak256(abi.encodePacked(prefix, hashedMessage));
-  }
+  // function _messageToRecover(bytes memory message) private pure returns (bytes32) {
+  //       bytes32 hashedMessage = keccak256(abi.encodePacked(message));
+  //       bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+  //       return keccak256(abi.encodePacked(prefix, hashedMessage));
+  // }
 
   // function _messageToRecover(bytes memory message) private pure returns (bytes32) {
   //       bytes memory messageBytes = _msgToAscii(message);
