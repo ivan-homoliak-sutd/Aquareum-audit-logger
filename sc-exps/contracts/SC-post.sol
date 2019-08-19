@@ -5,7 +5,7 @@ contract PostingSC {
   address[] public PK_E_PB;
   bytes32[] public PK_E_TEE; // TODO: later change type to fit the size of PK in Sigma_TEE
 
-  bytes32 LRoot_PB;
+  bytes32 public LRoot_PB;
 
   TxInfo[] public censTXs;
 
@@ -25,7 +25,7 @@ contract PostingSC {
   }
 
   modifier verifySigEncPB_explicit(bytes memory data, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) {
-    // Verify signature made by E (using native explicit method)
+    // Verify signature made by E (using explicit method)
       require(
           _validSignature(data, PK_E_PB[PK_E_PB.length - 1], sig_v, sig_r, sig_s),
           "Ecrecover: signature made by SK_E_PB is invalid"

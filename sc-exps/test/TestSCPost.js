@@ -39,34 +39,73 @@ contract('PostingSC - TEST SUITE 1 [Initial checks]', function(accounts) {
 
 // describe.skip("Skipped ", function(){
 
-// contract('WaletHandle - TEST SUITE 2 [Deplete child tree OTPs, init new child tree ; deplete parent OTPs ; new parent tree]:', function(accounts) {
-//   var owner = web3.eth.accounts[0];
-//   var amount2Send = Number(W3.utils.toWei('0.1', 'ether'));
-//   var receiver = web3.eth.accounts[1];
-//   var contract;
+contract('PostingSC - TEST SUITE 2 [Posting a new ledger  root]:', function(accounts) {  
+  var contract;
 
-//   it("Bootstrap / send 1 Eth at contract", async () => {
-//     sender = accounts[1];
-//     var initialAmount = Number(W3.utils.toWei('1', 'ether'));
-//     var senderBalanceBefore = web3.eth.getBalance(sender);
-//     contract = await WalletHandle.deployed();
-//     txHash = await web3.eth.sendTransaction({from: sender, to: contract.contract.address, value: initialAmount});
+  it("Post a new ledger root 1st time (correct signature)", async () => {        
+    contract = await PostingSC.deployed();    
+    const initialRoot = await contract.LRoot_PB.call()    
+    assert.equal(initialRoot, tee.LRoot_PB);
 
-//     const tx = await web3.eth.getTransaction(txHash);
-//     const receipt = await web3.eth.getTransactionReceipt(txHash);
-//     console.log(`\t \\/== Gas used: `, receipt.gasUsed);
-//     const gasCost = tx.gasPrice.mul(receipt.gasUsed);
+    var ledgerTransition = tee.nextLedgerTransition();
+    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
+    var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[tee.account_idx]});    
+    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
 
-//     var expectedBallance = initialAmount;
-//     assert.equal(web3.eth.getBalance(contract.contract.address).toNumber(), expectedBallance);
+    const newRoot = await contract.LRoot_PB.call()
+    // console.log("newRoot is", newRoot)
+    assert.equal(initialRoot, ledgerTransition[0]);
+    assert.equal(newRoot, ledgerTransition[1]);
+  });
 
-//     var senderBalanceAfter = web3.eth.getBalance(sender)
-//     assert.equal(
-//       senderBalanceBefore.toString(),
-//       senderBalanceAfter.plus(gasCost).plus(initialAmount).toString()
-//     );
-//   });
-// });
+  it("Post a new ledger root 2nd time (correct signature)", async () => {        
+    contract = await PostingSC.deployed();    
+    const initialRoot = await contract.LRoot_PB.call()    
+    assert.equal(initialRoot, tee.LRoot_PB);
+
+    var ledgerTransition = tee.nextLedgerTransition();
+    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
+    var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[tee.account_idx]});    
+    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
+
+    const newRoot = await contract.LRoot_PB.call()
+    // console.log("newRoot is", newRoot)
+    assert.equal(initialRoot, ledgerTransition[0]);
+    assert.equal(newRoot, ledgerTransition[1]);
+  });
+
+  
+  it("Post a new ledger root (incorrect signature)", async () => {        
+    contract = await PostingSC.deployed();
+    const initialRoot = await contract.LRoot_PB.call()   
+    assert.equal(initialRoot, tee.LRoot_PB); 
+    
+    var ledgerTransition = [tee.LRoot_PB, h(tee.LRoot_PB)]
+    
+    try {
+      var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[0]});    
+      assert.fail('Expected revert not received');
+    } catch (error) {
+      const revertFound = error.message.search('revert') >= 0;
+      assert(revertFound, `Expected "revert", got ${error} instead`);
+    }    
+  });
+
+  it("Post a new ledger root (correct signature & wrong transition)", async () => {        
+    contract = await PostingSC.deployed();
+    const initialRoot = await contract.LRoot_PB.call()    
+    assert.equal(initialRoot, tee.LRoot_PB);        
+    
+    try {
+      var receipt = await contract.postLRoot("0x012345", "0x012345", {from: accounts[tee.account_idx]});    
+      assert.fail('Expected revert not received');
+    } catch (error) {
+      const revertFound = error.message.search('revert') >= 0;
+      assert(revertFound, `Expected "revert", got ${error} instead`);
+    }    
+  });
+
+});
 
 // });//
 

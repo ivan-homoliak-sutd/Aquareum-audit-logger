@@ -3,9 +3,11 @@ function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' 
 
 PK_E_TEE_SEED = "0x0123"
 
+
 var TEE = function (account = 1) {
     this._PK_E_TEE = h(PK_E_TEE_SEED); 
-    this._PK_E_PB_account = account;    
+    this._PK_E_PB_account = account;  
+    this._LRoot_PB = "0x0000000000000000000000000000000000000000000000000000000000000000"; // the first root of the empty ledger  
 }
 
 Object.defineProperty(TEE.prototype, 'PK_E_TEE', {
@@ -18,6 +20,23 @@ Object.defineProperty(TEE.prototype, 'account_idx', {
       return this._PK_E_PB_account;
     }
 })
+Object.defineProperty(TEE.prototype, 'LRoot_PB', {
+    get: function () {
+      return this._LRoot_PB;
+    }
+})
+
+TEE.prototype.nextLedgerTransition = function(){    
+    // signature is only emulated through index (PK_E_PB_account) into native accounts of local network
+    var nextLRoot = h(this.LRoot_PB);
+    var ledger_transition = [this.LRoot_PB, nextLRoot]; 
+    
+    // do the ledger stransition
+    this._LRoot_PB = nextLRoot;
+
+    return ledger_transition;
+}
+
 
 ///// AUX Functions /////
 
