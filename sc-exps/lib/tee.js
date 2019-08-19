@@ -1,13 +1,22 @@
 var W3 = require('web3');
+const provider = new W3.providers.HttpProvider('http://localhost:9545')
+const web3 = new W3(provider)
+var Account = require("eth-lib/lib/account");
+
 function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' }); }
 
 PK_E_TEE_SEED = "0x0123"
 
 
-var TEE = function (account = 1) {
-    this._PK_E_TEE = h(PK_E_TEE_SEED); 
-    this._PK_E_PB_account = account;  
-    this._LRoot_PB = "0x0000000000000000000000000000000000000000000000000000000000000000"; // the first root of the empty ledger  
+var TEE = function (eth_account) {
+    console.log("eth_account = ", eth_account);
+    this._eth_account_E_PB = eth_account;
+
+    this._PK_E_TEE = h(PK_E_TEE_SEED);
+    this._PK_E_PB_address = eth_account.address;
+    this._SK_E_PB = eth_account.privateKey;
+
+    this._LRoot_PB = "0x0000000000000000000000000000000000000000000000000000000000000000"; // the first root of the empty ledger
 }
 
 Object.defineProperty(TEE.prototype, 'PK_E_TEE', {
@@ -15,9 +24,14 @@ Object.defineProperty(TEE.prototype, 'PK_E_TEE', {
       return this._PK_E_TEE;
     }
 })
-Object.defineProperty(TEE.prototype, 'account_idx', {
+Object.defineProperty(TEE.prototype, 'PK_E_PB_address', {
     get: function () {
-      return this._PK_E_PB_account;
+      return this._PK_E_PB_address;
+    }
+})
+Object.defineProperty(TEE.prototype, 'SK_E_PB', {
+    get: function () {
+      return this._SK_E_PB;
     }
 })
 Object.defineProperty(TEE.prototype, 'LRoot_PB', {
@@ -25,40 +39,65 @@ Object.defineProperty(TEE.prototype, 'LRoot_PB', {
       return this._LRoot_PB;
     }
 })
+Object.defineProperty(TEE.prototype, 'eth_account_E_PB', {
+    get: function () {
+      return this._eth_account_E_PB;
+    }
+})
 
-TEE.prototype.nextLedgerTransition = function(){    
-    // signature is only emulated through index (PK_E_PB_account) into native accounts of local network
+
+TEE.prototype.nextLedgerTransition = function(){
+    // Transition and signature are only emulated
+    // Signature is emulated through using sender address in local Ethereum network (accounts array)
     var nextLRoot = h(this.LRoot_PB);
-    var ledger_transition = [this.LRoot_PB, nextLRoot]; 
-    
+    var ledger_transition = [this.LRoot_PB, nextLRoot];
+
     // do the ledger stransition
     this._LRoot_PB = nextLRoot;
 
     return ledger_transition;
 }
 
+TEE.prototype.makeTicket = function(clientAddr, expiration){
+
+    // console.log("clientAddr= ", clientAddr)
+    // console.log("expiration= ", parseInt(expiration).toString(16))
+
+    var ticket =  concat(clientAddr, "0x" + parseInt(expiration).toString(16));
+    console.log("ticket= ", ticket)
+
+    // sign ticket by SK_E_PB
+    var sigObj = this._eth_account_E_PB.sign(h(ticket));
+    console.log("sigObj = ", sigObj)
+
+    var v_decimal = W3.utils.hexToNumber(sigObj.v);
+    if(v_decimal != 27 || v_decimal != 28) {
+        v_decimal += 27
+    }
+
+    return [ticket, [v_decimal, sigObj.r, sigObj.s]]
+}
+
 
 ///// AUX Functions /////
 
 
-function concatB32(a, b) {
+function concat(a, b) {
     if (typeof(a) != 'string' || typeof(b) != 'string' || a.substr(0, 2) != '0x' || b.substr(0, 2) != '0x') {
         console.log("a, b = ", a, b)
-        throw new Error("ConcatB32 supports only hex string arguments");
+        throw new Error("Concat supports only hex string arguments");
     }
     a = hexToBytes(a);
     b = hexToBytes(b);
     var res = []
-    if (a.length != b.length || a.length != 16 || b.length != 16 ) {
-        throw new Error("ConcatB32 supports only equally-long (16B) arguments.");
-   } else {
-        for (var i = 0; i < a.length; i++) {
-            res.push(a[i])
-        }
-        for (var i = 0; i < b.length; i++) {
-            res.push(b[i])
-        }
-   }
+
+    for (var i = 0; i < a.length; i++) {
+        res.push(a[i])
+    }
+    for (var i = 0; i < b.length; i++) {
+        res.push(b[i])
+    }
+
    return bytesToHex(res);
 }
 
@@ -87,6 +126,14 @@ function cloneArray(arr) {
         ret.push(arr[i])
     }
     return ret
+}
+
+function hex2ascii(_hex) {
+    var hex = _hex.toString(); // force conversion
+    var str = '';
+    for (var i = 2; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)
+        str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    return str;
 }
 
 Number.prototype.padLeft = function(size) {

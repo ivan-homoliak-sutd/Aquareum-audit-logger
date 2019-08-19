@@ -4,7 +4,7 @@ var W3 = new Web3();
 function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' }).substring(0, 34); }
 
 var TEE = require("../lib/tee.js");
-var tee = new TEE(1);
+var tee = new TEE(web3.eth.accounts.privateKeyToAccount("0x7a9f9c5137014611cef2171e4f3895ada5163dc42355dde85f3c1a8dbde53a9a"));
 
 
 // describe.skip("Skipped ", function(){
@@ -25,7 +25,7 @@ contract('PostingSC - TEST SUITE 1 [Initial checks]', function(accounts) {
   it("Operator is account[0]", function(){
     return PostingSC.deployed()
     .then(function(instance) {
-      operator = instance.contract.methods.PK_O().call();      
+      operator = instance.contract.methods.PK_O().call();
       return operator;
     })
     .then(function(operator) {
@@ -39,70 +39,103 @@ contract('PostingSC - TEST SUITE 1 [Initial checks]', function(accounts) {
 
 // describe.skip("Skipped ", function(){
 
-contract('PostingSC - TEST SUITE 2 [Posting a new ledger  root]:', function(accounts) {  
+contract('PostingSC - TEST SUITE 2 [Posting a new ledger  root]:', function(accounts) {
   var contract;
 
-  it("Post a new ledger root 1st time (correct signature)", async () => {        
-    contract = await PostingSC.deployed();    
-    const initialRoot = await contract.LRoot_PB.call()    
-    assert.equal(initialRoot, tee.LRoot_PB);
-
-    var ledgerTransition = tee.nextLedgerTransition();
-    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
-    var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[tee.account_idx]});    
-    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
-
-    const newRoot = await contract.LRoot_PB.call()
-    // console.log("newRoot is", newRoot)
-    assert.equal(initialRoot, ledgerTransition[0]);
-    assert.equal(newRoot, ledgerTransition[1]);
-  });
-
-  it("Post a new ledger root 2nd time (correct signature)", async () => {        
-    contract = await PostingSC.deployed();    
-    const initialRoot = await contract.LRoot_PB.call()    
-    assert.equal(initialRoot, tee.LRoot_PB);
-
-    var ledgerTransition = tee.nextLedgerTransition();
-    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
-    var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[tee.account_idx]});    
-    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
-
-    const newRoot = await contract.LRoot_PB.call()
-    // console.log("newRoot is", newRoot)
-    assert.equal(initialRoot, ledgerTransition[0]);
-    assert.equal(newRoot, ledgerTransition[1]);
-  });
-
-  
-  it("Post a new ledger root (incorrect signature)", async () => {        
+  it("Post a new ledger root 1st time (correct signature)", async () => {
     contract = await PostingSC.deployed();
-    const initialRoot = await contract.LRoot_PB.call()   
-    assert.equal(initialRoot, tee.LRoot_PB); 
-    
+    const initialRoot = await contract.LRoot_PB.call()
+    assert.equal(initialRoot, tee.LRoot_PB);
+
+    var ledgerTransition = tee.nextLedgerTransition();
+    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
+    var receipt = await contract.postLRoot(...ledgerTransition, {from: tee.PK_E_PB_address});
+    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
+
+    const newRoot = await contract.LRoot_PB.call()
+    // console.log("newRoot is", newRoot)
+    assert.equal(initialRoot, ledgerTransition[0]);
+    assert.equal(newRoot, ledgerTransition[1]);
+  });
+
+  it("Post a new ledger root 2nd time (correct signature)", async () => {
+    contract = await PostingSC.deployed();
+    const initialRoot = await contract.LRoot_PB.call()
+    assert.equal(initialRoot, tee.LRoot_PB);
+
+    var ledgerTransition = tee.nextLedgerTransition();
+    // console.log("\t \\/== ledger transition is: ", ledgerTransition)
+    var receipt = await contract.postLRoot(...ledgerTransition, {from: tee.PK_E_PB_address});
+    console.log(`\t \\/== Gas used in postLRoot:`, receipt.receipt.gasUsed);
+
+    const newRoot = await contract.LRoot_PB.call()
+    // console.log("newRoot is", newRoot)
+    assert.equal(initialRoot, ledgerTransition[0]);
+    assert.equal(newRoot, ledgerTransition[1]);
+  });
+
+
+  it("Post a new ledger root (incorrect signature)", async () => {
+    contract = await PostingSC.deployed();
+    const initialRoot = await contract.LRoot_PB.call()
+    assert.equal(initialRoot, tee.LRoot_PB);
+
     var ledgerTransition = [tee.LRoot_PB, h(tee.LRoot_PB)]
-    
+
     try {
-      var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[0]});    
+      var receipt = await contract.postLRoot(...ledgerTransition, {from: accounts[0]});
       assert.fail('Expected revert not received');
     } catch (error) {
       const revertFound = error.message.search('revert') >= 0;
       assert(revertFound, `Expected "revert", got ${error} instead`);
-    }    
+    }
   });
 
-  it("Post a new ledger root (correct signature & wrong transition)", async () => {        
+  it("Post a new ledger root (correct signature & wrong transition)", async () => {
     contract = await PostingSC.deployed();
-    const initialRoot = await contract.LRoot_PB.call()    
-    assert.equal(initialRoot, tee.LRoot_PB);        
-    
+    const initialRoot = await contract.LRoot_PB.call()
+    assert.equal(initialRoot, tee.LRoot_PB);
+
     try {
-      var receipt = await contract.postLRoot("0x012345", "0x012345", {from: accounts[tee.account_idx]});    
+      var receipt = await contract.postLRoot("0x012345", "0x012345", {from: tee.PK_E_PB_address});
       assert.fail('Expected revert not received');
     } catch (error) {
       const revertFound = error.message.search('revert') >= 0;
       assert(revertFound, `Expected "revert", got ${error} instead`);
-    }    
+    }
+  });
+
+});
+
+// });//
+
+// describe.skip("Skipped ", function(){
+
+contract('PostingSC - TEST SUITE 3 [Censored TXs and resolution]:', function(accounts) {
+  var contract;
+  var client = accounts[2];
+
+  it("Post a new request by C (correct signature & valid ticket)", async () => {
+    contract = await PostingSC.deployed();
+    var censTxsCnt = await contract.getCntOfCensTxs.call()
+    assert.equal(censTxsCnt, 0);
+
+    const expiration =  Date.now() / 1000 + 3600; // valid for 1 hour
+    var args = tee.makeTicket(client, expiration); // [ticket, signature]
+    console.log("ticket=", args[0])
+    console.log("signature=", ...args[1])
+
+    var censTxBytes = h("0xdeadbeef");
+
+    var receipt = await contract.submitCensTx(censTxBytes, args[0], ...args[1], {from: client});
+    console.log(`\t \\/== Gas used in submitCensTx:`, receipt.receipt.gasUsed);
+
+    censTxsCnt = await contract.getCntOfCensTxs.call()
+    assert.equal(censTxsCnt, 1);
+
+    var censTx = await contract.censTXs.call(0);
+    assert.equal(censTx[1], "");
+    assert.equal(censTx[0], censTxBytes);
   });
 
 });
