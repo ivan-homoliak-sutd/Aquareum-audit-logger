@@ -1,9 +1,7 @@
 pragma solidity >=0.4.21 <0.6.0;
 
 contract PostingSC {
-  address public owner;
-
-  address public PK_O;
+  address public PK_O; // address of operator O
   address[] public PK_E_PB;
   bytes32[] public PK_E_TEE; // TODO: later change type to fit the size of PK in Sigma_TEE
 
@@ -91,7 +89,7 @@ contract PostingSC {
 
   function _validSignature(bytes memory data, address PK, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) private pure returns (bool) {
         bytes32 message = _messageToRecover(data);
-        address addr  = ecrecover(message, sig_v + 27, sig_r, sig_s);
+        address addr = ecrecover(message, sig_v + 27, sig_r, sig_s);
         if (PK == addr){
           return true;
         }else{
