@@ -6,9 +6,10 @@ contract PostingSC {
   enum CensorshipResolution { CENSORED, PROCESSED, ERROR }
 
   struct TxInfo {
-        bytes trx; // it can be either transaction in plaintext (if t == WRITE) or hash of transaction (if t == READ)
         CensorshipResolution status;
         CensorshipType t;
+        bytes32 trxHash; // hash of transaction (entered by C if t == READ)
+        bytes trx; // transaction in plaintext (entered by C if t == WRITE)
    }
 
   address public PK_O; // address of operator O
@@ -77,8 +78,9 @@ contract PostingSC {
    * checking the signature of the current transaction.
    *
    * ticket is abi.encoded (packed) and contains (sender_address, expiration_timestamp}
+   * Arguments trxHash and trx are exclusive: only one of them is valid according to a type of ct
    */
-  function submitCensTx(CensorshipType ct, bytes memory trxOrHash, bytes memory ticket, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) public
+  function submitCensTx(CensorshipType ct, bytes memory trx, bytes32 trxHash, bytes memory ticket, uint8 sig_v, bytes32 sig_r, bytes32 sig_s) public
     verifySigEncPB_explicit(ticket, sig_v, sig_r, sig_s)
   {
     (address subscriber, uint expire_time) = abi.decode(ticket, (address, uint));
@@ -86,31 +88,34 @@ contract PostingSC {
     require(block.timestamp < expire_time, "Subscription ticket is already expired.");
 
     // TODO: validate censorship type on range
-    TxInfo memory ti = TxInfo(trxOrHash, CensorshipResolution.CENSORED, ct);
+    TxInfo memory ti = TxInfo(CensorshipResolution.CENSORED, ct, trxHash, trx);
     censTXs.push(ti);
   }
 
   /**
    * The function is called by operator to prove that a censored transaction was processed.
-   * Arguments txHash and trx are exclusive: only one of them is valid according to a type of censTx[idx]
+   * Arguments trxHash and trx are exclusive: only one of them is valid according to a type of censTx[idx]
    */
-  function resolveCensTx(uint idx, bytes32 txHash, bytes memory trx,  CensorshipResolution status) public
+  function resolveCensTx(uint idx, bytes32 trxHash, bytes memory trx,  CensorshipResolution status) public
     verifySigEncPB_native()
   {
     require(idx < censTXs.length, "Idx of censored TX is out of range.");
     TxInfo storage ti = censTXs[idx];
 
-    emit HashOfMsgEvent(keccak256(ti.trx));
-    emit HashOfMsgEvent(txHash);
+    // emit HashOfMsgEvent(keccak256(ti.trx));
+    // emit HashOfMsgEvent(trxHash);
 
-    // if(CensorshipType.WRITE == ti.t){
-    //   require(txHash == keccak256(abi.encodePacked(ti.trx)), "WRITE: Tx hash of submited proof is invalid.");
-    // }else if(CensorshipType.READ == ti.t){
-    //   require(keccak256(trx) == abi.decode(ti.trx, (bytes32)), "Tx hash of submited proof is invalid.");
-    // } else{
-    //   revert("Unknown censorship type.");
-    // }
-    ti.status = status; // Update the status from the E. It might be ERROR or INCLUDED.
+    if(CensorshipType.WRITE == ti.t){
+      require(trxHash == keccak256(ti.trx), "WRITE: Tx hash of submited proof is invalid.");
+    }else if(CensorshipType.READ == ti.t){
+      if(status == CensorshipResolution.PROCESSED){
+        require(keccak256(trx) == ti.trxHash, "Tx hash of submited proof is invalid.");
+        ti.trx = trx;
+      }
+    } else{
+      revert("Unknown censorship type.");
+    }
+    ti.status = status; // Update the status from E. It might be ERROR or PROCESSED.
   }
 
 
