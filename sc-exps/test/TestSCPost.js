@@ -6,6 +6,8 @@ function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' 
 var TEE = require("../lib/tee.js");
 var tee = new TEE(web3.eth.accounts.privateKeyToAccount("0x7a9f9c5137014611cef2171e4f3895ada5163dc42355dde85f3c1a8dbde53a9a"));
 
+var CENS_RESOLUTION = Object.freeze({"NONE": 0, "PROCESSED": 1,  "ERROR" : 2});
+var CENS_TYPE = Object.freeze({"WRITE": 0,  "READ" : 1});
 
 // describe.skip("Skipped ", function(){
 
@@ -111,7 +113,7 @@ contract('PostingSC - TEST SUITE 2 [Posting a new ledger  root]:', function(acco
 
 // describe.skip("Skipped ", function(){
 
-contract('PostingSC - TEST SUITE 3 [Censored TXs and resolution]:', function(accounts) {
+contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', function(accounts) {
   var contract;
   var client = accounts[2];
 
@@ -122,23 +124,73 @@ contract('PostingSC - TEST SUITE 3 [Censored TXs and resolution]:', function(acc
 
     const expiration =  Date.now() / 1000 + 3600; // valid for 1 hour
     var args = tee.makeTicket(client, expiration); // [ticket, signature]
-    console.log("ticket=", args[0])
-    console.log("signature=", ...args[1])
-
+    // console.log("ticket=", args[0])
+    // console.log("signature=", ...args[1])
     var censTxBytes = h("0xdeadbeef");
 
-    var receipt = await contract.submitCensTx(censTxBytes, args[0], ...args[1], {from: client});
+    var receipt = await contract.submitCensTx(CENS_TYPE.WRITE, censTxBytes, args[0], ...args[1], {from: client});
     console.log(`\t \\/== Gas used in submitCensTx:`, receipt.receipt.gasUsed);
-    // console.log("event = ", receipt.logs[0].args)
-
 
     censTxsCnt = await contract.getCntOfCensTxs.call()
     assert.equal(censTxsCnt, 1);
 
     var censTx = await contract.censTXs.call(0);
-    assert.equal(censTx[1], "");
+    assert.equal(censTx[1], CENS_RESOLUTION.NONE);
     assert.equal(censTx[0], censTxBytes);
+    assert.equal(censTx[2], CENS_TYPE.WRITE);
   });
+
+  it("Post a new request by C (invalid ticket => wrong PK_C)", async () => {
+    contract = await PostingSC.deployed();
+    var censTxsCnt = await contract.getCntOfCensTxs.call()
+    assert.equal(censTxsCnt, 1);
+
+    const expiration =  Date.now() / 1000 + 3600; // valid for 1 hour
+    var args = tee.makeTicket(accounts[3], expiration); // [ticket, signature]
+    var censTxBytes = "0xdeadbeef";
+
+    try {
+      var receipt = await contract.submitCensTx(CENS_TYPE.WRITE, censTxBytes, args[0], ...args[1], {from: client});
+      assert.fail('Expected revert not received');
+    } catch (error) {
+      const revertFound = error.message.search('revert') >= 0;
+      assert(revertFound, `Expected "revert", got ${error} instead`);
+    }
+  });
+
+  it("Post a new request by C (invalid ticket => expired time)", async () => {
+    contract = await PostingSC.deployed();
+    var censTxsCnt = await contract.getCntOfCensTxs.call()
+    assert.equal(censTxsCnt, 1);
+
+    const expiration =  Date.now() / 1000 - 1000; // expired time
+    var args = tee.makeTicket(client, expiration); // [ticket, signature]
+    var censTxBytes = "0xdeadbeef";
+
+    try {
+      var receipt = await contract.submitCensTx(CENS_TYPE.WRITE, censTxBytes, args[0], ...args[1], {from: client});
+      assert.fail('Expected revert not received');
+    } catch (error) {
+      const revertFound = error.message.search('revert') >= 0;
+      assert(revertFound, `Expected "revert", got ${error} instead`);
+    }
+  });
+
+  // it("Resolve censored TX with idx = 0", async () => {
+  //   contract = await PostingSC.deployed();
+  //   var censTxsCnt = await contract.getCntOfCensTxs.call()
+  //   assert.equal(censTxsCnt, 1);
+  //   const idx_tx = 0;
+  //   var censTxBytes = "0xdeadbeef";
+  //   console.log("h(censTxBytes) = ", h(censTxBytes));
+
+  //   var receipt = await contract.resolveCensTx(idx_tx, h(censTxBytes), CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
+  //   console.log(`\t \\/== Gas used in resolveCensTx:`, receipt.receipt.gasUsed);
+
+  //   var censTx = await contract.censTXs.call(0);
+  //   assert.equal(censTx[1], "PROCESSED");
+  // });
+
 
 });
 

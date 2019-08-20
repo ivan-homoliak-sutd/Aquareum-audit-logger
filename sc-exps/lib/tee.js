@@ -59,11 +59,11 @@ TEE.prototype.nextLedgerTransition = function(){
 }
 
 TEE.prototype.makeTicket = function(clientAddr, expiration){
-    console.log("clientAddr= ", clientAddr)
-    console.log("expiration= ", parseInt(expiration))
+    // console.log("clientAddr = ", clientAddr)
+    // console.log("expiration = ", parseInt(expiration))
 
     var ticket = web3.eth.abi.encodeParameters(['address','uint256'], [clientAddr, parseInt(expiration)]);
-    console.log("ticket= ", ticket)
+    // console.log("ticket= ", ticket)
 
     // sign ticket by SK_E_PB
     var msgHash = h(ticket);
@@ -72,7 +72,7 @@ TEE.prototype.makeTicket = function(clientAddr, expiration){
     var sig = Account.sign(msgHash, this._SK_E_PB);
     sig = Account.decodeSignature(sig);
     sig = {r: sig[1], s: sig[2], v: sig[0]};
-    console.log("sig = ", sig);
+    // console.log("sig = ", sig);
 
     return [ticket, [W3.utils.toDecimal(sig.v.substring(2)), sig.r, sig.s]];
 }
