@@ -1,7 +1,7 @@
 var PostingSC = artifacts.require("PostingSC");
 var Web3 = require('web3');
 var W3 = new Web3();
-function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' }).substring(0, 34); }
+function h(a) { return W3.utils.soliditySha3({v: a, t: "bytes", encoding: 'hex' }); }
 
 var TEE = require("../lib/tee.js");
 var tee = new TEE(web3.eth.accounts.privateKeyToAccount("0x7a9f9c5137014611cef2171e4f3895ada5163dc42355dde85f3c1a8dbde53a9a"));
@@ -126,7 +126,8 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     var args = tee.makeTicket(client, expiration); // [ticket, signature]
     // console.log("ticket=", args[0])
     // console.log("signature=", ...args[1])
-    var censTxBytes = h("0xdeadbeef");
+    var txString = "0xdeadbeef";
+    var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
 
     var receipt = await contract.submitCensTx(CENS_TYPE.WRITE, censTxBytes, args[0], ...args[1], {from: client});
     console.log(`\t \\/== Gas used in submitCensTx:`, receipt.receipt.gasUsed);
@@ -176,20 +177,24 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     }
   });
 
-  // it("Resolve censored TX with idx = 0", async () => {
-  //   contract = await PostingSC.deployed();
-  //   var censTxsCnt = await contract.getCntOfCensTxs.call()
-  //   assert.equal(censTxsCnt, 1);
-  //   const idx_tx = 0;
-  //   var censTxBytes = "0xdeadbeef";
-  //   console.log("h(censTxBytes) = ", h(censTxBytes));
+  it("Resolve censored TX with idx = 0", async () => {
+    contract = await PostingSC.deployed();
+    var censTxsCnt = await contract.getCntOfCensTxs.call()
+    assert.equal(censTxsCnt, 1);
 
-  //   var receipt = await contract.resolveCensTx(idx_tx, h(censTxBytes), CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
-  //   console.log(`\t \\/== Gas used in resolveCensTx:`, receipt.receipt.gasUsed);
+    const idx_tx = 0;
+    var txString = "0xdeadbeef";
+    var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
 
-  //   var censTx = await contract.censTXs.call(0);
-  //   assert.equal(censTx[1], "PROCESSED");
-  // });
+    // console.log("censTxBytes = ", censTxBytes);
+    // console.log("h(censTxBytes) = ", h(censTxBytes));
+
+    var receipt = await contract.resolveCensTx(idx_tx, h(censTxBytes), "0x00", CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
+    console.log(`\t \\/== Gas used in resolveCensTx:`, receipt.receipt.gasUsed);
+
+    var censTx = await contract.censTXs.call(0);
+    assert.equal(censTx[1], CENS_RESOLUTION.PROCESSED);
+  });
 
 
 });
@@ -278,4 +283,12 @@ function concatB32(a, b) {
       }
  }
  return bytesToHex(res);
+}
+
+Number.prototype.padLeft = function(size) {
+  var s = this.toString(16)
+  while (s.length < (size || 2)) {
+    s = "0" + s;
+  }
+  return s;
 }

@@ -103,13 +103,13 @@ contract PostingSC {
     emit HashOfMsgEvent(keccak256(ti.trx));
     emit HashOfMsgEvent(txHash);
 
-    if(CensorshipType.WRITE == ti.t){
-      require(txHash == keccak256(abi.encodePacked(ti.trx)), "WRITE: Tx hash of submited proof is invalid.");
-    }else if(CensorshipType.READ == ti.t){
-      require(keccak256(trx) == abi.decode(ti.trx, (bytes32)), "Tx hash of submited proof is invalid.");
-    } else{
-      revert("Unknown censorship type.");
-    }
+    // if(CensorshipType.WRITE == ti.t){
+    //   require(txHash == keccak256(abi.encodePacked(ti.trx)), "WRITE: Tx hash of submited proof is invalid.");
+    // }else if(CensorshipType.READ == ti.t){
+    //   require(keccak256(trx) == abi.decode(ti.trx, (bytes32)), "Tx hash of submited proof is invalid.");
+    // } else{
+    //   revert("Unknown censorship type.");
+    // }
     ti.status = status; // Update the status from the E. It might be ERROR or INCLUDED.
   }
 
