@@ -88,6 +88,7 @@ contract PostingSC {
     require(block.timestamp < expire_time, "Subscription ticket is already expired.");
 
     // TODO: validate censorship type on range
+    // TODO: check the maximum length of trx that fits block gas limit and update the paper
     TxInfo memory ti = TxInfo(CensorshipResolution.CENSORED, ct, trxHash, trx);
     censTXs.push(ti);
   }
@@ -108,8 +109,9 @@ contract PostingSC {
     if(CensorshipType.WRITE == ti.t){
       require(trxHash == keccak256(ti.trx), "WRITE: Tx hash of submited proof is invalid.");
     }else if(CensorshipType.READ == ti.t){
+      // TODO: check the maximum length of trx that fits block gas limit and update the paper
       if(status == CensorshipResolution.PROCESSED){
-        require(keccak256(trx) == ti.trxHash, "Tx hash of submited proof is invalid.");
+        require(keccak256(trx) == ti.trxHash, "READ: Tx hash of submited proof is invalid.");
         ti.trx = trx;
       }
     } else{

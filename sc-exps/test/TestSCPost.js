@@ -206,7 +206,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     var client = accounts[2];
     var REPEAT_READ = 5;
 
-    it("Post a new request by C (correct signature & valid ticket)", async () => {
+    it("Post a sequence of requests by C", async () => {
       contract = await PostingSC.deployed();
       var censTxsCnt = await contract.getCntOfCensTxs.call()
       assert.equal(censTxsCnt, 0);
@@ -215,11 +215,11 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
       var args = tee.makeTicket(client, expiration); // [ticket, signature]
 
       for (let i = 0; i < REPEAT_READ; i++) {
-        var txString = "0x" + "deadbeefff".repeat(10) + i.toString(); // tx size of 100B
+        var txString = "0x" + "deadbeefff".repeat(10); // tx size of 100B
         var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
 
         var receipt = await contract.submitCensTx(CENS_TYPE.READ, "0x00", h(censTxBytes), args[0], ...args[1], {from: client});
-        console.log(`\t \\/== Gas used in submitCensTx:`, receipt.receipt.gasUsed);
+        console.log(`\t \\/== Gas used in submitCensTx[${i}]:`, receipt.receipt.gasUsed);
 
         censTxsCnt = await contract.getCntOfCensTxs.call()
         assert.equal(censTxsCnt, i + 1);
@@ -232,17 +232,17 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
       }
     });
 
-    it("Resolve censored READ TX", async () => {
+    it("Resolve sequence of censored READ TX", async () => {
       contract = await PostingSC.deployed();
       var censTxsCnt = await contract.getCntOfCensTxs.call()
       assert.equal(censTxsCnt, REPEAT_READ);
 
       for (let i = 0; i < REPEAT_READ; i++) {
-        var txString = "0x" + "deadbeefff".repeat(10) + i.toString(); // tx size of 100B
+        var txString = "0x" + "deadbeefff".repeat(10); // tx size of 100B
         var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
 
         var receipt = await contract.resolveCensTx(i, "0x00", censTxBytes, CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
-        console.log(`\t \\/== Gas used in resolveCensTx:`, receipt.receipt.gasUsed);
+        console.log(`\t \\/== Gas used in resolveCensTx[${i}]:`, receipt.receipt.gasUsed);
 
         var censTx = await contract.censTXs.call(i);
         assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
@@ -252,6 +252,116 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
   });
 
   // });//
+
+  // describe.skip("Skipped ", function(){
+
+    contract('PostingSC - TEST SUITE 5 [Censored WRITE influenced by a size of TX]:', function(accounts) {
+      var contract;
+      var client = accounts[2];
+      var REPEAT_WRITE = 10;
+      const STEP_SIZE = 50; // Bytes
+
+      it("Post a new request by C (correct signature & valid ticket)", async () => {
+        contract = await PostingSC.deployed();
+        var censTxsCnt = await contract.getCntOfCensTxs.call()
+        assert.equal(censTxsCnt, 0);
+
+        const expiration =  Date.now() / 1000 + 3600; // valid for 1 hour
+        var args = tee.makeTicket(client, expiration); // [ticket, signature]
+
+        for (let i = 0; i < REPEAT_WRITE; i++) {
+          var txString = "0x" + "e".repeat(STEP_SIZE * i) + i.toString(); // tx size
+          var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
+
+          var receipt = await contract.submitCensTx(CENS_TYPE.WRITE, censTxBytes, "0x00", args[0], ...args[1], {from: client});
+          console.log(`\t \\/== Gas used in submitCensTx[${i}]:`, receipt.receipt.gasUsed);
+
+          censTxsCnt = await contract.getCntOfCensTxs.call()
+          assert.equal(censTxsCnt, i + 1);
+
+          var censTx = await contract.censTXs.call(i);
+          assert.equal(censTx[0], CENS_RESOLUTION.NONE);
+          assert.equal(censTx[3], censTxBytes);
+          assert.equal(censTx[2], web3.eth.abi.encodeParameter('bytes32', "0x00"));
+          assert.equal(censTx[1], CENS_TYPE.WRITE);
+        }
+      });
+
+      it("Resolve censored WRITE TX", async () => {
+        contract = await PostingSC.deployed();
+        var censTxsCnt = await contract.getCntOfCensTxs.call()
+        assert.equal(censTxsCnt, REPEAT_WRITE);
+
+        for (let i = 0; i < REPEAT_WRITE; i++) {
+          var txString = "0x" + "e".repeat(STEP_SIZE * i) + i.toString(); // tx size
+          var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
+
+          var receipt = await contract.resolveCensTx(i, h(censTxBytes), "0x00", CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
+          console.log(`\t \\/== Gas used in resolveCensTx[${i}]:`, receipt.receipt.gasUsed);
+
+          var censTx = await contract.censTXs.call(i);
+          assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
+          assert.equal(censTx[3], censTxBytes);
+        }
+      });
+    });
+
+    // });//
+
+    // describe.skip("Skipped ", function(){
+
+    contract('PostingSC - TEST SUITE 5 [Censored READ influenced by a size of TX]:', function(accounts) {
+      var contract;
+      var client = accounts[2];
+      var REPEAT_READ = 10;
+      const STEP_SIZE = 50; // Bytes
+
+      it("Post a new request by C (correct signature & valid ticket)", async () => {
+        contract = await PostingSC.deployed();
+        var censTxsCnt = await contract.getCntOfCensTxs.call()
+        assert.equal(censTxsCnt, 0);
+
+        const expiration =  Date.now() / 1000 + 3600; // valid for 1 hour
+        var args = tee.makeTicket(client, expiration); // [ticket, signature]
+
+        for (let i = 0; i < REPEAT_READ; i++) {
+          var txString = "0x" + "e".repeat(STEP_SIZE * i) + i.toString(); // tx size
+          var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
+
+          var receipt = await contract.submitCensTx(CENS_TYPE.READ, "0x00", h(censTxBytes), args[0], ...args[1], {from: client});
+          console.log(`\t \\/== Gas used in submitCensTx[${i}]:`, receipt.receipt.gasUsed);
+
+          censTxsCnt = await contract.getCntOfCensTxs.call()
+          assert.equal(censTxsCnt, i + 1);
+
+          var censTx = await contract.censTXs.call(i);
+          assert.equal(censTx[0], CENS_RESOLUTION.NONE);
+          assert.equal(censTx[3], "0x00");
+          assert.equal(censTx[2], h(censTxBytes));
+          assert.equal(censTx[1], CENS_TYPE.READ);
+        }
+      });
+
+      it("Resolve censored READ TX", async () => {
+        contract = await PostingSC.deployed();
+        var censTxsCnt = await contract.getCntOfCensTxs.call()
+        assert.equal(censTxsCnt, REPEAT_READ);
+
+        for (let i = 0; i < REPEAT_READ; i++) {
+          var txString = "0x" + "e".repeat(STEP_SIZE * i) + i.toString(); // tx size
+          var censTxBytes = web3.eth.abi.encodeParameter('bytes', txString);
+
+          var receipt = await contract.resolveCensTx(i, "0x00", censTxBytes, CENS_RESOLUTION.PROCESSED, {from: tee.PK_E_PB_address});
+          console.log(`\t \\/== Gas used in resolveCensTx[${i}]:`, receipt.receipt.gasUsed);
+
+          var censTx = await contract.censTXs.call(i);
+          assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
+          assert.equal(censTx[3], censTxBytes);
+        }
+      });
+    });
+
+    // });//
 
 ///// AUX Functions /////
 
