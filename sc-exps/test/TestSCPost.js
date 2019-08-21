@@ -258,7 +258,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     contract('PostingSC - TEST SUITE 5 [Censored WRITE influenced by a size of TX]:', function(accounts) {
       var contract;
       var client = accounts[2];
-      var REPEAT_WRITE = 10;
+      var REPEAT_WRITE = 101;
       const STEP_SIZE = 50; // Bytes
 
       it("Post a new request by C (correct signature & valid ticket)", async () => {
@@ -313,7 +313,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     contract('PostingSC - TEST SUITE 5 [Censored READ influenced by a size of TX]:', function(accounts) {
       var contract;
       var client = accounts[2];
-      var REPEAT_READ = 10;
+      var REPEAT_READ = 101;
       const STEP_SIZE = 50; // Bytes
 
       it("Post a new request by C (correct signature & valid ticket)", async () => {
@@ -330,7 +330,6 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
           var receipt = await contract.submitCensTx(CENS_TYPE.READ, "0x00", h(censTxBytes), args[0], ...args[1], {from: client});
           console.log(`\t \\/== Gas used in submitCensTx[${i}]:`, receipt.receipt.gasUsed);
-
           censTxsCnt = await contract.getCntOfCensTxs.call()
           assert.equal(censTxsCnt, i + 1);
 
