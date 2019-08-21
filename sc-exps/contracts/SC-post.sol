@@ -91,7 +91,6 @@ contract PostingSC {
     TxInfo memory ti;
     if(CensorshipType.WRITE == ct){
       ti = TxInfo(CensorshipResolution.CENSORED, ct, keccak256(trx), "0x00");
-      emit CensoredTx(trx);
     }else if(CensorshipType.READ == ct){
       ti = TxInfo(CensorshipResolution.CENSORED, ct, trxHash, "0x00");
     } else{
@@ -115,7 +114,6 @@ contract PostingSC {
 
     if(CensorshipType.WRITE == ti.t){
       require(trxHash == ti.trxHash, "WRITE: Tx hash of submited proof is invalid.");
-      emit CensoredTx(trx); // TX signed by enclave is correct
     }else if(CensorshipType.READ == ti.t){
       if(status == CensorshipResolution.PROCESSED){
         require(keccak256(trx) == ti.trxHash, "READ: Tx hash of submited proof is invalid.");
