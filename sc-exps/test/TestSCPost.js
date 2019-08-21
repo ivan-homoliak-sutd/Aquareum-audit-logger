@@ -117,7 +117,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
   var contract;
   var client = accounts[2];
 
-  it("Post a new request by C (correct signature & valid ticket)", async () => {
+  it("Post a new censored WRITE request by C (correct signature & valid ticket)", async () => {
     contract = await PostingSC.deployed();
     var censTxsCnt = await contract.getCntOfCensTxs.call()
     assert.equal(censTxsCnt, 0);
@@ -137,7 +137,6 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
     var censTx = await contract.censTXs.call(0);
     assert.equal(censTx[0], CENS_RESOLUTION.NONE);
-    assert.equal(censTx[3], censTxBytes);
     assert.equal(censTx[1], CENS_TYPE.WRITE);
   });
 
@@ -159,7 +158,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     }
   });
 
-  it("Post a new request by C (invalid ticket => expired time)", async () => {
+  it("Post a new censored WRITE request by C (invalid ticket => expired time)", async () => {
     contract = await PostingSC.deployed();
     var censTxsCnt = await contract.getCntOfCensTxs.call()
     assert.equal(censTxsCnt, 1);
@@ -177,7 +176,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     }
   });
 
-  it("Resolve censored TX with idx = 0", async () => {
+  it("Resolve censored WRITE TX with idx = 0", async () => {
     contract = await PostingSC.deployed();
     var censTxsCnt = await contract.getCntOfCensTxs.call()
     assert.equal(censTxsCnt, 1);
@@ -206,7 +205,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
     var client = accounts[2];
     var REPEAT_READ = 5;
 
-    it("Post a sequence of requests by C", async () => {
+    it("Post a sequence of censored READ requests by C", async () => {
       contract = await PostingSC.deployed();
       var censTxsCnt = await contract.getCntOfCensTxs.call()
       assert.equal(censTxsCnt, 0);
@@ -226,13 +225,12 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
         var censTx = await contract.censTXs.call(i);
         assert.equal(censTx[0], CENS_RESOLUTION.NONE);
-        assert.equal(censTx[3], "0x00");
         assert.equal(censTx[2], h(censTxBytes));
         assert.equal(censTx[1], CENS_TYPE.READ);
       }
     });
 
-    it("Resolve sequence of censored READ TX", async () => {
+    it("Resolve a sequence of censored READ TX", async () => {
       contract = await PostingSC.deployed();
       var censTxsCnt = await contract.getCntOfCensTxs.call()
       assert.equal(censTxsCnt, REPEAT_READ);
@@ -246,7 +244,6 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
         var censTx = await contract.censTXs.call(i);
         assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
-        assert.equal(censTx[3], censTxBytes);
       }
     });
   });
@@ -261,7 +258,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
       var REPEAT_WRITE = 101;
       const STEP_SIZE = 50; // Bytes
 
-      it("Post a new request by C (correct signature & valid ticket)", async () => {
+      it("Post a new censored WRITE request by C (correct signature & valid ticket)", async () => {
         contract = await PostingSC.deployed();
         var censTxsCnt = await contract.getCntOfCensTxs.call()
         assert.equal(censTxsCnt, 0);
@@ -281,13 +278,12 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
           var censTx = await contract.censTXs.call(i);
           assert.equal(censTx[0], CENS_RESOLUTION.NONE);
-          assert.equal(censTx[3], censTxBytes);
-          assert.equal(censTx[2], web3.eth.abi.encodeParameter('bytes32', "0x00"));
+          assert.equal(censTx[2], h(censTxBytes));
           assert.equal(censTx[1], CENS_TYPE.WRITE);
         }
       });
 
-      it("Resolve censored WRITE TX", async () => {
+      it("Resolve a sequence of censored WRITE TX", async () => {
         contract = await PostingSC.deployed();
         var censTxsCnt = await contract.getCntOfCensTxs.call()
         assert.equal(censTxsCnt, REPEAT_WRITE);
@@ -301,7 +297,6 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
           var censTx = await contract.censTXs.call(i);
           assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
-          assert.equal(censTx[3], censTxBytes);
         }
       });
     });
@@ -316,7 +311,7 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
       var REPEAT_READ = 101;
       const STEP_SIZE = 50; // Bytes
 
-      it("Post a new request by C (correct signature & valid ticket)", async () => {
+      it("Post a new censored READ request by C (correct signature & valid ticket)", async () => {
         contract = await PostingSC.deployed();
         var censTxsCnt = await contract.getCntOfCensTxs.call()
         assert.equal(censTxsCnt, 0);
@@ -335,13 +330,12 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
           var censTx = await contract.censTXs.call(i);
           assert.equal(censTx[0], CENS_RESOLUTION.NONE);
-          assert.equal(censTx[3], "0x00");
           assert.equal(censTx[2], h(censTxBytes));
           assert.equal(censTx[1], CENS_TYPE.READ);
         }
       });
 
-      it("Resolve censored READ TX", async () => {
+      it("Resolve a sequence of censored READ TX", async () => {
         contract = await PostingSC.deployed();
         var censTxsCnt = await contract.getCntOfCensTxs.call()
         assert.equal(censTxsCnt, REPEAT_READ);
@@ -355,7 +349,6 @@ contract('PostingSC - TEST SUITE 3 [Censored WRITE TXs and resolution]:', functi
 
           var censTx = await contract.censTXs.call(i);
           assert.equal(censTx[0], CENS_RESOLUTION.PROCESSED);
-          assert.equal(censTx[3], censTxBytes);
         }
       });
     });

@@ -24,6 +24,7 @@ contract PostingSC {
   event RootUpdated(bytes32 root_A, bytes32 root_B);
   // event MsgToRecover(bytes message);
   event HashOfMsgEvent(bytes32 hash);
+  event CensoredTx(bytes trx);
 
   ///////////// Modifiers ////////////////
   modifier verifySigEncPB_native() {
@@ -87,9 +88,15 @@ contract PostingSC {
     require(msg.sender == subscriber, "Signature made by sender of the message does not correspond to the ticket.");
     require(block.timestamp < expire_time, "Subscription ticket is already expired.");
 
-    // TODO: validate censorship type on range
-    // TODO: check the maximum length of trx that fits block gas limit and update the paper
-    TxInfo memory ti = TxInfo(CensorshipResolution.CENSORED, ct, trxHash, trx);
+    TxInfo memory ti;
+    if(CensorshipType.WRITE == ct){
+      ti = TxInfo(CensorshipResolution.CENSORED, ct, keccak256(trx), "0x00");
+      emit CensoredTx(trx);
+    }else if(CensorshipType.READ == ct){
+      ti = TxInfo(CensorshipResolution.CENSORED, ct, trxHash, "0x00");
+    } else{
+      revert("submitCensTx: Unknown censorship type.");
+    }
     censTXs.push(ti);
   }
 
@@ -107,15 +114,15 @@ contract PostingSC {
     // emit HashOfMsgEvent(trxHash);
 
     if(CensorshipType.WRITE == ti.t){
-      require(trxHash == keccak256(ti.trx), "WRITE: Tx hash of submited proof is invalid.");
+      require(trxHash == ti.trxHash, "WRITE: Tx hash of submited proof is invalid.");
+      emit CensoredTx(trx); // TX signed by enclave is correct
     }else if(CensorshipType.READ == ti.t){
-      // TODO: check the maximum length of trx that fits block gas limit and update the paper
       if(status == CensorshipResolution.PROCESSED){
         require(keccak256(trx) == ti.trxHash, "READ: Tx hash of submited proof is invalid.");
-        ti.trx = trx;
+        // ti.trx = trx; // this is removed to save gas
       }
     } else{
-      revert("Unknown censorship type.");
+      revert("resolveCensTx: Unknown censorship type.");
     }
     ti.status = status; // Update the status from E. It might be ERROR or PROCESSED.
   }
