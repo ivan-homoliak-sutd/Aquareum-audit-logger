@@ -1,1 +1,1 @@
-# centralized-ledger-impl
+# PoC implementation of enhanced centralized ledger
