@@ -1,1 +1,1 @@
-# PoC implementation of enhanced centralized ledger
+# PoC implementation of enhanced centralized ledger.
