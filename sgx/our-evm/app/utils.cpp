@@ -26,6 +26,14 @@ int is_error(int error_code) {
         case RET_SUCCESS:
             return 0;
 
+        case RET_SUCCESS_INIT_LOADED_STATE:
+            info_print("EVM state loaded from sealed file.");
+            return 0;
+
+        case RET_SUCCESS_INIT_NEW_STATE:
+            info_print("EVM state initialized in enclave.");
+            return 0;
+
         case ERR_RAND_FAILED:
             sprintf(err_message, "Random byte generation failed in enclave.");
             break;

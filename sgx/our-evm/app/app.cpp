@@ -34,6 +34,14 @@ int ocall_load_evm_state(uint8_t* sealed_data, const size_t sealed_size) {
     return 0;
 }
 
+int ocall_does_sealed_state_exist(void){
+    struct stat buffer;
+    if(0 != stat(SEALED_STORAGE_EVM, &buffer)) {
+        return 1;
+    }
+    return 0;
+}
+
 
 int main(int argc, char** argv) {
 
@@ -49,16 +57,12 @@ int main(int argc, char** argv) {
     }
     info_print("Enclave successfully initilised.");
 
-    // initialize EVM if it was not done before - if sealed storage does not exist
-    struct stat buffer;
-    char * n_value=NULL;
-    if(0 != stat(SEALED_STORAGE_EVM, &buffer)) {
-        ecall_status = ecall_initialize_evm(eid, &ret);
-        if (ecall_status != SGX_SUCCESS || is_error(ret)) {
-            error_print("Fail to initialize EVM enclave.");
-        } else {
-            info_print("EVM enclave successfully initialized.");
-        }
+    // initialize EVM
+    ecall_status = ecall_initialize_evm(eid, &ret);
+    if (ecall_status != SGX_SUCCESS || is_error(ret)) {
+        error_print("Fail to initialize EVM enclave.");
+    } else {
+        info_print("EVM enclave successfully initialized.");
     }
 
     // destroy enclave

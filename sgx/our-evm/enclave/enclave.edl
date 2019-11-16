@@ -9,6 +9,11 @@ enclave {
 
         public int ecall_initialize_evm(void);
 
+        public int ecall_read_pub_state(
+            [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,
+            size_t evm_state_size_pub
+        );
+
     };
 
 
@@ -24,6 +29,8 @@ enclave {
             [out, size=sealed_size]uint8_t* sealed_data,
             size_t sealed_size
         );
+
+        int ocall_does_sealed_state_exist(void);
 
     };
 };
