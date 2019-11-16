@@ -5,9 +5,9 @@
 /***************************************************
  * config.
  ***************************************************/
-#define APP_NAME "sgx-wallet"
+#define APP_NAME "sgx-evm"
 #define ENCLAVE_FILE "enclave.signed.so"
-#define WALLET_FILE "wallet.seal"
+#define SEALED_STORAGE_EVM "sealed-storage-evm.seal"
 
 
 #endif // APP_H_

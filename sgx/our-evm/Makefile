@@ -101,7 +101,7 @@ endif
 
 App_Cpp_Objects := $(App_Cpp_Files:.cpp=.o)
 
-App_Name := sgx-wallet
+App_Name := sgx-evm
 
 ######## Enclave Settings ########
 
@@ -114,7 +114,9 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_Cpp_Files := enclave/enclave.cpp enclave/sealing/sealing.cpp
+# all cpp files required in enclave need to be specified below
+# Enclave_Cpp_Files := enclave/enclave.cpp enclave/sealing/sealing.cpp
+Enclave_Cpp_Files := enclave/enclave.cpp
 Enclave_Include_Paths := -Ienclave -Iinclude -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)

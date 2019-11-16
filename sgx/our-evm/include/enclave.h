@@ -5,7 +5,6 @@
 /***************************************************
  * Enclave return codes
  ***************************************************/
-#define RET_SUCCESS 0
 #define ERR_PASSWORD_OUT_OF_RANGE 1
 #define ERR_WALLET_ALREADY_EXISTS 2
 #define ERR_CANNOT_SAVE_WALLET 3
@@ -16,6 +15,14 @@
 #define ERR_ITEM_TOO_LONG 8
 #define ERR_FAIL_SEAL 9
 #define ERR_FAIL_UNSEAL 10
+
+
+
+// EVM enclave return codes
+#define RET_SUCCESS 0
+#define ERR_RAND_FAILED 100
+#define ERR_FAIL_SEAL_STATE 101
+#define ERR_CANNOT_SAVE_EVM_STATE 102
 
 
 #endif // ENCLAVE_H_

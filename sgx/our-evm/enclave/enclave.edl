@@ -1,0 +1,29 @@
+enclave {
+
+    // includes that will be made to both trustd and untrusted part
+    include "data_types.h"
+
+
+    // define ECALLs
+    trusted {
+
+        public int ecall_initialize_evm(void);
+
+    };
+
+
+    // define OCALLs
+    untrusted {
+
+        int ocall_save_evm_state(
+            [in, size=sealed_size] const uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+        int ocall_load_evm_state(
+            [out, size=sealed_size]uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+    };
+};

@@ -1,0 +1,3 @@
+./sgx-evm
+./enclave.signed.so
+./sealed-storage-evm.seal
