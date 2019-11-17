@@ -6,7 +6,11 @@
 
 #include "sgx_trts.h"
 #include "sgx_tseal.h"
+#include "sgx_tcrypto.h"
 
+// #include "secp256k1.h"
+// #include "scalar_4x64.h"
+#include"signing-PB/signing.h"
 
 SealedEvmState_T _evm_state;
 bool _evm_initialized = false;
@@ -53,14 +57,10 @@ int ecall_initialize_evm(void){
 		memset(evm_state_unsealed, 0, sizeof(SealedEvmState_T));
 
 		// generate EVM key under sig. scheme of PB and store it to evm state struct
-		sgx_status_t rand_status = sgx_read_rand(evm_state_unsealed->sec.keypair.SK_PB, 32);
-		if(SGX_SUCCESS != rand_status){
+		if(0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)){
 			free(evm_state_unsealed);
-			return ERR_RAND_FAILED;
+			return ERR_KEYPAIR_GEN_FAILED;
 		}
-		// TODO: compute PK from SK
-		// ...
-
 
 		// store EVM state in enclave memory
 		memcpy(&_evm_state, evm_state_unsealed, sizeof(SealedEvmState_T)); // TODO: later do deep copy of err TXs
@@ -87,6 +87,7 @@ int ecall_initialize_evm(void){
 }
 
 int ecall_read_pub_state(PublicSealedData *pub_evm_state, size_t pub_state_size){
-
+	return 0;
 
 }
+

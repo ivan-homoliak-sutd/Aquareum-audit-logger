@@ -1,10 +1,10 @@
-#ifndef WALLET_H_
-#define WALLET_H_
+#ifndef DATA_TYPES_H_
+#define DATA_TYPES_H_
 
 #define MAX_ITEMS 100
 #define MAX_ITEM_SIZE 100
 
-
+#include "secp256k1.h"
 
 // underlying elementary data types
 
@@ -20,8 +20,8 @@ struct ErrTxsCache {
 typedef struct ErrTxsCache ErrTxsCache_T;
 
 struct KeyPairPB {
-	unsigned char SK_PB[32] ;
-	unsigned char PK_PB[32] ;
+	unsigned char SK_PB[32]; // private key
+	secp256k1_pubkey PK_PB; // public key (i.e., unsigned char [64])
 };
 typedef struct KeyPairPB KeyPairPB_T;
 
@@ -71,4 +71,4 @@ typedef struct Wallet wallet_t;
 
 
 
-#endif // WALLET_H_
+#endif // DATA_TYPES_H_
