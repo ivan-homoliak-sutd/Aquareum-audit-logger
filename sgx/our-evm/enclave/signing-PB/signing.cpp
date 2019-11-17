@@ -6,11 +6,6 @@
 #include "data_types.h"
 #include "enclave.h"
 #include "secp256k1.h"
-// #include "scalar_4x64.h"
-// #include "scalar_impl.h"
-// #include "util.h"
-// #include "num_gmp.h"
-// #include "libsecp256k1-config.h"
 
 int generate_keypair_PB(KeyPairPB *keypair){
 
@@ -22,6 +17,5 @@ int generate_keypair_PB(KeyPairPB *keypair){
 	static secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN); // if sth needs to be verified here, then add also | SECP256K1_CONTEXT_VERIFY
 	if( 1 != secp256k1_ec_pubkey_create(ctx, &keypair->PK_PB, keypair->SK_PB)) { return ERR_KEYPAIR_GEN_FAILED; }
 	return 0;
-
 
 }

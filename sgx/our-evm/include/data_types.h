@@ -31,8 +31,9 @@ typedef struct KeyPairPB KeyPairPB_T;
 struct PublicSealedData {
 	unsigned char hdrLast[32]; // the last header created by E
 	unsigned char logRootPB[32]; // the last root of L flushed to PB
-	unsigned char idCurrent[32]; // the current version of L (not flushed to PB)
+	unsigned int idCurrent; // the current version of L (not flushed to PB)
 	ErrTxsCache_T txsErrCache; // the cache of erroneous Txs
+	unsigned int diskInits; // counts the number of how many times was enclave initialized from seald state stored at disk
 };
 typedef struct PublicSealedData PublicSealedData_T;
 

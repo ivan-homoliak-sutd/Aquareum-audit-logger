@@ -29,7 +29,7 @@ int ecall_initialize_evm(void){
 	ocall_status = ocall_does_sealed_state_exist(&ocall_ret);
 	if(ocall_status != SGX_SUCCESS){
 		return ERR_STAT_FILE_INIT;
-	} else if(0 == ocall_ret){ 		// file exists, so initialize from it
+	} else if(0 == ocall_ret){ 		// EVM state file exists, so initialize from it
 
 		// load sealed file with EVM state
 		size_t sealed_size = sizeof(sgx_sealed_data_t) + sizeof(SealedEvmState_T);
@@ -46,6 +46,7 @@ int ecall_initialize_evm(void){
 		if (ocall_ret != 0 || ocall_status != SGX_SUCCESS) {
 			return ERR_LOAD_EVM_STATE;
 		}
+		evm_state_unsealed->pub.diskInits++;
 		memcpy(&_evm_state, evm_state_unsealed, sizeof(SealedEvmState_T)); // TODO: later do deep copy of err TXs
 		_evm_initialized = true;
 		return RET_SUCCESS_INIT_LOADED_STATE;
@@ -61,6 +62,7 @@ int ecall_initialize_evm(void){
 			free(evm_state_unsealed);
 			return ERR_KEYPAIR_GEN_FAILED;
 		}
+		evm_state_unsealed->pub.diskInits = 0; // TODO: change later
 
 		// store EVM state in enclave memory
 		memcpy(&_evm_state, evm_state_unsealed, sizeof(SealedEvmState_T)); // TODO: later do deep copy of err TXs
@@ -86,8 +88,30 @@ int ecall_initialize_evm(void){
 	}
 }
 
-int ecall_read_pub_state(PublicSealedData *pub_evm_state, size_t pub_state_size){
-	return 0;
+int ecall_sync_evm_sealed_state_to_disk(void){
 
+	// seal invernalt evm state object which is in memory
+	size_t sealed_size = sizeof(sgx_sealed_data_t) + sizeof(SealedEvmState_T);
+	uint8_t* sealed_data = (uint8_t*)malloc(sealed_size);
+	sgx_status_t sealing_status = sgx_seal_data(0, NULL, sizeof(SealedEvmState_T), (uint8_t*)&_evm_state, sealed_size, (sgx_sealed_data_t*)sealed_data);
+	if (sealing_status != SGX_SUCCESS) {
+		free(sealed_data);
+		return ERR_FAIL_SEAL_STATE;
+	}
+
+
+	int ocall_ret;
+	sgx_status_t ocall_status = ocall_save_evm_state(&ocall_ret, sealed_data, sealed_size);
+	free(sealed_data);
+	if (ocall_ret != 0 || ocall_status != SGX_SUCCESS) {
+		return ERR_CANNOT_SAVE_EVM_STATE;
+	}
+	return 0;
+}
+
+
+int ecall_read_pub_state(PublicSealedData *pub_evm_state, size_t pub_state_size){
+	(* pub_evm_state) = _evm_state.pub;
+	return 0;
 }
 
