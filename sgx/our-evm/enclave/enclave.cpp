@@ -8,9 +8,11 @@
 #include "sgx_tseal.h"
 #include "sgx_tcrypto.h"
 
+// custom types + lib for signing with  secp256k1 curve
 // #include "secp256k1.h"
-// #include "scalar_4x64.h"
 #include"signing-PB/signing.h"
+
+#include "eEVM/ecl/ledger.h"
 
 SealedEvmState_T _evm_state;
 bool _evm_initialized = false;
@@ -112,6 +114,10 @@ int ecall_sync_evm_sealed_state_to_disk(void){
 
 int ecall_read_pub_state(PublicSealedData *pub_evm_state, size_t pub_state_size){
 	(* pub_evm_state) = _evm_state.pub;
+
+	auto ecl = ECLedger();
+	ecl.execute_hello_world();
+
 	return 0;
 }
 

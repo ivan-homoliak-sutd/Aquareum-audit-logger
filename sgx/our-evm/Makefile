@@ -116,22 +116,26 @@ Crypto_Library_Name := sgx_tcrypto
 
 # all cpp files required in enclave need to be specified below
 # Enclave_Cpp_Files := enclave/enclave.cpp enclave/sealing/sealing.cpp
-Enclave_Cpp_Files := enclave/enclave.cpp enclave/signing-PB/signing.cpp
-Enclave_Include_Paths := -Ienclave -Iinclude -I./common/secp256k1/include -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_Cpp_Files := enclave/enclave.cpp enclave/signing-PB/signing.cpp enclave/eEVM/ecl/ledger.cpp
+Enclave_Include_Paths := -Ienclave -Iinclude -I./common/secp256k1/include \
+	-I./enclave/eEVM/3rdparty/intx/include \
+	-I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
 # Enclave_Include_Paths += -I/usr/include/x86_64-linux-gnu/
 
 SECP256_LIB_DIR := ./common/secp256k1/.libs/
+EEVM_LIB_DIR := ./enclave/eEVM/build/
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
 Enclave_C_Flags += -DHAVE_CONFIG_H # this is for for secp256k1 library to load its config from a file
-Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++03 -nostdinc++
+Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++11 -nostdinc++
 Enclave_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
 	-Wl,-pie,-eenclave_entry -Wl,--export-dynamic  \
 	-Wl,--defsym,__ImageBase=0 \
-	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1
+	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
+	-L$(EEVM_LIB_DIR) -leevm
 	# -Wl,--version-script=Enclave/Enclave.lds
 
 Enclave_Cpp_Objects := $(Enclave_Cpp_Files:.cpp=.o)

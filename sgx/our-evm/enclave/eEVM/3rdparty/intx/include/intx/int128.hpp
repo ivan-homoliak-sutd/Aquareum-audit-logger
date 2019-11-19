@@ -798,7 +798,8 @@ inline std::string to_string(uint<N> x, int base = 10)
 
     auto s = std::string{};
     while (x != 0)
-    {
+    { // IH: this looks inefficient - I'd just use some sliding bitmask + bit shifts.
+
         // TODO: Use constexpr udivrem_1?
         const auto res = udivrem(x, uint<N>{base});
         const auto d = int(res.rem);

@@ -70,7 +70,8 @@ namespace eevm
       LogHandler& lh,
       uint64_t value = 0,
       uint64_t gas_price = 0,
-      uint64_t gas_limit = 0) :
+      uint64_t gas_limit = 0
+    ) :
       origin(origin),
       value(value),
       gas_price(gas_price),

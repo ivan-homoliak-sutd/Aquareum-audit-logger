@@ -5,7 +5,7 @@
 #include "eEVM/processor.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
-#include <fmt/format_header_only.h>
+// #include <fmt/format_header_only.h>
 #include <iostream>
 
 std::vector<uint8_t> create_bytecode(const std::string& s)
@@ -16,20 +16,20 @@ std::vector<uint8_t> create_bytecode(const std::string& s)
 
   // Store each byte in evm memory
   uint8_t mcurrent = mdest;
-  for (const char& c : s)
+  for (const char &c : s)
   {
     code.push_back(eevm::Opcode::PUSH1);
     code.push_back(c);
     code.push_back(eevm::Opcode::PUSH1);
-    code.push_back(mcurrent++);
+    code.push_back(mcurrent++); // IH: this represents the address in the memory, starting from 0;
     code.push_back(eevm::Opcode::MSTORE8);
   }
 
   // Return
   code.push_back(eevm::Opcode::PUSH1);
-  code.push_back(rsize);
+  code.push_back(rsize); // the size to read from memory (i.e., length of string)
   code.push_back(eevm::Opcode::PUSH1);
-  code.push_back(mdest);
+  code.push_back(mdest); // starting from memory 0x00
   code.push_back(eevm::Opcode::RETURN);
 
   return code;
@@ -37,26 +37,15 @@ std::vector<uint8_t> create_bytecode(const std::string& s)
 
 int main(int argc, char** argv)
 {
-    std::cout << "0" << std::endl;
-
   // Create random addresses for sender and contract
-  std::vector<uint8_t> raw_address(160);
+  std::vector<uint8_t> raw_address(20); // addrress has 20 Bytes
   std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
 
-  std::cout << "01" << std::endl;
   const eevm::Address sender =  eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-  std::cout << "02" << std::endl;
+  std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+  const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-  std::generate(
-    raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-
-  std::cout << "03" << std::endl;
-
-  const eevm::Address to =
-    eevm::from_big_endian(raw_address.data(), raw_address.size());
-
-  std::cout << "1" << std::endl;
 
   // Create global state
   eevm::SimpleGlobalState gs;
@@ -65,8 +54,6 @@ int main(int argc, char** argv)
   std::string hello_world("Hello world!");
   const eevm::Code code = create_bytecode(hello_world);
 
-  std::cout << "2" << std::endl;
-
   // Deploy contract to global state
   const eevm::AccountState contract = gs.create(to, 0, code);
 
@@ -74,27 +61,20 @@ int main(int argc, char** argv)
   eevm::NullLogHandler ignore;
   eevm::Transaction tx(sender, ignore);
 
-  std::cout << "3" << std::endl;
-
   // Create processor
   eevm::Processor p(gs);
 
-  // Execute code. All execution is associated with a transaction. This
+  // Execute code. All executions are associated with a transaction. This
   // transaction is called by sender, executing the code in contract, with empty
   // input (and no trace collection)
   const eevm::ExecResult e = p.run(tx, sender, contract, {}, 0, nullptr);
 
-  std::cout << "4" << std::endl;
-
   // Check the response
   if (e.er != eevm::ExitReason::returned)
   {
-    std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er)
-              << std::endl;
+    std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er) << std::endl;
     return 2;
   }
-
-  std::cout << "5"   << std::endl;
 
   // Create string from response data, and print it
   const std::string response(reinterpret_cast<const char*>(e.output.data()));

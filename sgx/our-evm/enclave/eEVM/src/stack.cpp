@@ -33,7 +33,8 @@ namespace eevm
     if (val > numeric_limits<uint64_t>::max())
       throw Exception(
         ET::outOfBounds,
-        "Value on stack (" + to_hex_string(val) + ") is larger than 2^64");
+        "Value on stack (" + to_hex_string(val) + ") is larger than 2^64"
+      );
 
     return static_cast<uint64_t>(val);
   }

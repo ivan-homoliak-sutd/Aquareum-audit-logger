@@ -1,0 +1,129 @@
+{
+	"folders": [
+		{
+			"path": "sc-exps"
+		},
+		{
+			"path": "/home/ihomoliak/Downloads/metacoin"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/pipelines/test-pipelines"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/auto-angels"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/auto-angels/tmp/FSharp.Data.CQRS"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/merkle-tree-optim"
+		},
+		{
+			"path": "tmp/sgx-exps/sgx/sgx-driver-for-ubuntu18/sgxsdk/SampleCode"
+		},
+		{
+			"path": "tmp/sgx-exps/sgx/SGX101_sample_code-master"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/anonymousvoting-v5.2"
+		},
+		{
+			"path": "/home/ihomoliak/Downloads/elliptic-curve-solidity-master"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours-ecdsa-jacobi"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours-ecdsa-OVN-EC"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours_n_bits"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours-ecdsa-affine"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours-ecdsa-jacobi-modinv_opt"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours"
+		},
+		{
+			"path": "/home/ihomoliak/Documents/SUTD/bcvoting/code/ivan/ours-ecdsa-jacobi-modinv-tmp"
+		},
+		{
+			"path": "tmp/sgx-exps/hello-world/SGX101_sample_code"
+		},
+		{
+			"path": "sgx/our-evm"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true,
+		"files.associations": {
+			"*.tcc": "cpp",
+			"streambuf": "cpp",
+			"secp256k1.h": "c",
+			"istream": "cpp",
+			"cctype": "cpp",
+			"clocale": "cpp",
+			"cmath": "cpp",
+			"csignal": "cpp",
+			"cstdarg": "cpp",
+			"cstddef": "cpp",
+			"cstdio": "cpp",
+			"cstdlib": "cpp",
+			"cstring": "cpp",
+			"ctime": "cpp",
+			"cwchar": "cpp",
+			"cwctype": "cpp",
+			"array": "cpp",
+			"atomic": "cpp",
+			"hash_map": "cpp",
+			"hash_set": "cpp",
+			"chrono": "cpp",
+			"complex": "cpp",
+			"condition_variable": "cpp",
+			"cstdint": "cpp",
+			"deque": "cpp",
+			"forward_list": "cpp",
+			"list": "cpp",
+			"unordered_map": "cpp",
+			"unordered_set": "cpp",
+			"vector": "cpp",
+			"exception": "cpp",
+			"algorithm": "cpp",
+			"functional": "cpp",
+			"iterator": "cpp",
+			"map": "cpp",
+			"memory": "cpp",
+			"memory_resource": "cpp",
+			"numeric": "cpp",
+			"optional": "cpp",
+			"random": "cpp",
+			"ratio": "cpp",
+			"set": "cpp",
+			"string": "cpp",
+			"string_view": "cpp",
+			"system_error": "cpp",
+			"tuple": "cpp",
+			"type_traits": "cpp",
+			"utility": "cpp",
+			"fstream": "cpp",
+			"initializer_list": "cpp",
+			"iomanip": "cpp",
+			"iosfwd": "cpp",
+			"iostream": "cpp",
+			"limits": "cpp",
+			"mutex": "cpp",
+			"new": "cpp",
+			"ostream": "cpp",
+			"sstream": "cpp",
+			"stdexcept": "cpp",
+			"thread": "cpp",
+			"cinttypes": "cpp",
+			"typeinfo": "cpp",
+			"valarray": "cpp"
+		}
+	}
+}

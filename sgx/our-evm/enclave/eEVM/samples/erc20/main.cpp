@@ -99,8 +99,7 @@ void append_argument(std::vector<uint8_t>& code, const uint256_t& arg)
 
 // Deploy the ERC20 contract defined in env, with total_supply tokens. Return
 // the address the contract was deployed to
-eevm::Address deploy_erc20_contract(
-  Environment& env, const uint256_t total_supply)
+eevm::Address deploy_erc20_contract(Environment& env, const uint256_t total_supply)
 {
   // Generate the contract address
   const auto contract_address = eevm::generate_address(env.owner_address, 0u);
@@ -115,8 +114,7 @@ eevm::Address deploy_erc20_contract(
   auto contract = env.gs.create(contract_address, 0u, contract_constructor);
 
   // Run a transaction to initialise this account
-  auto result =
-    run_and_check_result(env, env.owner_address, contract_address, {});
+  auto result = run_and_check_result(env, env.owner_address, contract_address, {});
 
   // Result of running the compiled constructor is the code that should be the
   // contract's body (constructor will also have setup contract's Storage)
@@ -133,11 +131,9 @@ uint256_t get_total_supply(
   // generated address
   const auto caller = get_random_address();
 
-  const auto function_call =
-    eevm::to_bytes(env.contract_definition["hashes"]["totalSupply()"]);
+  const auto function_call = eevm::to_bytes(env.contract_definition["hashes"]["totalSupply()"]);
 
-  const auto output =
-    run_and_check_result(env, caller, contract_address, function_call);
+  const auto output = run_and_check_result(env, caller, contract_address, function_call);
 
   return eevm::from_big_endian(output.data(), output.size());
 }
@@ -153,13 +149,11 @@ uint256_t get_balance(
   // address
   const auto caller = get_random_address();
 
-  auto function_call =
-    eevm::to_bytes(env.contract_definition["hashes"]["balanceOf(address)"]);
+  auto function_call = eevm::to_bytes(env.contract_definition["hashes"]["balanceOf(address)"]);
 
   append_argument(function_call, target_address);
 
-  const auto output =
-    run_and_check_result(env, caller, contract_address, function_call);
+  const auto output = run_and_check_result(env, caller, contract_address, function_call);
 
   return eevm::from_big_endian(output.data(), output.size());
 }
@@ -174,8 +168,7 @@ bool transfer(
   const uint256_t& amount)
 {
   // To transfer tokens, the caller must be the intended source address
-  auto function_call = eevm::to_bytes(
-    env.contract_definition["hashes"]["transfer(address,uint256)"]);
+  auto function_call = eevm::to_bytes( env.contract_definition["hashes"]["transfer(address,uint256)"]);
 
   append_argument(function_call, target_address);
   append_argument(function_call, amount);
@@ -187,8 +180,7 @@ bool transfer(
                  eevm::to_checksum_address(target_address))
             << std::endl;
 
-  const auto output =
-    run_and_check_result(env, source_address, contract_address, function_call);
+  const auto output = run_and_check_result(env, source_address, contract_address, function_call);
 
   // Output should be a bool in a 32-byte vector.
   if (output.size() != 32 || (output[31] != 0 && output[31] != 1))
@@ -204,14 +196,11 @@ bool transfer(
 
 // Send N randomly generated token transfers. Some will be to new user addresses
 template <size_t N>
-void run_random_transactions(
-  Environment& env, const eevm::Address& contract_address, Addresses& users)
-{
+void run_random_transactions(Environment& env, const eevm::Address& contract_address, Addresses& users) {
   const auto total_supply = get_total_supply(env, contract_address);
   const auto transfer_max = (2 * total_supply) / N;
 
-  for (size_t i = 0; i < N; ++i)
-  {
+  for (size_t i = 0; i < N; ++i){
     const auto from_index = rand_range(users.size());
     auto to_index = rand_range(users.size());
 
@@ -242,10 +231,8 @@ void print_erc20_state(
   using Balances = std::vector<std::pair<eevm::Address, uint256_t>>;
   Balances balances;
 
-  for (const auto& user : users)
-  {
-    balances.emplace_back(
-      std::make_pair(user, get_balance(env, contract_address, user)));
+  for (const auto& user : users){
+    balances.emplace_back(std::make_pair(user, get_balance(env, contract_address, user)));
   }
 
   std::cout << heading << std::endl;
@@ -325,26 +312,20 @@ int main(int argc, char** argv)
 
   // Run a successful transaction
   const auto first_transfer_amount = total_supply / 3;
-  const auto success = transfer(
-    env, contract_address, owner_address, alice, first_transfer_amount);
-  if (!success)
-  {
+  const auto success = transfer(env, contract_address, owner_address, alice, first_transfer_amount);
+  if (!success) {
     throw std::runtime_error("Expected transfer to succeed, but it failed");
   }
 
-  // Trying to transfer more than is owned will fail (gracefully, returning
-  // false from the solidity function)
-  const auto failure = transfer(
-    env, contract_address, alice, owner_address, first_transfer_amount + 1);
-  if (failure)
-  {
+  // Trying to transfer more than is owned will fail (gracefully, returning false from the solidity function)
+  const auto failure = transfer( env, contract_address, alice, owner_address, first_transfer_amount + 1);
+  if (failure) {
     throw std::runtime_error("Expected transfer to fail, but it succeeded");
   }
 
   // Report intermediate state
   std::cout << std::endl;
-  print_erc20_state(
-    "-- After one transaction --", env, contract_address, users);
+  print_erc20_state("-- After one transaction --", env, contract_address, users);
   std::cout << std::endl;
 
   // Create more users and run more transactions

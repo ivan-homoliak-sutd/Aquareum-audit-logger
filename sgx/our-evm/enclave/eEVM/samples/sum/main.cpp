@@ -28,12 +28,10 @@ void push_uint256(std::vector<uint8_t>& code, const uint256_t& n)
   code.resize(pre_size + 32);
 
   // Serialize number into code array
-  eevm::to_big_endian(n, code.data() + pre_size);
+  eevm::to_big_endian(n, code.data() + pre_size); // IH: store n to real memory pointed by code.data() + pre_size
 }
 
-std::vector<uint8_t> create_a_plus_b_bytecode(
-  const uint256_t& a, const uint256_t& b)
-{
+std::vector<uint8_t> create_a_plus_b_bytecode( const uint256_t& a, const uint256_t& b) {
   std::vector<uint8_t> code;
   constexpr uint8_t mdest = 0x0; //< Memory start address for result
   constexpr uint8_t rsize = 0x20; //< Size of result
@@ -86,20 +84,15 @@ int main(int argc, char** argv)
   const uint256_t arg_b = eevm::to_uint256(argv[first_arg + 1]);
 
   if (verbose)
-  {
-    std::cout << fmt::format(
-                   "Calculating {} + {}",
-                   eevm::to_lower_hex_string(arg_a),
-                   eevm::to_lower_hex_string(arg_b))
-              << std::endl;
-  }
+    std::cout << fmt::format("Calculating {} + {}",
+                   eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)
+                ) << std::endl;
+
 
   // Invent a random address to use as sender
-  std::vector<uint8_t> raw_address(160);
-  std::generate(
-    raw_address.begin(), raw_address.end(), []() { return rand(); });
-  const eevm::Address sender =
-    eevm::from_big_endian(raw_address.data(), raw_address.size());
+  std::vector<uint8_t> raw_address(20);
+  std::generate(raw_address.begin(), raw_address.end(), []() { return rand(); });
+  const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
   // Generate a target address for the summing contract (this COULD be random,
   // but here we use the scheme for Contract Creation specified in the Yellow
@@ -115,13 +108,12 @@ int main(int argc, char** argv)
   // Populate the global state with the constructed contract
   const eevm::AccountState contract = gs.create(to, 0, code);
 
-  if (verbose)
-  {
-    std::cout << fmt::format(
-                   "Address {} contains the following bytecode:\n {}",
-                   eevm::to_checksum_address(to),
-                   eevm::to_hex_string(contract.acc.get_code()))
-              << std::endl;
+  if (verbose){
+      std::cout << fmt::format(
+              "Target address {} contains the following bytecode:\n {}",
+              eevm::to_checksum_address(to),
+              eevm::to_hex_string(contract.acc.get_code()))
+        << std::endl;
   }
 
   // Construct a transaction object
@@ -131,14 +123,9 @@ int main(int argc, char** argv)
   // Construct processor
   eevm::Processor p(gs);
 
-  if (verbose)
-  {
-    std::cout << fmt::format(
-                   "Executing a transaction from {} to {}",
-                   eevm::to_checksum_address(sender),
-                   eevm::to_checksum_address(to))
-              << std::endl;
-  }
+  if (verbose)  std::cout << fmt::format("Executing a transaction from {} to {}", eevm::to_checksum_address(sender),
+       eevm::to_checksum_address(to)) << std::endl;
+
 
   // Run transaction
   eevm::Trace tr;
@@ -151,23 +138,14 @@ int main(int argc, char** argv)
     &tr //< Record execution trace
   );
 
-  if (e.er != eevm::ExitReason::returned)
-  {
-    std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er)
-              << std::endl;
+  if (e.er != eevm::ExitReason::returned)  {
+    std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er) << std::endl;
     return 2;
   }
 
-  if (verbose)
-  {
-    std::cout << fmt::format(
-                   "Execution completed, and returned a result of {} bytes",
-                   e.output.size())
-              << std::endl;
-  }
+  if (verbose)  std::cout << fmt::format("Execution completed, and returned a result of {} bytes", e.output.size())  << std::endl;
 
-  const uint256_t result =
-    eevm::from_big_endian(e.output.data(), e.output.size());
+  const uint256_t result = eevm::from_big_endian(e.output.data(), e.output.size());
 
   std::cout << fmt::format(
                  "{} + {} = {}",

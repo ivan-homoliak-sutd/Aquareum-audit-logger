@@ -27,7 +27,7 @@ namespace eevm
   {
     static constexpr auto MAX_CALL_DEPTH = 1024u;
     static constexpr auto WORD_SIZE = 32u;
-    static constexpr auto MAX_MEM_SIZE = 1ull << 25; // 32 MB
+    static constexpr auto MAX_MEM_SIZE = 1ull << 25; // 32 MB  // IH: does it relate to enclave? I guess it should be 64/128 MB
   };
 
   inline int get_sign(const uint256_t& v)
@@ -104,7 +104,8 @@ namespace eevm
       Program&& prog,
       ReturnHandler&& rh,
       HaltHandler&& hh,
-      ExceptionHandler&& eh) :
+      ExceptionHandler&& eh
+    ) :
       as(as),
       acc(as.acc),
       st(as.st),
@@ -347,14 +348,14 @@ namespace eevm
       if (end < offset)
         throw Exception(
           ET::outOfBounds,
-          "Integer overflow in memory access (" + to_string(end) + " < " +
-            to_string(offset) + ")");
+          "Integer overflow in memory access (" + to_string(end) + " < " + to_string(offset) + ")"
+        );
 
       if (end > Consts::MAX_MEM_SIZE)
         throw Exception(
           ET::outOfBounds,
-          "Memory limit exceeded (" + to_string(end) + " > " +
-            to_string(Consts::MAX_MEM_SIZE) + ")");
+          "Memory limit exceeded (" + to_string(end) + " > " + to_string(Consts::MAX_MEM_SIZE) + ")"
+        );
 
       if (end > ctxt->mem.size())
         ctxt->mem.resize(end);
@@ -1098,14 +1099,14 @@ namespace eevm
       if (end < ctxt->get_pc())
         throw Exception(
           ET::outOfBounds,
-          "Integer overflow in push (" + to_string(end) + " < " +
-            to_string(ctxt->get_pc()) + ")");
+          "Integer overflow in push (" + to_string(end) + " < " + to_string(ctxt->get_pc()) + ")"
+        );
 
       if (end >= ctxt->prog.code.size())
         throw Exception(
           ET::outOfBounds,
-          "Push immediate exceeds size of program (" + to_string(end) +
-            " >= " + to_string(ctxt->prog.code.size()) + ")");
+          "Push immediate exceeds size of program (" + to_string(end) + " >= " + to_string(ctxt->prog.code.size()) + ")"
+        );
 
       // TODO: parse immediate once and not every time
       auto pc = ctxt->get_pc() + 1;
@@ -1351,7 +1352,7 @@ namespace eevm
     const vector<uint8_t>& input,
     const uint256_t& call_value,
     Trace* tr)
-  {
+  { // IH: why such wasting?
     return _Processor(gs, tx, tr).run(caller, callee, input, call_value);
   }
 } // namespace eevm
