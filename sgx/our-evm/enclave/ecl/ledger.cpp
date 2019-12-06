@@ -7,16 +7,18 @@
 #include "enclave.h"
 
 // eEVM
-#include "eEVM/include/eEVM/opcode.h"
-#include "eEVM/include/eEVM/processor.h"
-#include "eEVM/include/eEVM/simple/simpleglobalstate.h"
+#include "eEVM/opcode.h"
+#include "eEVM/processor.h"
+#include "eEVM/simple/simpleglobalstate.h"
 
 
 class ECLedger{
 
   public:
 
-	ECLedger(){}
+	ECLedger(){
+
+	}
 
 	// int execute_bunch_of_txs(std::vector<eevm::Transaction> txs){
 

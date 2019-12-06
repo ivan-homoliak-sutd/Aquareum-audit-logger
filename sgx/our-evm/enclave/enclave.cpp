@@ -1,18 +1,16 @@
 #include "enclave_t.h"
 #include "string.h"
 
-#include "enclave.h"
-#include "data_types.h"
-
 #include "sgx_trts.h"
 #include "sgx_tseal.h"
 #include "sgx_tcrypto.h"
 
 // custom types + lib for signing with  secp256k1 curve
-// #include "secp256k1.h"
 #include"signing-PB/signing.h"
 
-#include "eEVM/ecl/ledger.h"
+#include "enclave.h"
+#include "data_types.h"
+#include "ecl/ledger.h"
 
 SealedEvmState_T _evm_state;
 bool _evm_initialized = false;

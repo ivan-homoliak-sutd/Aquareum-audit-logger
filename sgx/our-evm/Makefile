@@ -116,14 +116,18 @@ Crypto_Library_Name := sgx_tcrypto
 
 # all cpp files required in enclave need to be specified below
 # Enclave_Cpp_Files := enclave/enclave.cpp enclave/sealing/sealing.cpp
-Enclave_Cpp_Files := enclave/enclave.cpp enclave/signing-PB/signing.cpp enclave/eEVM/ecl/ledger.cpp
-Enclave_Include_Paths := -Ienclave -Iinclude -I./common/secp256k1/include \
-	-I./enclave/eEVM/3rdparty/intx/include \
-	-I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport
+Enclave_Cpp_Files := enclave/enclave.cpp enclave/signing-PB/signing.cpp enclave/ecl/ledger.cpp
+Enclave_Include_Paths := \
+	-I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx  -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport \
+	-Ienclave \
+	-Iinclude \
+	-I./common/secp256k1/include \
+	-I./common/eEVM/3rdparty/intx/include -I./common/eEVM/3rdparty/ -I./common/eEVM/include
+
 # Enclave_Include_Paths += -I/usr/include/x86_64-linux-gnu/
 
 SECP256_LIB_DIR := ./common/secp256k1/.libs/
-EEVM_LIB_DIR := ./enclave/eEVM/build/
+EEVM_LIB_DIR := ./common/eEVM/build/
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths)
 Enclave_C_Flags += -DHAVE_CONFIG_H # this is for for secp256k1 library to load its config from a file

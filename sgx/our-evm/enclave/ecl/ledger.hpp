@@ -6,7 +6,7 @@ class ECLedger{
 
   public:
 	ECLedger(){};
-	int execute_hello_world(void);
+	int execute_hello_world();
 };
 
 #endif // EEVM_LEDGER
