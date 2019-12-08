@@ -3,28 +3,47 @@ cmake_minimum_required(VERSION 3.10)
 project(eevm)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_VERBOSE_MAKEFILE on)
+
+include(CheckCXXCompilerFlag) # TODO:
+
+# Apply Spectre mitigations if available.
+set(SPECTRE_MITIGATION_FLAGS -mllvm -x86-speculative-load-hardening)
+CHECK_CXX_COMPILER_FLAG("${SPECTRE_MITIGATION_FLAGS}" SPECTRE_MITIGATION_CXX_FLAGS_SUPPORTED)
+if (SPECTRE_MITIGATION_CXX_FLAGS_SUPPORTED)
+  message(STATUS "Spectre 1 mitigations supported")
+  # We set this variable to indicate the flags are supported. It is empty otherwise.
+  set(OE_SPECTRE_MITIGATION_FLAGS ${SPECTRE_MITIGATION_FLAGS})
+  # TODO: We really should specify this only on the `oecore` target;
+  # however, the third-party mbed TLS build needs it set to, so we
+  # have to keep this here for now.
+  add_compile_options(${OE_SPECTRE_MITIGATION_FLAGS})
+else ()
+  message(WARNING "Spectre 1 mitigations NOT supported")
+endif ()
 
 # Obtanined by: $ pkg-config oeenclave-g++ --libs
 SET(CXX_ENCLAVE_LINK_FLAGS
-  "-nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
+  "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
 )
+
 # Obtanined by: $ pkg-config oeenclave-g++ --cflags
 SET(CXX_ENCLAVE_COMPILE_FLAGS
   "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
 )
 SET(CMAKE_CXX_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
-
-
+SET(CMAKE_CC_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
 
 SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
 # SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${CXX_ENCLAVE_LINK_FLAGS}")
 
-# SET(OE_SDK_CC_INCLUDES
-#   "/opt/openenclave/include/openenclave/3rdparty/libc"
-#   "/opt/openenclave/include/openenclave/3rdparty"
-#   "/opt/openenclave/include"
-# )
+SET(OE_SDK_CC_INCLUDES
+  "/opt/openenclave/include/openenclave/3rdparty/libc"
+  "/opt/openenclave/include/openenclave/3rdparty"
+  "/opt/openenclave/include"
+)
 
 SET(OE_SDK_CXX_INCLUDES
   "/opt/openenclave/include/openenclave/3rdparty/libcxx"
@@ -40,7 +59,8 @@ if(MSVC)
   add_compile_options(/W3 /std:c++latest)
 else()
   # Set Linux compiler options
-  # add_compile_options(-Wall -Werror)
+  add_compile_options(-Wall -Werror)
+  # add_compile_options(-std=c++17)
 
   add_compile_definitions(OE_API_VERSION=2)
 
@@ -100,18 +120,10 @@ add_library(eevm STATIC
 
 
 link_directories(/opt/openenclave/lib/openenclave/enclave/)
-# add_library(eevm STATIC oeenclave)
-# add_library(eevm STATIC oecryptombed)
-# add_library(eevm STATIC mbedx509)
-# add_library(eevm STATIC mbedcrypto)
-# add_library(eevm STATIC oelibcxx)
-# add_library(eevm STATIC oelibc)
-# add_library(eevm STATIC oesyscall)
-# add_library(eevm STATIC oecore)
-
 # set_property(TARGET eevm
 #     PROPERTY POSITION_INDEPENDENT_CODE ON
 # )
+
 target_include_directories(eevm PRIVATE
   ${EEVM_INCLUDE_DIRS}
 )
