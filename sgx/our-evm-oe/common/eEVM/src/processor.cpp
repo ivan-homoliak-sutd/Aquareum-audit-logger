@@ -42,15 +42,15 @@ namespace eevm
   {
   public:
     const vector<uint8_t> code;
-    const set<uint64_t> jump_dests;
+    const std::set<uint64_t> jump_dests;
 
     Program(vector<uint8_t>&& c) : code(c), jump_dests(compute_jump_dests(code))
     {}
 
   private:
-    set<uint64_t> compute_jump_dests(const vector<uint8_t>& code)
+    std::set<uint64_t> compute_jump_dests(const vector<uint8_t>& code)
     {
-      set<uint64_t> dests;
+      std::set<uint64_t> dests;
       for (uint64_t i = 0; i < code.size(); i++)
       {
         const auto op = code[i];
