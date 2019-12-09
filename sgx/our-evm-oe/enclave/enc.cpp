@@ -12,7 +12,7 @@
 #include"signing-PB/signing.h"
 #include "errcodes.h"
 #include "data_types.h"
-// #include "ecl/ledger.h"
+#include "ecl/ledger.h"
 
 
 SealedEvmState_T _evm_state;
@@ -28,25 +28,24 @@ void enclave_helloworld()
     // host and calls fprintf from there. This is because
     // the fprintf function is not part of the enclave
     // as it requires support from the kernel.
-    fprintf(stdout, "Hello world from the enclave\n");
+    fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
 
     // Call back into the host
     oe_result_t result = host_helloworld();
-    if (result != OE_OK)
-    {
-        fprintf(
-            stderr,
-            "Call to host_helloworld failed: result=%u (%s)\n",
-            result,
-            oe_result_str(result));
+    if (result != OE_OK) {
+        fprintf(stderr, "[ENCLAVE]: Call to host_helloworld failed: result=%u (%s)\n", result, oe_result_str(result));
     }
+
+    ECLedger l = ECLedger();
+	l.execute_hello_world();
+    l.execute_sum_a_b(2, 3);
 }
 
 int ecall_read_pub_state(PublicSealedData_T *pub_evm_state, size_t pub_state_size){
 	(* pub_evm_state) = _evm_state.pub;
 
-	// ECLedger l = ECLedger();
-	// l.execute_hello_world();
+	ECLedger l = ECLedger();
+	l.execute_hello_world();
 
 
     uint32_t plaintext_size = sizeof(SealedEvmState_T);

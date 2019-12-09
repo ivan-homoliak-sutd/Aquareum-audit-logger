@@ -48,7 +48,7 @@ build:
 	oeedger8r ../helloworld.edl --trusted
 	# oeedger8r ../helloworld.edl --trusted --trusted-dir ../common
 	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -std=c++17 -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
-	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 helloworld_t.c -o helloworld_t.o
+	$(CXX) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 helloworld_t.c -o helloworld_t.o
 	$(CXX) -o helloworldenc helloworld_t.o enc.o signing.o ledger.o  $(Enclave_Link_Flags)
 
 sign:

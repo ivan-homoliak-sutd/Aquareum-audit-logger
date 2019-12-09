@@ -84,9 +84,7 @@ int main(int argc, char** argv)
   const uint256_t arg_b = eevm::to_uint256(argv[first_arg + 1]);
 
   if (verbose)
-    std::cout << fmt::format("Calculating {} + {}",
-                   eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)
-                ) << std::endl;
+    std::cout << fmt::format("Calculating {} + {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)) << std::endl;
 
 
   // Invent a random address to use as sender
@@ -147,7 +145,7 @@ int main(int argc, char** argv)
 
   const uint256_t result = eevm::from_big_endian(e.output.data(), e.output.size());
 
-  std::cout << fmt::format(
+  std::cout << "[ENCLAVE:]" << fmt::format(
                  "{} + {} = {}",
                  eevm::to_lower_hex_string(arg_a),
                  eevm::to_lower_hex_string(arg_b),

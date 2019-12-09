@@ -1,3 +1,6 @@
 It is necessary to source rc file:
 
 . /opt/openenclave/share/openenclave/openenclaverc
+
+
+Since there are collision in names of c++/C headers in OpenEnclave, I had to drop a few C++ headers from /opt/openenclave/include/openenclave/3rdparty/libcxx/, i.e., stdlib.h, stddef.h, and string.h
