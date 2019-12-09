@@ -7,6 +7,10 @@
 
 namespace eevm
 {
+
+  // SimpleAccount::SimpleAccount(){}
+  // SimpleAccount::~SimpleAccount(){}
+
   Address SimpleAccount::get_address() const
   {
     return address;

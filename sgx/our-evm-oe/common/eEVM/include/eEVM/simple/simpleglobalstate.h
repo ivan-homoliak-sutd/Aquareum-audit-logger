@@ -23,7 +23,10 @@ namespace eevm
     std::map<Address, StateEntry> accounts;
 
   public:
-    SimpleGlobalState() = default;
+    // SimpleGlobalState() = default;
+    SimpleGlobalState();
+    // ~SimpleGlobalState();
+
     explicit SimpleGlobalState(Block b) : currentBlock(std::move(b)) {}
 
     virtual void remove(const Address& addr) override;

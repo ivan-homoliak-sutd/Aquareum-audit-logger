@@ -5,6 +5,10 @@
 
 namespace eevm
 {
+
+  SimpleGlobalState::SimpleGlobalState(){}
+  // SimpleGlobalState::~SimpleGlobalState(){}
+
   void SimpleGlobalState::remove(const Address& addr)
   {
     accounts.erase(addr);

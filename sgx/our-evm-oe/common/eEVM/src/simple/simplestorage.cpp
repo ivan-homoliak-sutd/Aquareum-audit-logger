@@ -9,6 +9,7 @@
 
 namespace eevm
 {
+
   SimpleStorage::SimpleStorage(const nlohmann::json& j)
   {
     for (auto it = j.cbegin(); it != j.cend(); it++)
@@ -17,6 +18,8 @@ namespace eevm
         /* key */ std::forward_as_tuple(to_uint256(it.key())),
         /* value */ std::forward_as_tuple(to_uint256(it.value())));
   }
+
+  // SimpleStorage::~SimpleStorage(){}
 
   void SimpleStorage::store(const uint256_t& key, const uint256_t& value)
   {

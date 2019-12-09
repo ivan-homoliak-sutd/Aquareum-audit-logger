@@ -22,6 +22,8 @@ namespace eevm
 
   public:
     SimpleAccount() = default;
+    // SimpleAccount();
+    // ~SimpleAccount();
 
     SimpleAccount(const Address& a, const uint256_t& b, const Code& c) :
       address(a),

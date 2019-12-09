@@ -181,7 +181,7 @@ TEST_CASE("util" * doctest::test_suite("util"))
     {
       INFO("std::array");
 
-      const std::array<uint8_t, 0> empty;
+      const std::array<uint8_t, 0> empty = std::array<uint8_t, 0>();
       REQUIRE(to_hex_string(keccak_256(empty)) == empty_hash);
       REQUIRE(to_hex_string(keccak_256_skip(5, empty)) == empty_hash);
 

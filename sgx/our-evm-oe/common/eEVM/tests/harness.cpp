@@ -28,7 +28,7 @@ SimpleGlobalState::StateEntry parseAccount(json::const_iterator& it)
 
 void run_test_case(
   const string& fileName,
-  const set<string>& skip,
+  const std::set<string>& skip,
   const bool checkLogs,
   const bool disasm = true)
 {
@@ -168,7 +168,7 @@ TEST_CASE("vmBitwiseLogicOperationTest" * doctest::test_suite("logic"))
 
 TEST_CASE("vmEnvironmentalInfoTest" * doctest::test_suite("logic"))
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // memory index > 2^64
     "calldatacopy_DataIndexTooHigh",
     "calldatacopy_DataIndexTooHigh2",
@@ -184,7 +184,7 @@ TEST_CASE("vmEnvironmentalInfoTest" * doctest::test_suite("logic"))
 
 TEST_CASE("vmTests" * doctest::test_suite("logic"))
 {
-  auto skip = set<string>{};
+  auto skip = std::set<string>{};
 
   run_test_case("vmTests.json", skip, true);
 }
@@ -193,7 +193,7 @@ TEST_CASE("vmTests" * doctest::test_suite("logic"))
 TEST_CASE(
   "vmPerformanceTest" * doctest::test_suite(".performance") * doctest::skip())
 {
-  auto skip = set<string>{// Missing post
+  auto skip = std::set<string>{// Missing post
                           "ackermann33",
 
                           // Empty output
@@ -208,7 +208,7 @@ TEST_CASE(
 
 TEST_CASE("vmSystemOperationsTest" * doctest::test_suite("logic"))
 {
-  auto skip = set<string>{};
+  auto skip = std::set<string>{};
 
   run_test_case("vmSystemOperationsTest.json", skip, false);
 }
@@ -217,7 +217,7 @@ TEST_CASE("vmSystemOperationsTest" * doctest::test_suite("logic"))
 TEST_CASE(
   "vmInputLimitsLight" * doctest::test_suite(".input") * doctest::skip())
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // copies code to offset > 2^64
     "012fd315e355bad0d1bdce9a44863f3c909bfdf9909779c431c9e0fdf9ae339f",
     "01923ee9def56e347452847fd9be4577f8b663097620664ba24317f67a73122a",
@@ -233,7 +233,7 @@ TEST_CASE(
 
 TEST_CASE("vmArithmeticTest" * doctest::test_suite("logic"))
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // exponent wider than 64 bits
     "exp1",
 
@@ -279,7 +279,7 @@ TEST_CASE("vmArithmeticTest" * doctest::test_suite("logic"))
 // the logs
 TEST_CASE("vmLogTest" * doctest::test_suite("env"))
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // mem access > 2^64
     "log0_logMemStartTooHigh",
     "log0_logMemsizeTooHigh",
@@ -298,7 +298,7 @@ TEST_CASE("vmLogTest" * doctest::test_suite("env"))
 
 TEST_CASE("vmPushDupSwapTest" * doctest::test_suite("logic"))
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // clearly valid program, but no post defined
     "push33",
   };
@@ -308,7 +308,7 @@ TEST_CASE("vmPushDupSwapTest" * doctest::test_suite("logic"))
 
 TEST_CASE("vmIOandFlowOperationsTest" * doctest::test_suite("env"))
 {
-  auto skip = set<string>{
+  auto skip = std::set<string>{
     // infinite loop, expects to run out of gas
     "BlockNumberDynamicJump0_foreverOutOfGas",
     "DynamicJump0_foreverOutOfGas",
@@ -328,21 +328,21 @@ TEST_CASE("vmIOandFlowOperationsTest" * doctest::test_suite("env"))
 
 TEST_CASE("vmBlockInfoTest" * doctest::test_suite("env"))
 {
-  auto skip = set<string>{"gaslimit"};
+  auto skip = std::set<string>{"gaslimit"};
 
   run_test_case("vmBlockInfoTest.json", skip, true);
 }
 
 TEST_CASE("vmRandomTest" * doctest::test_suite("rand"))
 {
-  auto skip = set<string>{};
+  auto skip = std::set<string>{};
 
   run_test_case("vmRandomTest.json", skip, true);
 }
 
 TEST_CASE("vmSha3Test" * doctest::test_suite("sha"))
 {
-  auto skip = set<string>{};
+  auto skip = std::set<string>{};
 
   run_test_case("vmSha3Test.json", skip, true);
 }

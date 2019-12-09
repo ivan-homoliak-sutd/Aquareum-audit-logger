@@ -75,6 +75,7 @@ endif()
 
 file(GLOB KECCAK_SOURCES
   3rdparty/keccak/*.c
+  # 3rdparty/keccak/*.cpp
 )
 
 add_subdirectory(3rdparty)
@@ -114,15 +115,15 @@ set(EEVM_SIMPLE_SRCS
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 add_library(eevm STATIC
   ${EEVM_CORE_SRCS}
+  ${EEVM_SIMPLE_SRCS}
   ${KECCAK_SOURCES}
 )
 
 
-
 link_directories(/opt/openenclave/lib/openenclave/enclave/)
-# set_property(TARGET eevm
-#     PROPERTY POSITION_INDEPENDENT_CODE ON
-# )
+set_property(TARGET eevm
+    PROPERTY POSITION_INDEPENDENT_CODE ON
+)
 
 target_include_directories(eevm PRIVATE
   ${EEVM_INCLUDE_DIRS}
@@ -130,6 +131,7 @@ target_include_directories(eevm PRIVATE
 
 target_link_libraries(eevm
   intx::intx
+  # keccaklib::keccaklib
   oeenclave
   oecryptombed
   mbedx509
@@ -140,6 +142,8 @@ target_link_libraries(eevm
   oecore
 )
 
+
+return()
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Executables
