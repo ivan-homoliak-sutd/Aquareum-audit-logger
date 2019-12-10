@@ -15,7 +15,7 @@ namespace eevm
   class SimpleGlobalState : public GlobalState
   {
   public:
-    using StateEntry = std::pair<SimpleAccount, SimpleStorage>;
+    using StateEntry = std::pair<SimpleAccount, SimpleStorage>; // SimpleStorage is just std:map
 
   private:
     Block currentBlock;
@@ -32,8 +32,7 @@ namespace eevm
     virtual void remove(const Address& addr) override;
 
     AccountState get(const Address& addr) override;
-    AccountState create(
-      const Address& addr, const uint256_t& balance, const Code& code) override;
+    AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
 
     bool exists(const Address& addr);
     size_t num_accounts();

@@ -1353,6 +1353,7 @@ namespace eevm
     const uint256_t& call_value,
     Trace* tr)
   { // IH: why such wasting?
-    return _Processor(gs, tx, tr).run(caller, callee, input, call_value);
+    return _Processor(gs, tx, tr)
+      .run(caller, callee, input, call_value);
   }
 } // namespace eevm

@@ -62,7 +62,7 @@ std::vector<uint8_t> run_and_check_result(
 
   // Record a trace to aid debugging
   eevm::Trace tr;
-  eevm::Processor p(env.gs);
+  eevm::Processor p(env.gs); // IH: create a new Processor instance with each new TX
 
   // Run the transaction
   const auto exec_result = p.run(tx, from, env.gs.get(to), input, 0u, &tr);
@@ -78,7 +78,7 @@ std::vector<uint8_t> run_and_check_result(
         fmt::format("Execution threw an error: {}", exec_result.exmsg));
     }
 
-    throw std::runtime_error("Deployment did not return");
+    throw std::runtime_error("Deployment did not return"); // IH: why only deployment? it is used for more cases
   }
 
   return exec_result.output;
@@ -195,8 +195,7 @@ bool transfer(
 }
 
 // Send N randomly generated token transfers. Some will be to new user addresses
-template <size_t N>
-void run_random_transactions(Environment& env, const eevm::Address& contract_address, Addresses& users) {
+template <size_t N> void run_random_transactions(Environment& env, const eevm::Address& contract_address, Addresses& users) {
   const auto total_supply = get_total_supply(env, contract_address);
   const auto transfer_max = (2 * total_supply) / N;
 
@@ -204,8 +203,7 @@ void run_random_transactions(Environment& env, const eevm::Address& contract_add
     const auto from_index = rand_range(users.size());
     auto to_index = rand_range(users.size());
 
-    // Occasionally create new users and transfer to them. Also avoids
-    // self-transfer
+    // Occasionally create new users and transfer to them. Also avoid self-transfer
     if (from_index == to_index)
     {
       to_index = users.size();
@@ -236,10 +234,7 @@ void print_erc20_state(
   }
 
   std::cout << heading << std::endl;
-  std::cout << fmt::format(
-                 "Total supply of tokens is: {}",
-                 eevm::to_lower_hex_string(total_supply))
-            << std::endl;
+  std::cout << fmt::format("Total supply of tokens is: {}", eevm::to_lower_hex_string(total_supply)) << std::endl;
   std::cout << "User balances: " << std::endl;
   for (const auto& pair : balances)
   {
@@ -247,8 +242,7 @@ void print_erc20_state(
       " {} owned by {}",
       eevm::to_lower_hex_string(pair.second),
       eevm::to_checksum_address(pair.first));
-    if (pair.first == env.owner_address)
-    {
+    if (pair.first == env.owner_address) {
       std::cout << " (original contract creator)";
     }
     std::cout << std::endl;
@@ -318,7 +312,7 @@ int main(int argc, char** argv)
   }
 
   // Trying to transfer more than is owned will fail (gracefully, returning false from the solidity function)
-  const auto failure = transfer( env, contract_address, alice, owner_address, first_transfer_amount + 1);
+  const auto failure = transfer( env, contract_address, alice, owner_address, first_transfer_amount + 1000);
   if (failure) {
     throw std::runtime_error("Expected transfer to fail, but it succeeded");
   }

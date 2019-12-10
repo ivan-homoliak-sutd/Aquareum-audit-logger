@@ -7,7 +7,6 @@ namespace eevm
 {
 
   SimpleGlobalState::SimpleGlobalState(){}
-  // SimpleGlobalState::~SimpleGlobalState(){}
 
   void SimpleGlobalState::remove(const Address& addr)
   {
@@ -23,8 +22,7 @@ namespace eevm
     return create(addr, 0, {});
   }
 
-  AccountState SimpleGlobalState::create(
-    const Address& addr, const uint256_t& balance, const Code& code)
+  AccountState SimpleGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
   {
     insert({SimpleAccount(addr, balance, code), {}});
 
@@ -48,7 +46,7 @@ namespace eevm
 
   uint256_t SimpleGlobalState::get_block_hash(uint8_t offset)
   {
-    return 0u;
+    return 0u; // IH: cool
   }
 
   void SimpleGlobalState::insert(const StateEntry& p)

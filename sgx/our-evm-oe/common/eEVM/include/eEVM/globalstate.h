@@ -25,8 +25,8 @@ namespace eevm
       typename = std::enable_if_t<std::is_base_of<Account, T>::value>,
       typename = std::enable_if_t<std::is_base_of<Storage, U>::value>
     >
-    AccountState(std::pair<T, U>& p) : acc(p.first), st(p.second)
-    {}
+    AccountState(std::pair<T, U>& p) : acc(p.first), st(p.second) {}
+
     AccountState(Account& acc, Storage& st) : acc(acc), st(st) {}
   };
 

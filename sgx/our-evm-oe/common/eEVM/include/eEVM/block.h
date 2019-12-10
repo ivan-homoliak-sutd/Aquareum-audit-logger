@@ -13,7 +13,10 @@ namespace eevm
    */
   struct Block
   {
-    uint64_t number = 0, difficulty = 0, gas_limit = 0, timestamp = 0;
+    uint64_t number = 0;
+    uint64_t difficulty = 0;
+    uint64_t gas_limit = 0;
+    uint64_t timestamp = 0;
     uint256_t coinbase;
   };
 
