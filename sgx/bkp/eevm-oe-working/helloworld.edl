@@ -1,0 +1,21 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+enclave {
+    include "data_types.h"
+
+    trusted {
+        public void enclave_helloworld();
+
+        public int ecall_read_pub_state(
+            [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,
+            size_t evm_state_size_pub
+        );
+    };
+
+    untrusted {
+        void host_helloworld();
+    };
+};
+
+
