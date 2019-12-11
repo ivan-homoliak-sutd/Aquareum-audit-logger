@@ -1,0 +1,3 @@
+[submodule "sgx/our-evm-oe/host/libs/intx"]
+	path = sgx/our-evm-oe/host/libs/intx
+	url = https://github.com/chfast/intx
