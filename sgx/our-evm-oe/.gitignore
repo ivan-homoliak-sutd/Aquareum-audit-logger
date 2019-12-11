@@ -1,5 +1,5 @@
 *_args.h
 *.pem
 *.signed
-host/helloworldhost
-enclave/helloworldenc
+host/ecledger_host
+enclave/ecledger_enc

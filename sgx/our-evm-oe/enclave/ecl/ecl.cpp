@@ -54,7 +54,7 @@ int ECLedger::execute_hello_world(){
   eevm::SimpleGlobalState gs;
 
   // Create code
-  std::string hello_world("[ENCLAVE]: Executed smart contract!");
+  std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
   const eevm::Code code = create_bytecode(hello_world);
 
   // Deploy contract to global state
@@ -134,7 +134,7 @@ std::vector<uint8_t> create_a_plus_b_bytecode( const uint256_t& a, const uint256
 
 int ECLedger::execute_sum_a_b(int a, int b){
   // Validate args, read verbose option
-  bool verbose = false;
+  bool verbose = true;
   srand(time(nullptr));
 
   // Parse args
@@ -144,6 +144,7 @@ int ECLedger::execute_sum_a_b(int a, int b){
   if (verbose)
     std::cout << fmt::format("[ENCLAVE:] Calculating {} + {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)) << std::endl;
 
+  std::cout << "[ENCLAVE]: Starting summing smart contract..." << std::endl;
 
   // Invent a random address to use as sender
   std::vector<uint8_t> raw_address(20);
@@ -173,10 +174,14 @@ int ECLedger::execute_sum_a_b(int a, int b){
 
   // Construct a transaction object
   eevm::NullLogHandler ignore; //< Ignore any logs produced by this transaction
+  std::cout << "[ENCLAVE]: Creating Transaction" << std::endl;
   eevm::Transaction tx(sender, ignore);
+
+  std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
 
   // Construct processor
   eevm::Processor p(gs);
+
 
   if (verbose)  std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender),
        eevm::to_checksum_address(to)) << std::endl;
