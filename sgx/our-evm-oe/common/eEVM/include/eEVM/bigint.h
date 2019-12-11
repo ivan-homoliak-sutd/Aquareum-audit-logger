@@ -13,8 +13,7 @@ using uint512_t = intx::uint512;
 
 namespace intx
 {
-  // ostream operator allows easy printing. This should be contributed directly
-  // to intx
+  // ostream operator allows easy printing. This should be contributed directly to intx
   template <unsigned N>
   std::ostream& operator<<(std::ostream& o, const uint<N>& n)
   {

@@ -8,8 +8,8 @@
 namespace eevm
 {
   /**
-   * Abstract interface for accessing EVM's permanent, per-address key-value
-   * storage
+   * Abstract interface for accessing EVM's permanent, per-address key-value storage
+   *
    */
   struct Storage
   {

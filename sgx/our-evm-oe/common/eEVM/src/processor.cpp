@@ -179,16 +179,16 @@ namespace eevm
       const Address& caller,
       AccountState callee,
       vector<uint8_t> input, // Take a copy here, then move it into context
-      const uint256_t& call_value)
-    {
+      const uint256_t& call_value
+    ) {
       // create the first context
       ExecResult result;
       auto rh = [&result](vector<uint8_t> output_) {
         result.er = ExitReason::returned;
         result.output = move(output_);
       };
-      auto hh = [&result]() { result.er = ExitReason::halted; };
-      auto eh = [&result](const Exception& ex_) {
+      auto hh = [&result]() { result.er = ExitReason::halted; }; // IH: halt handler
+      auto eh = [&result](const Exception& ex_) { // IH: error handler
         result.er = ExitReason::threw;
         result.ex = ex_.type;
         result.exmsg = ex_.what();
@@ -202,7 +202,8 @@ namespace eevm
         call_value,
         rh,
         hh,
-        eh);
+        eh
+      );
 
       // run
       while (ctxt->get_pc() < ctxt->prog.code.size())
@@ -237,17 +238,15 @@ namespace eevm
     void push_context(
       const Address& caller,
       AccountState as,
-      vector<uint8_t>&& input,
-      Program&& prog,
+      vector<uint8_t>&& input, // IH: input of function call
+      Program&& prog, //IH: program of smart contract
       const uint256_t& call_value,
       Context::ReturnHandler&& rh,
       Context::HaltHandler&& hh,
       Context::ExceptionHandler&& eh)
     {
       if (get_call_depth() >= Consts::MAX_CALL_DEPTH)
-        throw Exception(
-          ET::outOfBounds,
-          "Reached max call depth (" + to_string(Consts::MAX_CALL_DEPTH) + ")");
+        throw Exception( ET::outOfBounds, "Reached max call depth (" + to_string(Consts::MAX_CALL_DEPTH) + ")");
 
       auto c = make_unique<Context>(
         caller,
@@ -257,8 +256,9 @@ namespace eevm
         move(prog),
         move(rh),
         move(hh),
-        move(eh));
-      ctxts.emplace_back(move(c));
+        move(eh)
+      );
+      ctxts.emplace_back(move(c)); // IH: std::move ?
       ctxt = ctxts.back().get();
     }
 
@@ -315,10 +315,9 @@ namespace eevm
         dst.resize(lastDst);
 
       const auto lastSrc = offSrc + size;
-      const auto endSrc =
-        min(lastSrc, static_cast<decltype(lastSrc)>(src.size()));
+      const auto endSrc = min(lastSrc, static_cast<decltype(lastSrc)>(src.size()));
       uint64_t remaining;
-      if (endSrc > offSrc)
+      if (endSrc > offSrc) // IH: I think this will occur alwyas
       {
         copy(src.begin() + offSrc, src.begin() + endSrc, dst.begin() + offDst);
         remaining = lastSrc - endSrc;
@@ -1352,7 +1351,7 @@ namespace eevm
     const vector<uint8_t>& input,
     const uint256_t& call_value,
     Trace* tr)
-  { // IH: why such wasting?
+  {
     return _Processor(gs, tx, tr)
       .run(caller, callee, input, call_value);
   }

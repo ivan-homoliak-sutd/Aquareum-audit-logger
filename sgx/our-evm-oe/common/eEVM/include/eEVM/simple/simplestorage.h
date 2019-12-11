@@ -12,6 +12,8 @@ namespace eevm
 {
   /**
    * Simple std::map-backed implementation of Storage
+   *
+   * IH: it seems that it is a per account storage
    */
   class SimpleStorage : public Storage
   {

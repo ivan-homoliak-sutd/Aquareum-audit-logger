@@ -9,6 +9,8 @@
 
 namespace eevm
 {
+  using Code = std::vector<uint8_t>;
+
   namespace log
   {
     using Data = std::vector<uint8_t>;
@@ -52,30 +54,57 @@ namespace eevm
     }
   };
 
-  /**
-   * Ethereum transaction
-   */
-  struct Transaction
-  {
+
+/**
+ * Represent data of an Ethereum transaction that need to be persisted to blockchain/ledger
+ *
+ */
+  struct PersistantTransaction {
     const Address origin;
-    const uint64_t value;
+
+    const uint64_t value; // call_value
+    const Code code;
+
     const uint64_t gas_price;
     const uint64_t gas_limit;
 
+    std::vector<uint8_t>  signature; // computed over: origin, code, call_value, gas_price, gas_limit,
+
+     PersistantTransaction(
+      const Address origin,
+      uint64_t value = 0,
+      Code code = {},
+      uint64_t gas_price = 0,
+      uint64_t gas_limit = 0,
+      std::vector<uint8_t>  signature = {}
+    ) :
+      origin(origin),
+      value(value),
+      code(code),
+      gas_price(gas_price),
+      gas_limit(gas_limit),
+      signature(signature)
+    {}
+  };
+
+
+  /**
+   * Ethereum transaction wrapped for need of eEVM
+   */
+  struct Transaction : PersistantTransaction
+  {
     LogHandler& log_handler;
     std::vector<Address> destroy_list;
 
     Transaction(
       const Address origin,
       LogHandler& lh,
+      Code code = {},
       uint64_t value = 0,
       uint64_t gas_price = 0,
       uint64_t gas_limit = 0
     ) :
-      origin(origin),
-      value(value),
-      gas_price(gas_price),
-      gas_limit(gas_limit),
+      PersistantTransaction(origin, value, code, gas_price, gas_limit, signature),
       log_handler(lh)
     {}
   };
