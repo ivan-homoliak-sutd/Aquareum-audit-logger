@@ -4,9 +4,9 @@
 #include <vector>
 
 // includes from eEVM
-#include "transaction.h"
-#include "address.h"
-#include "bigint.h"
+#include "eEVM/transaction.h"
+#include "eEVM/address.h"
+#include "eEVM/bigint.h"
 
 // default numbers of unprocessed TXs and processed blocks required to flush into VM enclave / PB
 #define NUM_TXS_FLUSH_VM 10

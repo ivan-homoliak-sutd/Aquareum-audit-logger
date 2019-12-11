@@ -5,7 +5,7 @@ enclave {
     include "data_types.h"
 
     trusted {
-        public void enclave_helloworld();
+        public void enclave_ecledger();
 
         public int ecall_read_pub_state(
             [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,
@@ -14,7 +14,7 @@ enclave {
     };
 
     untrusted {
-        void host_helloworld();
+        void host_ecledger();
     };
 };
 

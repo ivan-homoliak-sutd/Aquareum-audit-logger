@@ -25,7 +25,7 @@ CXXFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --cflags)
 LDFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --libs)
 OE_SDK_INCLUDE := /opt/openenclave/include/
 
-Enclave_Cpp_Files := enc.cpp signing-PB/signing.cpp ecl/ledger.cpp
+Enclave_Cpp_Files := enc.cpp signing-PB/signing.cpp ecl/ecl.cpp
 Enclave_Include_Paths := \
 	-I$(OE_SDK_INCLUDE) \
 	-I. \
@@ -45,17 +45,17 @@ all:
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
-	oeedger8r ../helloworld.edl --trusted
-	# oeedger8r ../helloworld.edl --trusted --trusted-dir ../common
+	oeedger8r ../ecledger.edl --trusted
+	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
 	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -std=c++17 -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
-	$(CXX) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 helloworld_t.c -o helloworld_t.o
-	$(CXX) -o helloworldenc helloworld_t.o enc.o signing.o ledger.o  $(Enclave_Link_Flags)
+	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
+	$(CXX) -o ecledger_enc ecledger_t.o enc.o signing.o ecl.o $(Enclave_Link_Flags)
 
 sign:
-	oesign sign -e helloworldenc -c helloworld.conf -k private.pem
+	oesign sign -e ecledger_enc -c ecledger.conf -k private.pem
 
 clean:
-	rm -f enc.o helloworldenc helloworldenc.signed private.pem public.pem helloworld_t.o helloworld_t.h helloworld_t.c helloworld_args.h
+	rm -f enc.o ecledger_enc ecledger.signed private.pem public.pem ecl.o ecledger_t.o ecledger_t.h ecledger_t.c ecledger_args.h
 
 keys:
 	openssl genrsa -out private.pem -3 3072

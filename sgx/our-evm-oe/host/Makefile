@@ -4,21 +4,27 @@
 # Detect C and C++ compiler options
 # if not gcc, default to clang-7
 
-COMPILER=$(notdir $(CC))
-ifeq ($(COMPILER), gcc)
+C_COMPILER=$(notdir $(CC))
+ifeq ($(C_COMPILER), gcc)
+        CXX_COMPILER=$(notdir $(CXX))
         USE_GCC = true
 endif
+
 ifeq ($(USE_GCC),)
         CC = clang-7
-        COMPILER=clang
+        CXX = clang++-7
+        C_COMPILER=clang
+        CXX_COMPILER=clang++
 endif
 
-CFLAGS=$(shell pkg-config oehost-$(COMPILER) --cflags)
-LDFLAGS=$(shell pkg-config oehost-$(COMPILER) --libs)
+
+CXX_FLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --cflags)
+CXX_LDFLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --libs)
+CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 
-Host_Link_Flags := $(LDFLAGS) \
+Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
 	-L./libs/intx/build/lib/intx/ -lintx
 	# -L$(EEVM_LIB_DIR) -leevm
@@ -31,10 +37,10 @@ Host_Include_Paths := \
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
-	oeedger8r ../helloworld.edl --untrusted
-	$(CC) -g -c $(CFLAGS) $(Host_Include_Paths) host.c
-	$(CC) -g -c $(CFLAGS) $(Host_Include_Paths) helloworld_u.c
-	$(CC) -o helloworldhost helloworld_u.o host.o $(Host_Link_Flags)
+	oeedger8r ../ecledger.edl --untrusted
+	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp
+	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Host_Include_Paths) ecledger_u.c
+	$(CXX) -o ecledger_host ecledger_u.o host.o $(Host_Link_Flags)
 
 clean:
-	rm -f helloworldhost host.o helloworld_u.o helloworld_u.c helloworld_u.h helloworld_args.h
+	rm -f ecledger_host host.o ecledger_u.o ecledger_u.c ecledger_u.h ecledger_args.h

@@ -1,5 +1,5 @@
-#include "helloworld_t.h"
-#include "ledger.h"
+#include "ecledger_t.h"
+#include "ecl.h"
 
 #include "signing-PB/signing.h"
 #include "data_types.h"
