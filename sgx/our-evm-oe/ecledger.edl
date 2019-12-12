@@ -4,18 +4,41 @@
 enclave {
     include "data_types.h"
 
+    // define ECALLs
     trusted {
-        public void enclave_ecledger();
+
+        public void ecall_enclave_ecledger(); // TODO: drop later
+
+        public int ecall_initialize_evm(void);
 
         public int ecall_read_pub_state(
             [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,
             size_t evm_state_size_pub
         );
+
+        public int ecall_sync_evm_sealed_state_to_disk(void);
     };
 
+
+    // define OCALLs
     untrusted {
-        void host_ecledger();
+
+        void ocall_host_ecledger(); // TODO: drop later
+
+        int ocall_save_evm_state(
+            [in, size=sealed_size] const uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+        int ocall_load_evm_state(
+            [out, size=sealed_size]uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+        int ocall_does_sealed_state_exist(void);
+
     };
+
 };
 
 

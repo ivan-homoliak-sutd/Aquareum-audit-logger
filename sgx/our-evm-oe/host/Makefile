@@ -30,6 +30,7 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 	# -L$(EEVM_LIB_DIR) -leevm
 
 Host_Include_Paths := \
+	-I. \
 	-I./libs/intx/include/intx \
 	-I../include \
 	-I../common/secp256k1/include \
@@ -38,7 +39,7 @@ Host_Include_Paths := \
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp
+	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp utils.cpp
 	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Host_Include_Paths) ecledger_u.c
 	$(CXX) -o ecledger_host ecledger_u.o host.o $(Host_Link_Flags)
 

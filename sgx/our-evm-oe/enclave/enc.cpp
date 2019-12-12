@@ -9,55 +9,150 @@
 #include "ecledger_t.h"
 
 // custom types + lib for signing with secp256k1 curve
-#include"signing-PB/signing.h"
-#include "errcodes.h"
+#include "common.h"
 #include "data_types.h"
 #include "ecl/ecl.h"
+#include "sealing/sealing.h"
+#include "signing-PB/signing.h"
 
-
-SealedEvmState_T _evm_state;
+EvmState_T _evm_state;
 bool _evm_initialized = false;
 
-// This is the function that the host calls. It prints
-// a message in the enclave before calling back out to
-// the host to print a message from there too.
-void enclave_ecledger()
-{
-    // Print a message from the enclave. Note that this
-    // does not directly call fprintf, but calls into the
-    // host and calls fprintf from there. This is because
-    // the fprintf function is not part of the enclave
-    // as it requires support from the kernel.
+Sealing::Sealing _sealer();
+
+// TODO: this is just temp function: drop it later
+void ecall_enclave_ecledger() {
     fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
 
     // Call back into the host
-    oe_result_t result = host_ecledger();
+    oe_result_t result = ocall_host_ecledger();
     if (result != OE_OK) {
-        fprintf(stderr, "[ENCLAVE]: Call to host_ecledger failed: result=%u (%s)\n", result, oe_result_str(result));
+        fprintf(stderr, "[ENCLAVE]: Call to ocall_host_ecledger failed: result=%u (%s)\n", result, oe_result_str(result));
     }
 
     ECLedger l = ECLedger();
-	l.execute_hello_world();
+    l.execute_hello_world();
     l.execute_sum_a_b(2, 3);
 }
 
-int ecall_read_pub_state(PublicSealedData_T *pub_evm_state, size_t pub_state_size){
-	(* pub_evm_state) = _evm_state.pub;
+/*
+* This function is called only once - when sealed file does not exist.
+* The initialization of SK and PK under the signature scheme of the blockchain is performed here.
+*/
+int ecall_initialize_evm(void) {
 
-	ECLedger l = ECLedger();
-	l.execute_hello_world();
+    oe_result_t ocall_status, sealing_status;
+    int ocall_ret, lib_ret;
 
-
-    uint32_t plaintext_size = sizeof(SealedEvmState_T);
-    SealedEvmState_T* evm_state_unsealed = (SealedEvmState_T*)malloc(plaintext_size);
-
-    // generate EVM key under sig. scheme of PB and store it to evm state struct
-    if(0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)){
-        free(evm_state_unsealed);
-        return ERR_KEYPAIR_GEN_FAILED;
+    //check whether sealed state does not exist; if yes, then just init from it
+    ocall_status = ocall_does_sealed_state_exist(&ocall_ret);
+    if (ocall_status != SGX_SUCCESS) {
+        return ERR_STAT_FILE_INIT;
     }
 
+    if (!ocall_ret) {
+        // sealed state file does not exist, so create it
 
-	return 0;
+        EvmState_T* evm_state_unsealed = (EvmState_T*)malloc(sizeof(EvmState_T));
+        memset(evm_state_unsealed, 0, sizeof(EvmState_T));
+
+        // generate EVM key under sig. scheme of PB and store it to evm state struct
+        if (0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)) {
+            free(evm_state_unsealed);
+            return ERR_KEYPAIR_GEN_FAILED;
+        }
+        evm_state_unsealed->pub.diskInits = 0;
+
+        // store EVM state in enclave memory
+        memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T)); // TODO: later do deep copy of err TXs
+
+        // seal evm state object
+        size_t data_size = sizeof(EvmState_T);
+        sealed_data_t* sealed_data = NULL;
+        size_t sealed_data_size = 0;
+        lib_ret = _sealer.seal_data(POLICY_UNIQUE, STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                    (unsigned char*)evm_state_unsealed, data_size,
+                                    &sealed_data, &sealed_data_size);
+        if (OE_OK != lib_ret) {
+            TRACE_ENCLAVE("sealing was not successfull, %s", oe_result_str(lib_ret));
+            return ERR_FAIL_SEAL_STATE;
+        }
+
+        // save sealed evm state to file, through OCALL
+        ocall_status = ocall_save_evm_state(&ocall_ret, sealed_data, sealed_data_size);
+        free(sealed_data);
+        if (RET_SUCCESS != ocall_ret || ocall_status != OE_OK) {
+            TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
+            return ERR_CANNOT_SAVE_EVM_STATE;
+        }
+        _evm_initialized = true;
+        return RET_SUCCESS_INIT_NEW_STATE;
+    } else {
+
+        // EVM state file exists, so initialize from it
+        size_t sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + 32; // the last X Bytes are for keyinfo, TODO: check the precise size of key info
+        uint8_t* sealed_data = (uint8_t*)malloc(sealed_data_size);
+        ocall_status = ocall_load_evm_state(&ocall_ret, sealed_data, sealed_data_size);
+        if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
+            free(sealed_data);
+            TRACE_ENCLAVE("ocall_load_evm_state failed, %s", oe_result_str(ocall_status));
+            return ERR_CANNOT_LOAD_SEALED_STATE;
+        }
+
+
+        size_t data_size = sizeof(EvmState_T);
+        EvmState_T* data = (EvmState_T*)malloc(data_size);
+
+        ocall_status = _sealer.unseal_data((sgx_sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
+        if (ocall_status != OE_OK || ocall_ret != 0) {
+            TRACE_ENCLAVE("unseal_data failed, %s", oe_result_str(ocall_status));
+            return ERR_LOAD_EVM_STATE;
+        }
+
+
+        data->pub.diskInits++;
+        memcpy(&_evm_state, data, sizeof(EvmState_T)); // TODO: later do deep copy of err TXs
+        _evm_initialized = true;
+        free(sealed_data);
+
+        return RET_SUCCESS_INIT_LOADED_STATE;
+    }
 }
 
+int ecall_sync_evm_sealed_state_to_disk(void) {
+
+    // seal invernalt evm state object which is in memory
+    size_t sealed_data_size = sizeof(sgx_sealed_data_t) + sizeof(EvmState_T);
+    uint8_t* sealed_data = (uint8_t*)malloc(sealed_data_size);
+    sgx_status_t sealing_status = sgx_seal_data(0, NULL, sizeof(EvmState_T), (uint8_t*)&_evm_state, sealed_data_size, (sgx_sealed_data_t*)sealed_data);
+    if (sealing_status != SGX_SUCCESS) {
+        free(sealed_data);
+        return ERR_FAIL_SEAL_STATE;
+    }
+
+    int ocall_ret;
+    sgx_status_t ocall_status = ocall_save_evm_state(&ocall_ret, sealed_data, sealed_data_size);
+    free(sealed_data);
+    if (ocall_ret != 0 || ocall_status != SGX_SUCCESS) {
+        return ERR_CANNOT_SAVE_EVM_STATE;
+    }
+    return 0;
+}
+
+int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size) {
+    (*pub_evm_state) = _evm_state.pub;
+
+    // ECLedger l = ECLedger();
+    // l.execute_hello_world();
+
+    // uint32_t plaintext_size = sizeof(EvmState_T);
+    // EvmState_T* evm_state_unsealed = (EvmState_T*)malloc(plaintext_size);
+
+    // // generate EVM key under sig. scheme of PB and store it to evm state struct
+    // if(0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)){
+    //     free(evm_state_unsealed);
+    //     return ERR_KEYPAIR_GEN_FAILED;
+    // }
+
+    return 0;
+}

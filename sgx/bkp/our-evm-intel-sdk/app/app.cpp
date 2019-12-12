@@ -4,13 +4,13 @@
 #include <cstring>
 #include <fstream>
 #include <getopt.h>
-#include <sys/stat.h>
 #include <iostream>
+#include <sys/stat.h>
 
 #include "app.h"
-#include "utils.h"
 #include "data_types.h"
 #include "enclave.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -25,46 +25,44 @@ int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
     if (file.fail()) {
         return 1;
     }
-    file.write((const char*) sealed_data, sealed_size);
+    file.write((const char*)sealed_data, sealed_size);
     file.close();
     return 0;
 }
-
 
 int ocall_load_evm_state(uint8_t* sealed_data, const size_t sealed_size) {
     ifstream file(SEALED_STORAGE_EVM, ios::in | ios::binary);
     if (file.fail()) {
         return 1;
     }
-    file.read((char*) sealed_data, sealed_size);
+    file.read((char*)sealed_data, sealed_size);
     file.close();
     return 0;
 }
 
-int ocall_does_sealed_state_exist(void){
+int ocall_does_sealed_state_exist(void) {
     struct stat buffer;
-    if(0 != stat(SEALED_STORAGE_EVM, &buffer)) {
+    if (0 != stat(SEALED_STORAGE_EVM, &buffer)) {
         return 1;
     }
     return 0;
 }
 
-
 ////////////////////////////////////////
 // Processing commands from admin user
 ////////////////////////////////////////
 
-void main_loop(sgx_enclave_id_t eid){
+void main_loop(sgx_enclave_id_t eid) {
 
     int ret;
     sgx_status_t ecall_status;
     char command[MAX_CMD_LEN];
 
-    while(true){
+    while (true) {
 
         cout << "$>";
         cin.getline(command, MAX_CMD_LEN);
-        if(0 == strcmp(command, "show") || 0 == strcmp(command, "s")){
+        if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
             PublicSealedData pub_evm_state;
             ecall_status = ecall_read_pub_state(eid, &ret, &pub_evm_state, sizeof(pub_evm_state));
             if (ecall_status != SGX_SUCCESS || is_error(ret)) {
@@ -72,7 +70,7 @@ void main_loop(sgx_enclave_id_t eid){
             }
             cout << "The number of disk inits of enclace is " << pub_evm_state.diskInits << endl;
 
-        }else if(0 == strcmp(command, "q") || 0 == strcmp(command, "quit")){
+        } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
             ecall_status = ecall_sync_evm_sealed_state_to_disk(eid, &ret);
             if (ecall_status != SGX_SUCCESS || is_error(ret)) {
@@ -82,12 +80,11 @@ void main_loop(sgx_enclave_id_t eid){
             }
             cout << "Shell quits..\n";
             break;
-        }else{
+        } else {
             cout << "Unknown command" << endl;
         }
     }
 }
-
 
 int main(int argc, char** argv) {
 
@@ -97,7 +94,7 @@ int main(int argc, char** argv) {
     sgx_status_t ecall_status, enclave_status;
 
     enclave_status = sgx_create_enclave(ENCLAVE_FILE, SGX_DEBUG_FLAG, &token, &updated, &eid, NULL);
-    if(enclave_status != SGX_SUCCESS) {
+    if (enclave_status != SGX_SUCCESS) {
         error_print("Fail to initialize enclave.");
         return -1;
     }
@@ -116,7 +113,7 @@ int main(int argc, char** argv) {
 
     // destroy enclave
     enclave_status = sgx_destroy_enclave(eid);
-    if(enclave_status != SGX_SUCCESS) {
+    if (enclave_status != SGX_SUCCESS) {
         error_print("Fail to destroy enclave.");
         return -1;
     }

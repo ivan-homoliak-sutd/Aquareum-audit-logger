@@ -45,7 +45,7 @@ typedef struct {
 typedef struct {
     PublicSealedData_T pub;
     SecretSealedData_T sec;
-} SealedEvmState_T;
+} EvmState_T;
 
 // TX object should be constructed only from elementary C types
 typedef struct {

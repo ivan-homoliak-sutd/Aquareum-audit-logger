@@ -1,0 +1,55 @@
+#pragma once
+
+#include <stddef.h>
+
+#define POLICY_UNIQUE 1
+#define POLICY_PRODUCT 2
+
+#define MAX_OPT_MESSAGE_LEN 128
+#define IV_SIZE 16
+#define SIGNATURE_LEN 32
+
+typedef struct _sealed_data_t {
+    size_t total_size;
+    unsigned char signature[SIGNATURE_LEN];
+    unsigned char opt_msg[MAX_OPT_MESSAGE_LEN];
+    unsigned char iv[IV_SIZE];
+    size_t key_info_size;
+    size_t original_data_size;
+    size_t encrypted_data_len;
+    unsigned char encrypted_data[]; // note that key_info is at the end of encrypted_data, while it is unencrypted (based on it, E can reproduce a sealing key)
+} sealed_data_t;
+
+// switch on or off tracing logs
+#define TRACING_LOG_ENABLED 1
+
+#define TRACE_ENCLAVE(fmt, ...)    \
+                                   \
+    if (TRACING_LOG)               \
+    printf(                        \
+        "\t[TRACE_ENC]: %s ***%s(%d): " fmt "\n", \
+        enclave_name,              \
+        __FILE__,                  \
+        __LINE__,                  \
+        ##__VA_ARGS__)
+
+// errors shared by host and enclaves
+#define ERROR_SIGNATURE_VERIFY_FAIL 1
+#define ERROR_OUT_OF_MEMORY 2
+#define ERROR_GET_SEALKEY 3
+#define ERROR_SIGN_SEALED_DATA_FAIL 4
+#define ERROR_CIPHER_ERROR 5
+#define ERROR_UNSEALED_DATA_FAIL 6
+
+// EVM enclave return codes
+#define RET_SUCCESS 0
+#define ERR_RAND_FAILED 100
+#define ERR_FAIL_SEAL_STATE 101
+#define ERR_CANNOT_SAVE_EVM_STATE 102
+#define ERR_STAT_FILE_INIT 103
+#define ERR_LOAD_EVM_STATE 104
+#define RET_SUCCESS_INIT_NEW_STATE 105
+#define RET_SUCCESS_INIT_LOADED_STATE 106
+#define ERR_KEYPAIR_GEN_FAILED 107
+#define ERR_FAIL_UNSEAL 108
+#define ERR_CANNOT_LOAD_SEALED_STATE 109
