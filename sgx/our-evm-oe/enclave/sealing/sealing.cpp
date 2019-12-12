@@ -206,7 +206,7 @@ int Sealing::unseal_data(sealed_data_t* sealed_data,
     // re-initialization vector values
     memcpy(iv, m_sealed_data->iv, IV_SIZE);
 
-    data_buf = (unsigned char*)oe_host_malloc(m_sealed_data->encrypted_data_len);
+    data_buf = (unsigned char*)malloc(m_sealed_data->encrypted_data_len);
     if (data_buf == NULL) {
         ret = ERROR_OUT_OF_MEMORY;
         goto exit;
