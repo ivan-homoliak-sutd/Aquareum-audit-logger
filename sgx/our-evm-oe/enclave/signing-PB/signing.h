@@ -1,8 +1,6 @@
-#ifndef SIGNING_PB
-#define SIGNING_PB
+#pragma once
 
 #include "data_types.h"
 
-int generate_keypair_PB(KeyPairPB *keypair);
+int generate_keypair_PB(KeyPairPB_T *keypair);
 
-#endif // SIGNING_PB

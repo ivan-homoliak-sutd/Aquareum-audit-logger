@@ -1,75 +1,63 @@
-#ifndef DATA_TYPES_H_
-#define DATA_TYPES_H_
-
-#define MAX_ITEMS 100
-#define MAX_ITEM_SIZE 100
+#pragma once
 
 #include "secp256k1.h"
+// #include <bits/stdint.h>
+
+#define SIG_SIZE_PB 64
+
+// note that only lower 160 bits are used - but this enables compatibility with eEVM and Ethereum
+#define ADDRESS_SIZE_PB 32
+#define EVM_WORD_SIZE 32
+#define HASH_SIZE 32
 
 // underlying elementary data types
 
-struct ErrTx {
-	char * data; // is is dynamic array, so (de)-marshaling  needs to be handled manually
-};
-typedef struct ErrTx ErrTx_T;
+//////////////////////////// ENCLAVE ///////////////////////////////////
 
-struct ErrTxsCache {
-	ErrTx_T ** items; // for performance reasons maybe this could be a pointer denoting a dynamic array
-	unsigned int count; // the number of err TXs currnetly cached
-};
-typedef struct ErrTxsCache ErrTxsCache_T;
+typedef struct {
+    char* data; // is is dynamic array, so (de)-marshaling  needs to be handled manually
+} ErrTx_T;
 
-struct KeyPairPB {
-	unsigned char SK_PB[32]; // private key
-	secp256k1_pubkey PK_PB; // public key (i.e., unsigned char [64])
-};
-typedef struct KeyPairPB KeyPairPB_T;
+typedef struct {
+    unsigned char SK_PB[HASH_SIZE]; // private key
+    secp256k1_pubkey PK_PB;         // public key (i.e., unsigned char [64])
+} KeyPairPB_T;
 
+typedef struct {
+    ErrTx_T** items;    // for performance reasons maybe this could be a pointer denoting a dynamic array
+    unsigned int count; // the number of err TXs currently cached
+} ErrTxsCache_T;
 
 // the sealed storage
 
-struct PublicSealedData {
-	unsigned char hdrLast[32]; // the last header created by E
-	unsigned char logRootPB[32]; // the last root of L flushed to PB
-	unsigned int idCurrent; // the current version of L (not flushed to PB)
-	ErrTxsCache_T txsErrCache; // the cache of erroneous Txs
-	unsigned int diskInits; // counts the number of how many times was enclave initialized from seald state stored at disk
-};
-typedef struct PublicSealedData PublicSealedData_T;
+typedef struct {
+    unsigned char hdrLast[HASH_SIZE];   // the last header created by E
+    unsigned char logRootPB[HASH_SIZE]; // the last root of L flushed to PB
+    unsigned int idCurrent;             // the current version of L (not flushed to PB)
+    ErrTxsCache_T txsErrCache;          // the cache of erroneous Txs
+    unsigned int diskInits;             // counts the number of how many times was enclave initialized from seald state stored at disk
+} PublicSealedData_T;
 
-struct SecretSealedData {
-	KeyPairPB_T keypair;
-};
-typedef struct SecretSealedData SecretSealedData_T;
+typedef struct {
+    KeyPairPB_T keypair;
+} SecretSealedData_T;
 
+typedef struct {
+    PublicSealedData_T pub;
+    SecretSealedData_T sec;
+} SealedEvmState_T;
 
-struct SealedEvmState {
-	PublicSealedData_T pub;
-	SecretSealedData_T sec;
-};
-typedef struct SealedEvmState SealedEvmState_T;
+// TX object should be constructed only from elementary C types
+typedef struct {
+    const char origin[ADDRESS_SIZE_PB];
 
+    const uint64_t value; // call_value
+    const unsigned char** code;
 
+    const uint64_t gas_price;
+    const uint64_t gas_limit;
 
+    unsigned char signature[SIG_SIZE_PB]; // computed over: origin, value, code, gas_price, gas_limit,
+} PersistantTransaction_T;
 
-/// wallet demo
-
-// item
-struct Item {
-	char  title[MAX_ITEM_SIZE];
-	char  username[MAX_ITEM_SIZE];
-	char  password[MAX_ITEM_SIZE];
-};
-typedef struct Item item_t;
-
-// wallet
-struct Wallet {
-	item_t items[MAX_ITEMS];
-	size_t size;
-	char master_password[MAX_ITEM_SIZE];
-};
-typedef struct Wallet wallet_t;
-
-
-
-#endif // DATA_TYPES_H_
+//////////////////////////// HOST ///////////////////////////////////

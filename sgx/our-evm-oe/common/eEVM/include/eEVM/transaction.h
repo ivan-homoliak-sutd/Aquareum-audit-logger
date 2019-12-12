@@ -4,108 +4,97 @@
 #pragma once
 #include "address.h"
 
+#include <array>
 #include <nlohmann/json.hpp>
 #include <vector>
 
-namespace eevm
-{
-  using Code = std::vector<uint8_t>;
+#define SIG_SIZE_PB_BYTES 64
 
-  namespace log
-  {
-    using Data = std::vector<uint8_t>;
-    using Topic = uint256_t;
-  }
+namespace eevm {
+    using Code = std::vector<uint8_t>;
 
-  struct LogEntry
-  {
-    Address address;
-    log::Data data;
-    std::vector<log::Topic> topics;
+    namespace log {
+        using Data = std::vector<uint8_t>;
+        using Topic = uint256_t;
+    } // namespace log
 
-    bool operator==(const LogEntry& that) const;
+    struct LogEntry {
+        Address address;
+        log::Data data;
+        std::vector<log::Topic> topics;
 
-    friend void to_json(nlohmann::json&, const LogEntry&);
-    friend void from_json(const nlohmann::json&, LogEntry&);
-  };
+        bool operator==(const LogEntry& that) const;
 
-  void to_json(nlohmann::json&, const LogEntry&);
-  void from_json(const nlohmann::json&, LogEntry&);
+        friend void to_json(nlohmann::json&, const LogEntry&);
+        friend void from_json(const nlohmann::json&, LogEntry&);
+    };
 
-  struct LogHandler
-  {
-    virtual ~LogHandler() = default;
-    virtual void handle(LogEntry&&) = 0;
-  };
+    void to_json(nlohmann::json&, const LogEntry&);
+    void from_json(const nlohmann::json&, LogEntry&);
 
-  struct NullLogHandler : public LogHandler
-  {
-    virtual void handle(LogEntry&&) override {}
-  };
+    struct LogHandler {
+        virtual ~LogHandler() = default;
+        virtual void handle(LogEntry&&) = 0;
+    };
 
-  struct VectorLogHandler : public LogHandler
-  {
-    std::vector<LogEntry> logs;
+    struct NullLogHandler : public LogHandler {
+        virtual void handle(LogEntry&&) override {}
+    };
 
-    virtual ~VectorLogHandler() = default;
-    virtual void handle(LogEntry&& e) override
-    {
-      logs.emplace_back(e);
-    }
-  };
+    struct VectorLogHandler : public LogHandler {
+        std::vector<LogEntry> logs;
 
+        virtual ~VectorLogHandler() = default;
+        virtual void handle(LogEntry&& e) override {
+            logs.emplace_back(e);
+        }
+    };
 
-/**
- * Represent data of an Ethereum transaction that need to be persisted to blockchain/ledger
- *
- */
-  struct PersistantTransaction {
-    const Address origin;
+    /**
+   * Represents data of an Ethereum transaction that needs to be persisted to
+   * blockchain/ledger
+   *
+   */
+    struct PersistantTransaction {
+        const Address origin;
 
-    const uint64_t value; // call_value
-    const Code code;
+        const uint64_t value; // call_value
+        const Code code;
 
-    const uint64_t gas_price;
-    const uint64_t gas_limit;
+        const uint64_t gas_price;
+        const uint64_t gas_limit;
 
-    std::vector<uint8_t>  signature; // computed over: origin, code, call_value, gas_price, gas_limit,
+        std::array<uint8_t, SIG_SIZE_PB_BYTES> signature; // computed over: origin, value, code, gas_price, gas_limit,
 
-     PersistantTransaction(
-      const Address origin,
-      uint64_t value = 0,
-      Code code = {},
-      uint64_t gas_price = 0,
-      uint64_t gas_limit = 0,
-      std::vector<uint8_t>  signature = {}
-    ) :
-      origin(origin),
-      value(value),
-      code(code),
-      gas_price(gas_price),
-      gas_limit(gas_limit),
-      signature(signature)
-    {}
-  };
+        PersistantTransaction(
+            const Address origin,
+            uint64_t value = 0,
+            Code code = {},
+            uint64_t gas_price = 0,
+            uint64_t gas_limit = 0,
+            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : origin(origin),
+                                                                     value(value),
+                                                                     code(code),
+                                                                     gas_price(gas_price),
+                                                                     gas_limit(gas_limit),
+                                                                     signature(signature) {}
+    };
 
-
-  /**
+    /**
    * Ethereum transaction wrapped for need of eEVM
    */
-  struct Transaction : PersistantTransaction
-  {
-    LogHandler& log_handler;
-    std::vector<Address> destroy_list;
+    struct Transaction : PersistantTransaction {
+        LogHandler& log_handler;
+        std::vector<Address> destroy_list;
 
-    Transaction(
-      const Address origin,
-      LogHandler& lh,
-      Code code = {},
-      uint64_t value = 0,
-      uint64_t gas_price = 0,
-      uint64_t gas_limit = 0
-    ) :
-      PersistantTransaction(origin, value, code, gas_price, gas_limit, signature),
-      log_handler(lh)
-    {}
-  };
+        Transaction(
+            const Address origin,
+            LogHandler& lh,
+            Code code = {},
+            uint64_t value = 0,
+            uint64_t gas_price = 0,
+            uint64_t gas_limit = 0,
+            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : PersistantTransaction(origin, value, code, gas_price, gas_limit, signature),
+                                                                     log_handler(lh) {}
+    };
 } // namespace eevm

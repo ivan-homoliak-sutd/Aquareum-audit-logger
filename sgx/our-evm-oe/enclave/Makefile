@@ -23,7 +23,10 @@ EEVM_LIB_DIR := ../common/eEVM/build/
 CFLAGS=$(shell pkg-config oeenclave-$(COMPILER) --cflags)
 CXXFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --cflags)
 LDFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --libs)
+
 OE_SDK_INCLUDE := /opt/openenclave/include/
+OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}openenclave/3rdparty/libc/bits/
+# -I${OE_SDK_3RDPARTY_INCLUDE_CC} \
 
 Enclave_Cpp_Files := enc.cpp signing-PB/signing.cpp ecl/ecl.cpp
 Enclave_Include_Paths := \

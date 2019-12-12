@@ -1,12 +1,11 @@
 #include "ecledger_t.h"
 #include "signing-PB/signing.h"
-#include "data_types.h"
 #include "secp256k1.h"
 #include "errcodes.h"
 
 #include <openenclave/enclave.h>
 
-int generate_keypair_PB(KeyPairPB *keypair){
+int generate_keypair_PB(KeyPairPB_T *keypair){
 
 	// 1) compute SK of PB by random generation
 	if(OE_OK != oe_random(keypair->SK_PB, 32)){ return ERR_RAND_FAILED; }
