@@ -41,7 +41,7 @@ build:
 	oeedger8r ../ecledger.edl --untrusted
 	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp utils.cpp
 	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Host_Include_Paths) ecledger_u.c
-	$(CXX) -o ecledger_host ecledger_u.o host.o $(Host_Link_Flags)
+	$(CXX) -o ecledger_host ecledger_u.o host.o utils.o $(Host_Link_Flags)
 
 clean:
 	rm -f ecledger_host host.o ecledger_u.o ecledger_u.c ecledger_u.h ecledger_args.h

@@ -18,22 +18,21 @@ Sealing::~Sealing() {
 }
 
 void Sealing::init_mbedtls() {
+    const char pers[] = "random data string";
     mbedtls_entropy_init(&m_entropy_context);
-    // const char pers[] = "random data string";
-    // mbedtls_ctr_drbg_init(&m_ctr_drbg_contex);
+    mbedtls_ctr_drbg_init(&m_ctr_drbg_contex);
 
-    // mbedtls_ctr_drbg_seed seeds and sets up the CTR_DRBG entropy source for
-    // future reseeds.
-    // mbedtls_ctr_drbg_seed(&m_ctr_drbg_contex,
-    //   mbedtls_entropy_func,
-    //   &m_entropy_context,
-    //   (unsigned char*)pers,
-    //   sizeof(pers));
+    // mbedtls_ctr_drbg_seed seeds and sets up the CTR_DRBG entropy source for future reseeds.
+    mbedtls_ctr_drbg_seed(&m_ctr_drbg_contex,
+                          mbedtls_entropy_func,
+                          &m_entropy_context,
+                          (unsigned char*)pers,
+                          sizeof(pers));
 }
 
 void Sealing::cleanup_mbedtls(void) {
     mbedtls_entropy_free(&m_entropy_context);
-    // mbedtls_ctr_drbg_free(&m_ctr_drbg_contex);
+    mbedtls_ctr_drbg_free(&m_ctr_drbg_contex);
 }
 
 int Sealing::seal_data(int seal_policy,
@@ -73,12 +72,11 @@ int Sealing::seal_data(int seal_policy,
     // We need to cast these variables down to unsigned int.
     // Check if that will cut off any significant bits.
     if (m_data_size > UINT32_MAX) {
-        TRACE_ENCLAVE(
-            "m_data_size is too large to fit into an unsigned int", 1);
+        TRACE_ENCLAVE("m_data_size is too large to fit into an unsigned int");
         goto exit;
     }
     if (seal_key_size > UINT32_MAX) {
-        TRACE_ENCLAVE("seal_key_size is too large to fit into an unsigned int", 1);
+        TRACE_ENCLAVE("seal_key_size is too large to fit into an unsigned int");
         goto exit;
     }
 
@@ -174,12 +172,11 @@ int Sealing::unseal_data(sealed_data_t* sealed_data,
     // We need to cast these variables down to unsigned int.
     // Check if that will cut off any significant bits.
     if (m_sealed_data->encrypted_data_len > UINT32_MAX) {
-        TRACE_ENCLAVE(
-            "seal_key_size is too large to fit into an unsigned int", 1);
+        TRACE_ENCLAVE("seal_key_size is too large to fit into an unsigned int");
         goto exit;
     }
     if (seal_key_size > UINT32_MAX) {
-        TRACE_ENCLAVE("seal_key_size is too large to fit into an unsigned int", 1);
+        TRACE_ENCLAVE("seal_key_size is too large to fit into an unsigned int");
         goto exit;
     }
 
@@ -279,7 +276,7 @@ oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
         padded_byte_count = CIPHER_BLOCK_SIZE - bytes_left;
 
     if (padded_byte_count > UINT32_MAX) {
-        TRACE_ENCLAVE("padded_byte_count is too large to fit into an int", 1);
+        TRACE_ENCLAVE("padded_byte_count is too large to fit into an int");
         goto exit;
     }
 

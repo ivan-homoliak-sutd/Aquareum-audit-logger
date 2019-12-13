@@ -1,6 +1,6 @@
 #include "signing-PB/signing.h"
 #include "ecledger_t.h"
-#include "errcodes.h"
+#include "common.h"
 #include "secp256k1.h"
 
 #include <openenclave/enclave.h>

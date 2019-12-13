@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+
+using namespace std;
+
 void info_print(const string &str);
 
 void warning_print(const string &str);

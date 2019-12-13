@@ -32,6 +32,7 @@ Enclave_Cpp_Files := \
 	enc.cpp \
 	signing-PB/signing.cpp \
 	sealing/sealing.cpp \
+	sealing/keys.cpp \
 	ecl/ecl.cpp
 
 Enclave_Include_Paths := \
@@ -57,7 +58,7 @@ build:
 	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
 	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -std=c++17 -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
-	$(CXX) -o ecledger_enc ecledger_t.o enc.o signing.o ecl.o $(Enclave_Link_Flags)
+	$(CXX) -o ecledger_enc ecledger_t.o enc.o signing.o sealing.o keys.o ecl.o $(Enclave_Link_Flags)
 
 sign:
 	oesign sign -e ecledger_enc -c ecledger.conf -k private.pem

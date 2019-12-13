@@ -18,7 +18,7 @@
 EvmState_T _evm_state;
 bool _evm_initialized = false;
 
-Sealing::Sealing _sealer();
+Sealing _sealer;
 
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger() {
@@ -46,7 +46,7 @@ int ecall_initialize_evm(void) {
 
     //check whether sealed state does not exist; if yes, then just init from it
     ocall_status = ocall_does_sealed_state_exist(&ocall_ret);
-    if (ocall_status != SGX_SUCCESS) {
+    if (ocall_status != OE_OK) {
         return ERR_STAT_FILE_INIT;
     }
 
@@ -70,16 +70,16 @@ int ecall_initialize_evm(void) {
         size_t data_size = sizeof(EvmState_T);
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
-        lib_ret = _sealer.seal_data(POLICY_UNIQUE, STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
                                     (unsigned char*)evm_state_unsealed, data_size,
                                     &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
-            TRACE_ENCLAVE("sealing was not successfull, %s", oe_result_str(lib_ret));
+            TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
             return ERR_FAIL_SEAL_STATE;
         }
 
         // save sealed evm state to file, through OCALL
-        ocall_status = ocall_save_evm_state(&ocall_ret, sealed_data, sealed_data_size);
+        ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
         free(sealed_data);
         if (RET_SUCCESS != ocall_ret || ocall_status != OE_OK) {
             TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
@@ -99,14 +99,14 @@ int ecall_initialize_evm(void) {
             return ERR_CANNOT_LOAD_SEALED_STATE;
         }
 
-        sgx_sealed_data_t* hdr = (sgx_sealed_data_t*)sealed_data;
+        sealed_data_t* hdr = (sealed_data_t*)sealed_data;
 
         size_t sealed_data_size = hdr->encrypted_data_len;
         size_t data_size = hdr->original_data_size;
         unsigned char* data = NULL;
 
-        ocall_status = _sealer.unseal_data((sgx_sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
-        if (ocall_status != OE_OK || ocall_ret != 0) {
+        lib_ret = _sealer.unseal_data((sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
+        if (OE_OK != lib_ret) {
             TRACE_ENCLAVE("unseal_data failed, %s", oe_result_str(ocall_status));
             return ERR_LOAD_EVM_STATE;
         }
@@ -126,22 +126,24 @@ int ecall_initialize_evm(void) {
 
 int ecall_sync_evm_sealed_state_to_disk(void) {
 
+    int ocall_ret;
+
     // seal internal EVM state object which is held in memory
     size_t data_size = sizeof(EvmState_T);
     sealed_data_t* sealed_data = NULL;
     size_t sealed_data_size = 0;
-    int lib_ret = _sealer.seal_data(POLICY_UNIQUE, STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                (unsigned char*)_evm_state, data_size,
+    int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                (unsigned char*)&_evm_state, data_size,
                                 &sealed_data, &sealed_data_size);
     if (OE_OK != lib_ret) {
-        TRACE_ENCLAVE("sealing was not successfull, %s", oe_result_str(lib_ret));
+        TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
         return ERR_FAIL_SEAL_STATE;
     }
 
     // save sealed evm state to file, through OCALL
-    ocall_status = ocall_save_evm_state(&ocall_ret, sealed_data, sealed_data_size);
+    auto ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
     free(sealed_data);
-    if (RET_SUCCESS != ocall_ret || ocall_status != OE_OK) {
+    if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
         TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
         return ERR_CANNOT_SAVE_EVM_STATE;
     }

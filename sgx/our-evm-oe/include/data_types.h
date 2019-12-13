@@ -1,7 +1,7 @@
 #pragma once
 
 #include "secp256k1.h"
-// #include <bits/stdint.h>
+#include <stdint.h>
 
 #define SIG_SIZE_PB 64
 

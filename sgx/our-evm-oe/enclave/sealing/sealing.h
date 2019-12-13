@@ -20,12 +20,13 @@ using namespace std;
 #define HASH_VALUE_SIZE_IN_BYTES 32
 
 #define STATE_SEAL_MSG "Sealed data of EVM state, i.e., type EvmState_T."
-#define STATE_SEAL_MSG_LEN strlen(STATE_SEAL_MSG)
+#define STATE_SEAL_MSG_LEN (size_t) strlen(STATE_SEAL_MSG)
 
 
 class Sealing {
   private:
     mbedtls_entropy_context m_entropy_context;
+    mbedtls_ctr_drbg_context m_ctr_drbg_contex;
 
     unsigned char* m_data; // holds plaintext of data to be sealed
     size_t m_data_size;

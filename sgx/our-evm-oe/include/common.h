@@ -23,15 +23,20 @@ typedef struct _sealed_data_t {
 // switch on or off tracing logs
 #define TRACING_LOG_ENABLED 1
 
-#define TRACE_ENCLAVE(fmt, ...)    \
-                                   \
-    if (TRACING_LOG)               \
-    printf(                        \
-        "\t[TRACE_ENC]: %s ***%s(%d): " fmt "\n", \
-        enclave_name,              \
-        __FILE__,                  \
-        __LINE__,                  \
-        ##__VA_ARGS__)
+#ifdef TRACING_LOG_ENABLED
+
+    #define TRACE_ENCLAVE(fmt, ...)             \
+        printf(                                 \
+            "\t[TRACE_ENC]: %s(%d): " fmt "\n", \
+            __FILE__,                           \
+            __LINE__,                           \
+            ##__VA_ARGS__)
+
+#else
+    #define TRACE_ENCLAVE(fmt, ...)  ;
+
+#endif
+
 
 // errors shared by host and enclaves
 #define ERROR_SIGNATURE_VERIFY_FAIL 1

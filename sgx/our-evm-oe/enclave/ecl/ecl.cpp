@@ -3,7 +3,7 @@
 
 #include "signing-PB/signing.h"
 #include "data_types.h"
-#include "errcodes.h"
+#include "common.h"
 
 // eEVM
 #include "eEVM/bigint.h"

@@ -1,13 +1,16 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <cstring>
+#include <fstream>
+#include <iostream>
 #include <openenclave/host.h>
 #include <stdio.h>
-
-#include "ecledger_u.h"
+#include <sys/stat.h>
 
 #include "common.h"
 #include "ecl/context.h"
+#include "ecledger_u.h"
 #include "utils.h"
 
 #define SEALED_STORAGE_EVM "sealed-storage-evm.seal"
@@ -16,6 +19,8 @@
 ////////////////////
 // OCALL definitions
 ////////////////////
+
+using namespace std;
 
 int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
     ofstream file(SEALED_STORAGE_EVM, ios::out | ios::binary);
@@ -37,8 +42,6 @@ int ocall_load_evm_state(uint8_t* sealed_data, const size_t sealed_size) {
     return 0;
 }
 
-
-
 int ocall_does_sealed_state_exist(void) {
     struct stat buffer;
     if (0 != stat(SEALED_STORAGE_EVM, &buffer)) {
@@ -57,7 +60,7 @@ void ocall_host_ecledger() {
 
 void operator_loop(oe_enclave_t* enclave) {
 
-    int ret; // internal return value
+    int ret;               // internal return value
     oe_result_t ecall_ret; // return value of general enclave call
     char command[MAX_CMD_LEN];
 
@@ -68,7 +71,7 @@ void operator_loop(oe_enclave_t* enclave) {
         if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
             PublicSealedData_T pub_evm_state;
             ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
-            if (ecall_ret != SGX_SUCCESS && is_error(ret)) {
+            if (ecall_ret != OE_OK && is_error(ret)) {
                 error_print("Fail to initialize EVM enclave.");
             }
             cout << "The number of disk inits of enclave is " << pub_evm_state.diskInits << endl;
@@ -122,8 +125,8 @@ int main(int argc, const char* argv[]) {
 
     // Create the enclave
     result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_AUTO, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
-    if (result != OE_OK ||) {
-        error_print(string("oe_create_ecledger_enclave(): " + string(result) + " |" + string(oe_result_str(result)));
+    if (OE_OK != result) {
+        error_print(string("oe_create_ecledger_enclave(): ") + string(oe_result_str(result)));
         goto exit;
     }
     info_print("SGX successfully initilised.");
@@ -149,7 +152,7 @@ exit:
     // Clean up the enclave if we created one
     if (enclave) {
         if (OE_OK != (result = oe_terminate_enclave(enclave))) {
-            error_print(string("Enclave was not destryed correctly: ") + string(result));
+            error_print(string("Enclave was not destryed correctly: ") + string(oe_result_str(result)));
         }
         info_print("Enclave successfully destroyed.");
     }
