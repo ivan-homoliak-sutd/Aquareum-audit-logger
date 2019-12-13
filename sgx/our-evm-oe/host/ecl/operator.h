@@ -7,6 +7,8 @@
 #include "eEVM/bigint.h"
 #include "eEVM/transaction.h"
 
+#include "data_types.h"
+
 // default numbers of unprocessed TXs and processed blocks required to flush into VM enclave / PB
 #define NUM_TXS_FLUSH_VM 10
 #define NUM_BLKS_FLUSH_PB 50
@@ -41,11 +43,16 @@ namespace ecl {
         uint timeout_PB = TIMEOUT_FLUSH_PB; // timeout for flushing to PB,
     };
 
-    struct HostContext {
-        uint256_t PK_E_TEE;
-        uint256_t PK_E_PB;
-        uint256_t PK_O; // PK of operator (under Sigma_PB)
-        uint256_t SK_O; // SK of operator (under Sigma_PB)
+    struct Operator {
+        // uint256_t PK_E_TEE;
+        // uint256_t PK_E_PB;
+        // uint256_t PK_O; // PK of operator (under Sigma_PB)
+        // uint256_t SK_O; // SK of operator (under Sigma_PB)
+
+        uint8_t PK_E_TEE[HASH_SIZE];
+        secp256k1_pubkey PK_E_PB; // public key (i.e., unsigned char [64])
+        secp256k1_pubkey PK_O;    // PK of operator (under Sigma_PB)
+        uint8_t SK_O[HASH_SIZE];  // SK of operator (under Sigma_PB)
 
         std::vector<eevm::PersistantTransaction> txs_uprocessed; // cache of unprocessed TXs,
         std::vector<Block> blks_processed;                       // cache of processed blocks, not synced with PB yet
@@ -63,6 +70,8 @@ namespace ecl {
         uint256_t LRoot_cur; // the current root of (L U blks_processed) not flushed to PB
 
         FlushingLimits flush_lims; // the flushing limits
+
+        Operator(secp256k1_pubkey * _enc_PK);
     };
 
 } // namespace ecl

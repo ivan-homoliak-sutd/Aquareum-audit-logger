@@ -8,6 +8,8 @@
 #define MAX_OPT_MESSAGE_LEN 128
 #define IV_SIZE 16
 #define SIGNATURE_LEN 32
+#define ECC_SK_SIZE 32
+#define ECC_PK_SIZE 64
 
 typedef struct _sealed_data_t {
     size_t total_size;

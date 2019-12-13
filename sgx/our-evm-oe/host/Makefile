@@ -23,10 +23,12 @@ CXX_LDFLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --libs)
 CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
+INTX_LIB_DIR := ./libs/intx/build/lib/intx/
+
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
-	-L./libs/intx/build/lib/intx/ -lintx
+	-L$(INTX_LIB_DIR) -lintx
 	# -L$(EEVM_LIB_DIR) -leevm
 
 Host_Include_Paths := \
@@ -39,9 +41,9 @@ Host_Include_Paths := \
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp utils.cpp
+	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) host.cpp utils.cpp ./ecl/operator.cpp
 	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Host_Include_Paths) ecledger_u.c
-	$(CXX) -o ecledger_host ecledger_u.o host.o utils.o $(Host_Link_Flags)
+	$(CXX) -o ecledger_host ecledger_u.o host.o utils.o operator.o $(Host_Link_Flags)
 
 clean:
 	rm -f ecledger_host host.o ecledger_u.o ecledger_u.c ecledger_u.h ecledger_args.h

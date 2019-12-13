@@ -13,6 +13,7 @@ clean:
 	$(MAKE) -C enclave clean
 	$(MAKE) -C host clean
 
+run: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 run:
 	host/ecledger_host ./enclave/ecledger_enc.signed
 

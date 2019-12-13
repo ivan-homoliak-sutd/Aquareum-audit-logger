@@ -39,7 +39,7 @@ void ecall_enclave_ecledger() {
 * This function is called only once - when sealed file does not exist.
 * The initialization of SK and PK under the signature scheme of the blockchain is performed here.
 */
-int ecall_initialize_evm(void) {
+int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
 
     oe_result_t ocall_status, sealing_status;
     int ocall_ret, lib_ret;
@@ -90,6 +90,7 @@ int ecall_initialize_evm(void) {
             return ERR_CANNOT_SAVE_EVM_STATE;
         }
         _evm_initialized = true;
+        (*enc_pk) = _evm_state.sec.keypair.PK_PB;
         return RET_SUCCESS_INIT_NEW_STATE;
     } else {
 
@@ -124,6 +125,7 @@ int ecall_initialize_evm(void) {
         free(sealed_data);
         free(data);
 
+        (*enc_pk) = _evm_state.sec.keypair.PK_PB;
         return RET_SUCCESS_INIT_LOADED_STATE;
     }
 }

@@ -28,8 +28,6 @@ typedef struct {
     unsigned int count; // the number of err TXs currently cached
 } ErrTxsCache_T;
 
-// the sealed storage
-
 typedef struct {
     unsigned char hdrLast[HASH_SIZE];   // the last header created by E
     unsigned char logRootPB[HASH_SIZE]; // the last root of L flushed to PB
@@ -42,12 +40,12 @@ typedef struct {
     KeyPairPB_T keypair;
 } SecretSealedData_T;
 
-typedef struct {
+typedef struct { // used as persested object in the sealed storage
     PublicSealedData_T pub;
     SecretSealedData_T sec;
 } EvmState_T;
 
-// TX object should be constructed only from elementary C types
+// TX object should be constructed only from elementary C types (this should match TX defined in eEVM)
 typedef struct {
     const char origin[ADDRESS_SIZE_PB];
 

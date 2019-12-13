@@ -9,7 +9,10 @@ enclave {
 
         public void ecall_enclave_ecledger(); // TODO: drop later
 
-        public int ecall_initialize_evm(void);
+        public int ecall_initialize_evm(
+            [out, size=enc_pk_size] secp256k1_pubkey* enc_pk,
+            size_t enc_pk_size
+        );
 
         public int ecall_read_pub_state(
             [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,

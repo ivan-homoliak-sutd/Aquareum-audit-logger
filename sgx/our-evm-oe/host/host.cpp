@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 #include "common.h"
-#include "ecl/context.h"
+#include "ecl/operator.h"
 #include "ecledger_u.h"
 #include "utils.h"
 
@@ -21,6 +21,7 @@
 ////////////////////
 
 using namespace std;
+using namespace ecl;
 
 int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
     ofstream file(SEALED_STORAGE_EVM, ios::out | ios::binary);
@@ -113,6 +114,7 @@ int main(int argc, const char* argv[]) {
     int ret = 1;
     int ret_e = 0;
     oe_enclave_t* enclave = NULL;
+    Operator * op;
 
     uint32_t flags = OE_ENCLAVE_FLAG_DEBUG;
     if (check_simulate_opt(&argc, argv)) {
@@ -129,7 +131,7 @@ int main(int argc, const char* argv[]) {
         error_print(string("oe_create_ecledger_enclave(): ") + string(oe_result_str(result)));
         goto exit;
     }
-    info_print("SGX successfully initilised.");
+    info_print("SGX successfully initialized.");
 
     // result = ecall_enclave_ecledger(enclave);
     // if (result != OE_OK) {
@@ -137,12 +139,17 @@ int main(int argc, const char* argv[]) {
     //     goto exit;
     // }
 
-    result = ecall_initialize_evm(enclave, &ret_e);
+    secp256k1_pubkey encl_pk;
+
+    result = ecall_initialize_evm(enclave, &ret_e, &encl_pk, sizeof(encl_pk));
     if (OE_OK != result || is_error(ret_e)) {
         error_print("Fail to initialize EVM enclave.");
+        goto exit;
     } else {
         info_print("EVM enclave successfully initialized.");
     }
+
+    (*op) = Operator(&encl_pk);
 
     operator_loop(enclave);
 

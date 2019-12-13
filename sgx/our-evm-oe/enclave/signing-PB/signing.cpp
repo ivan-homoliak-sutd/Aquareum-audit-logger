@@ -8,7 +8,7 @@
 int generate_keypair_PB(KeyPairPB_T* keypair) {
 
     // 1) compute SK of PB by random generation
-    if (OE_OK != oe_random(keypair->SK_PB, 32)) {
+    if (OE_OK != oe_random(keypair->SK_PB, ECC_SK_SIZE)) {
         return ERR_RAND_FAILED;
     }
 
