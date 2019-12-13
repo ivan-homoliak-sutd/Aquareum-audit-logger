@@ -36,10 +36,10 @@ void Sealing::cleanup_mbedtls(void) {
 }
 
 int Sealing::seal_data(int seal_policy,
-                       unsigned char* opt_mgs,
-                       size_t opt_msg_len,
-                       unsigned char* data,
-                       size_t data_size,
+                       const unsigned char* opt_mgs,
+                       const size_t opt_msg_len,
+                       const unsigned char* data,
+                       const size_t data_size,
                        sealed_data_t** sealed_data,
                        size_t* sealed_data_size) {
     oe_result_t result = OE_OK;
@@ -161,7 +161,7 @@ int Sealing::unseal_data(sealed_data_t* sealed_data,
     // retrieve the seal key
     result = get_seal_key_by_keyinfo(key_info, key_info_size, &seal_key, &seal_key_size);
     if (result != OE_OK) {
-        TRACE_ENCLAVE("unseal_data failed with %sn", oe_result_str(result));
+        TRACE_ENCLAVE("unseal_data failed with %s", oe_result_str(result));
         ret = ERROR_GET_SEALKEY;
         goto exit;
     }
@@ -232,14 +232,13 @@ exit:
     return ret;
 }
 
-oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
-    int seal_policy,
-    unsigned char* data,
-    size_t data_size,
-    unsigned char* opt_mgs,
-    size_t opt_msg_len,
-    uint8_t** seal_key,
-    size_t* seal_key_size) {
+oe_result_t Sealing::get_seal_key_and_prep_sealed_data(int seal_policy,
+                                                       const unsigned char* data,
+                                                       const size_t data_size,
+                                                       const unsigned char* opt_mgs,
+                                                       const size_t opt_msg_len,
+                                                       uint8_t** seal_key,
+                                                       size_t* seal_key_size) {
     oe_result_t result = OE_OK;
     size_t bytes_left = 0;
     size_t total_size = 0;
@@ -259,7 +258,7 @@ oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
     TRACE_ENCLAVE("key_info_size  %ld", key_info_size);
     TRACE_ENCLAVE("data_size  %ld", data_size);
 
-    m_data = data;
+    m_data = (unsigned char*) data;
     m_data_size = data_size;
     original_data_size = data_size;
 
@@ -289,10 +288,9 @@ oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
     // prepare new data buffer if padding is needed
     memcpy((void*)padded_data, (void*)m_data, m_data_size);
     // PKCS5 padding
-    memset(
-        (void*)(padded_data + m_data_size),
-        (int)padded_byte_count,
-        padded_byte_count);
+    memset((void*)(padded_data + m_data_size),
+           (int)padded_byte_count,
+           padded_byte_count);
     m_data_size += padded_byte_count;
 
     // update data with new padded memory
@@ -300,8 +298,7 @@ oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
 
     total_size = sizeof(sealed_data_t) + m_data_size + key_info_size;
 
-    // allocate the sealed data buffer inside enclave and fill with metadata
-    // information
+    // allocate the sealed data buffer inside enclave and fill with metadata information
     m_sealed_data = (sealed_data_t*)malloc(total_size);
     if (m_sealed_data == NULL) {
         result = OE_OUT_OF_MEMORY;
@@ -315,10 +312,11 @@ oe_result_t Sealing::get_seal_key_and_prep_sealed_data(
     m_sealed_data->original_data_size = original_data_size;
 
     // copy key info into the sealed_data_t
-    memcpy(
-        (void*)(m_sealed_data->encrypted_data + m_sealed_data->encrypted_data_len),
-        (void*)key_info,
-        key_info_size);
+    memcpy((void*)(m_sealed_data->encrypted_data + m_sealed_data->encrypted_data_len),
+           (void*)key_info,
+           key_info_size);
+
+    TRACE_ENCLAVE("encrypted_data_size  %ld", m_sealed_data->encrypted_data_len);
 exit:
     if (key_info)
         free(key_info);

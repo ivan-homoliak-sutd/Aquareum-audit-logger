@@ -95,7 +95,7 @@ oe_result_t Sealing::get_seal_key_by_policy(
 
     TRACE_ENCLAVE("get_seal_key_by_policy: %d", policy);
 
-    result = oe_get_seal_key_by_policy(
+    result = oe_get_seal_key_by_policy_v2(
         (oe_seal_policy_t)policy, &buf, &buf_size, &info, &info_size);
     if (result != OE_OK) {
         TRACE_ENCLAVE(
@@ -127,10 +127,9 @@ oe_result_t Sealing::get_seal_key_by_keyinfo(
     uint8_t* buf = NULL;
     size_t required_buf_size = 0;
 
-    result = oe_get_seal_key(key_info, key_info_size, &buf, &required_buf_size);
+    result = oe_get_seal_key_v2(key_info, key_info_size, &buf, &required_buf_size);
     if (result != OE_OK) {
-        TRACE_ENCLAVE(
-            "oe_get_seal_key failed with %s\n", oe_result_str(result));
+        TRACE_ENCLAVE("oe_get_seal_key_v2 failed with %s", oe_result_str(result));
         goto exit;
     }
     *key_buf = buf;

@@ -67,16 +67,20 @@ int ecall_initialize_evm(void) {
         memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T)); // TODO: later do deep copy of err TXs
 
         // seal evm state object
-        size_t data_size = sizeof(EvmState_T);
+        const size_t data_size = sizeof(EvmState_T);
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
-        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                    (unsigned char*)evm_state_unsealed, data_size,
+        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                    (const unsigned char*)evm_state_unsealed, data_size,
                                     &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
             TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
             return ERR_FAIL_SEAL_STATE;
         }
+
+        TRACE_ENCLAVE("sizeof(EvmState_T) is %ld", data_size);
+        TRACE_ENCLAVE("sizeof(sealed_data_t) is %ld", sizeof(sealed_data_t));
+        TRACE_ENCLAVE("size of all sealed data that are written to HDD is %ld", sealed_data_size);
 
         // save sealed evm state to file, through OCALL
         ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
@@ -90,7 +94,7 @@ int ecall_initialize_evm(void) {
     } else {
 
         // EVM state file exists, so initialize from it
-        size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + 128; // the last X Bytes are for keyinfo, TODO: check the precise size of key info
+        size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + KEY_INFO_SIZE + MAX_PADDING; // the last X Bytes are for keyinfo, TODO: check the precise size of key info
         uint8_t* sealed_data = (uint8_t*)malloc(tmp_sealed_data_size);
         ocall_status = ocall_load_evm_state(&ocall_ret, sealed_data, tmp_sealed_data_size);
         if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
@@ -107,7 +111,7 @@ int ecall_initialize_evm(void) {
 
         lib_ret = _sealer.unseal_data((sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
         if (OE_OK != lib_ret) {
-            TRACE_ENCLAVE("unseal_data failed, %s", oe_result_str(ocall_status));
+            TRACE_ENCLAVE("unseal_data failed, %d", lib_ret);
             return ERR_LOAD_EVM_STATE;
         }
 

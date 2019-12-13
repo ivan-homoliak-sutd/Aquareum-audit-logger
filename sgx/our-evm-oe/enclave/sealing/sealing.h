@@ -19,6 +19,10 @@ using namespace std;
 #define DECRYPT_OPERATION false
 #define HASH_VALUE_SIZE_IN_BYTES 32
 
+// these values might change per platform!
+#define KEY_INFO_SIZE 512
+#define MAX_PADDING 32
+
 #define STATE_SEAL_MSG "Sealed data of EVM state, i.e., type EvmState_T."
 #define STATE_SEAL_MSG_LEN (size_t) strlen(STATE_SEAL_MSG)
 
@@ -38,10 +42,10 @@ class Sealing {
 
     // two ecalls
     int seal_data(int seal_policy,
-                  unsigned char* opt_mgs,
-                  size_t opt_msg_len,
-                  unsigned char* data,
-                  size_t data_size,
+                  const unsigned char* opt_mgs,
+                  const size_t opt_msg_len,
+                  const unsigned char* data,
+                  const size_t data_size,
                   sealed_data_t** sealed_data,
                   size_t* sealed_data_size);
 
@@ -55,10 +59,10 @@ class Sealing {
     void cleanup_mbedtls(void);
     int generate_iv(unsigned char* iv, unsigned int ivLen);
     oe_result_t get_seal_key_and_prep_sealed_data(int seal_policy,
-                                                  unsigned char* data,
+                                                  const unsigned char* data,
                                                   size_t data_size,
-                                                  unsigned char* opt_mgs,
-                                                  size_t opt_msg_len,
+                                                  const unsigned char* opt_mgs,
+                                                  const size_t opt_msg_len,
                                                   uint8_t** seal_key,
                                                   size_t* seal_key_size);
     oe_result_t get_seal_key_by_policy(int policy,
