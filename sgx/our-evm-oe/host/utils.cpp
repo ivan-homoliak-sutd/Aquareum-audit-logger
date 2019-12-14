@@ -10,15 +10,15 @@
 using namespace std;
 
 void info_print(const string& str) {
-    std::cout << "[INFO]" << str << std::endl;
+    std::cout << "[INFO] " << str << std::endl;
 }
 
 void warning_print(const string& str) {
-    std::cerr << "[WARNING]" << str << std::endl;
+    std::cerr << "[WARNING] " << str << std::endl;
 }
 
 void error_print(const string& str) {
-    std::cerr << "[ERROR]" << str << std::endl;
+    std::cerr << "[ERROR] " << str << std::endl;
 }
 
 int is_error(int error_code) {
@@ -66,10 +66,11 @@ int is_error(int error_code) {
 }
 
 string to_hex_str(const unsigned char* _bytes, size_t cnt) {
-    auto hex_buf = (char *) malloc(2 * cnt);
+    auto hex_buf = (char *) malloc(2 * cnt + 1);
     for (size_t i = 0; i < cnt; i++) {
-        std::sprintf(hex_buf + 2 * i, "%x", _bytes[i]);
+        std::sprintf(hex_buf + 2 * i, "%02X", _bytes[i]);
     }
+    hex_buf[2 * cnt] = '\0';
     string ret(hex_buf);
     free(hex_buf);
     return ret;

@@ -13,7 +13,7 @@
 #include "ecledger_u.h"
 #include "utils.h"
 
-#define SEALED_STORAGE_EVM "sealed-storage-evm.seal"
+#define FILE_SEALED_STORAGE_EVM "./data/sealed-storage-evm.seal"
 #define MAX_CMD_LEN 256
 
 ////////////////////
@@ -24,7 +24,7 @@ using namespace std;
 using namespace ecl;
 
 int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
-    ofstream file(SEALED_STORAGE_EVM, ios::out | ios::binary);
+    ofstream file(FILE_SEALED_STORAGE_EVM, ios::out | ios::binary);
     if (file.fail()) {
         return 1;
     }
@@ -34,7 +34,7 @@ int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
 }
 
 int ocall_load_evm_state(uint8_t* sealed_data, const size_t sealed_size) {
-    ifstream file(SEALED_STORAGE_EVM, ios::in | ios::binary);
+    ifstream file(FILE_SEALED_STORAGE_EVM, ios::in | ios::binary);
     if (file.fail()) {
         return 1;
     }
@@ -45,7 +45,7 @@ int ocall_load_evm_state(uint8_t* sealed_data, const size_t sealed_size) {
 
 int ocall_does_sealed_state_exist(void) {
     struct stat buffer;
-    if (0 != stat(SEALED_STORAGE_EVM, &buffer)) {
+    if (0 != stat(FILE_SEALED_STORAGE_EVM, &buffer)) {
         return 0;
     }
     return 1;
@@ -114,7 +114,7 @@ int main(int argc, const char* argv[]) {
     int ret = 1;
     int ret_e = 0;
     oe_enclave_t* enclave = NULL;
-    Operator * op;
+    Operator* op;
 
     uint32_t flags = OE_ENCLAVE_FLAG_DEBUG;
     if (check_simulate_opt(&argc, argv)) {
@@ -133,12 +133,6 @@ int main(int argc, const char* argv[]) {
     }
     info_print("SGX successfully initialized.");
 
-    // result = ecall_enclave_ecledger(enclave);
-    // if (result != OE_OK) {
-    //     error_print(oe_result_str(result));
-    //     goto exit;
-    // }
-
     secp256k1_pubkey encl_pk;
 
     result = ecall_initialize_evm(enclave, &ret_e, &encl_pk, sizeof(encl_pk));
@@ -149,7 +143,8 @@ int main(int argc, const char* argv[]) {
         info_print("EVM enclave successfully initialized.");
     }
 
-    (*op) = Operator(&encl_pk);
+    op = new Operator(&encl_pk);
+    op->persistMyKeys();
 
     operator_loop(enclave);
 
@@ -163,5 +158,7 @@ exit:
         }
         info_print("Enclave successfully destroyed.");
     }
+    if (op)
+        free(op);
     return ret;
 }

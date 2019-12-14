@@ -56,13 +56,13 @@ namespace eevm {
    *
    */
     struct PersistantTransaction {
-        const Address origin;
+        Address origin;
 
-        const uint64_t value; // call_value
-        const Code code;
+        uint64_t value; // call_value
+        Code code;
 
-        const uint64_t gas_price;
-        const uint64_t gas_limit;
+        uint64_t gas_price;
+        uint64_t gas_limit;
 
         std::array<uint8_t, SIG_SIZE_PB_BYTES> signature; // computed over: origin, value, code, gas_price, gas_limit,
 

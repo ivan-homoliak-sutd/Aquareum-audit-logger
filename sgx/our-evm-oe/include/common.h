@@ -60,3 +60,4 @@ typedef struct _sealed_data_t {
 #define ERR_KEYPAIR_GEN_FAILED 107
 #define ERR_FAIL_UNSEAL 108
 #define ERR_CANNOT_LOAD_SEALED_STATE 109
+#define ERR_SAVING_OPER_KEYS 110

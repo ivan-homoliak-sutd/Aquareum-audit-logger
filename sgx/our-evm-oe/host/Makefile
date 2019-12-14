@@ -33,10 +33,10 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 
 Host_Include_Paths := \
 	-I. \
-	-I./libs/intx/include/intx \
+	-I./libs/intx/include \
 	-I../include \
 	-I../common/secp256k1/include \
-	-I../common/eEVM/3rdparty/intx/include -I../common/eEVM/3rdparty -I../common/eEVM/include
+	-I../common/eEVM/3rdparty -I../common/eEVM/include
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
