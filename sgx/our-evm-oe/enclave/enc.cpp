@@ -29,7 +29,6 @@ void ecall_enclave_ecledger() {
     if (result != OE_OK) {
         fprintf(stderr, "[ENCLAVE]: Call to ocall_host_ecledger failed: result=%u (%s)\n", result, oe_result_str(result));
     }
-
     ECLedger l = ECLedger();
     l.execute_hello_world();
     l.execute_sum_a_b(2, 3);

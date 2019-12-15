@@ -10,6 +10,7 @@
 #define SIGNATURE_LEN 32
 #define ECC_SK_SIZE 32
 #define ECC_PK_SIZE 64
+#define PB_ADDR_SIZE 20
 
 typedef struct _sealed_data_t {
     size_t total_size;
@@ -26,7 +27,6 @@ typedef struct _sealed_data_t {
 #define TRACING_LOG_ENABLED 1
 
 #ifdef TRACING_LOG_ENABLED
-
     #define TRACE_ENCLAVE(fmt, ...)             \
         printf(                                 \
             "\t[TRACE_ENC]: %s(%d): " fmt "\n", \
@@ -35,9 +35,14 @@ typedef struct _sealed_data_t {
             ##__VA_ARGS__)
 
 #else
-    #define TRACE_ENCLAVE(fmt, ...)  ;
+    #define TRACE_ENCLAVE(fmt, ...)  (void)
 
 #endif
+
+#define ERROR_PRINT(fmt, ...)             \
+        fprintf(stderr,                                 \
+            "\t[ERROR]: " fmt "\n", \
+            ##__VA_ARGS__)
 
 
 // errors shared by host and enclaves
@@ -61,3 +66,4 @@ typedef struct _sealed_data_t {
 #define ERR_FAIL_UNSEAL 108
 #define ERR_CANNOT_LOAD_SEALED_STATE 109
 #define ERR_SAVING_OPER_KEYS 110
+#define ERR_WRONG_ARGS 111

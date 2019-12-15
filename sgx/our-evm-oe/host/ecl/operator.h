@@ -8,8 +8,11 @@
 #include "eEVM/transaction.h"
 
 #include "data_types.h"
+#include "ecledger_u.h"
+#include "ecl-host.h"
 
 #define FILE_OPERATOR_KEYS "./data/operator-keys.txt"
+#define MAX_CMD_LEN 256
 
 // default numbers of unprocessed TXs and processed blocks required to flush into VM enclave / PB
 #define NUM_TXS_FLUSH_VM 10
@@ -45,16 +48,18 @@ namespace ecl {
         uint timeout_PB = TIMEOUT_FLUSH_PB; // timeout for flushing to PB,
     };
 
-    struct Operator {
+    class Operator {
+
         // uint256_t PK_E_TEE;
         // uint256_t PK_E_PB;
         // uint256_t PK_O; // PK of operator (under Sigma_PB)
         // uint256_t SK_O; // SK of operator (under Sigma_PB)
 
+      public:
         uint8_t PK_E_TEE[ECC_SK_SIZE];
-        secp256k1_pubkey PK_E_PB; // public key (i.e., unsigned char [64])
-        secp256k1_pubkey PK_O;    // PK of operator (under Sigma_PB)
-        uint8_t SK_O[ECC_SK_SIZE];  // SK of operator (under Sigma_PB)
+        secp256k1_pubkey PK_E_PB;  // public key (i.e., unsigned char [64])
+        secp256k1_pubkey PK_O;     // PK of operator (under Sigma_PB)
+        uint8_t SK_O[ECC_SK_SIZE]; // SK of operator (under Sigma_PB)
 
         std::vector<eevm::PersistantTransaction> txs_uprocessed; // cache of unprocessed TXs,
         std::vector<Block> blks_processed;                       // cache of processed blocks, not synced with PB yet
@@ -73,6 +78,8 @@ namespace ecl {
 
         FlushingLimits flush_lims; // the flushing limits
 
+        ECLedger ecl;
+
         secp256k1_context* ctx;
 
         Operator(secp256k1_pubkey* _enc_PK);
@@ -81,9 +88,13 @@ namespace ecl {
                 free(this->ctx);
         };
 
+        void operatorLoop(oe_enclave_t* enclave);
+
+      private:
         int persistMyKeys();
         bool existsMyKeyFile();
         int loadMyKeysFromFile();
+        void print_evm_state(PublicSealedData_T & es);
     };
 
 } // namespace ecl

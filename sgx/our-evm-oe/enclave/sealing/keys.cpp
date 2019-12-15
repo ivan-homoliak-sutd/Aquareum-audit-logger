@@ -155,8 +155,7 @@ int Sealing::sign_sealed_data(
     mbedtls_md_init(&ctx);
     TRACE_ENCLAVE("sign_sealed_data");
 
-    ret = mbedtls_md_setup(
-        &ctx, mbedtls_md_info_from_type(md_type), 1); // use hmac
+    ret = mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1); // use hmac
     if (ret)
         goto exit;
 
@@ -164,48 +163,41 @@ int Sealing::sign_sealed_data(
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx, (const unsigned char*)&(sealed_data->total_size), sizeof(size_t));
+    ret = mbedtls_md_hmac_update(&ctx, (const unsigned char*)&(sealed_data->total_size), sizeof(size_t));
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx,
-        (const unsigned char*)sealed_data->opt_msg,
-        strlen((const char*)sealed_data->opt_msg));
+    ret = mbedtls_md_hmac_update(&ctx,
+                                 (const unsigned char*)sealed_data->opt_msg,
+                                 strlen((const char*)sealed_data->opt_msg));
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx, (const unsigned char*)sealed_data->iv, IV_SIZE);
+    ret = mbedtls_md_hmac_update(&ctx, (const unsigned char*)sealed_data->iv, IV_SIZE);
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx,
-        (const unsigned char*)&(sealed_data->original_data_size),
-        sizeof(size_t));
+    ret = mbedtls_md_hmac_update(&ctx,
+                                 (const unsigned char*)&(sealed_data->original_data_size),
+                                 sizeof(size_t));
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx,
-        (const unsigned char*)&(sealed_data->key_info_size),
-        sizeof(size_t));
+    ret = mbedtls_md_hmac_update(&ctx,
+                                 (const unsigned char*)&(sealed_data->key_info_size),
+                                 sizeof(size_t));
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx,
-        (const unsigned char*)&(sealed_data->encrypted_data_len),
-        sizeof(size_t));
+    ret = mbedtls_md_hmac_update(&ctx,
+                                 (const unsigned char*)&(sealed_data->encrypted_data_len),
+                                 sizeof(size_t));
     if (ret)
         goto exit;
 
-    ret = mbedtls_md_hmac_update(
-        &ctx,
-        (const unsigned char*)sealed_data->encrypted_data,
-        sealed_data->encrypted_data_len + sealed_data->key_info_size);
+    ret = mbedtls_md_hmac_update(&ctx,
+                                 (const unsigned char*)sealed_data->encrypted_data,
+                                 sealed_data->encrypted_data_len + sealed_data->key_info_size);
     if (ret)
         goto exit;
 

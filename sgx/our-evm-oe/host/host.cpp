@@ -14,7 +14,6 @@
 #include "utils.h"
 
 #define FILE_SEALED_STORAGE_EVM "./data/sealed-storage-evm.seal"
-#define MAX_CMD_LEN 256
 
 ////////////////////
 // OCALL definitions
@@ -55,44 +54,6 @@ void ocall_host_ecledger() {
     fprintf(stdout, "Enclave called into host to print: Hello World!\n");
 }
 
-////////////////////////////////////////
-// Processing commands from operator  //
-////////////////////////////////////////
-
-void operator_loop(oe_enclave_t* enclave) {
-
-    int ret;               // internal return value
-    oe_result_t ecall_ret; // return value of general enclave call
-    char command[MAX_CMD_LEN];
-
-    while (true) {
-
-        cout << "$>";
-        cin.getline(command, MAX_CMD_LEN);
-        if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
-            PublicSealedData_T pub_evm_state;
-            ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
-            if (ecall_ret != OE_OK && is_error(ret)) {
-                error_print("Fail to initialize EVM enclave.");
-            }
-            cout << "The number of disk inits of enclave is " << pub_evm_state.diskInits << endl;
-
-        } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
-            info_print("Syncing sealed state of enclave to disk...");
-            ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
-            if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when syncing sealed state.");
-            } else {
-                info_print("Successfuly synced.");
-            }
-            cout << "Operator shell quits...\n";
-            break;
-        } else {
-            cout << "Unknown command" << endl;
-        }
-    }
-}
-
 ///////////////////////// AUX STUFF /////////////////////////
 
 bool check_simulate_opt(int* argc, const char* argv[]) {
@@ -107,6 +68,18 @@ bool check_simulate_opt(int* argc, const char* argv[]) {
     return false;
 }
 
+int parseArgs(int argc, const char* argv[], uint32_t& flags) {
+    flags = OE_ENCLAVE_FLAG_DEBUG;
+    if (check_simulate_opt(&argc, argv)) {
+        flags |= OE_ENCLAVE_FLAG_SIMULATE;
+    }
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s enclave_image_path [ --simulate  ]\n", argv[0]);
+        return ERR_WRONG_ARGS;
+    }
+    return RET_SUCCESS;
+}
+
 ///////////////////////// MAIN /////////////////////////
 
 int main(int argc, const char* argv[]) {
@@ -115,24 +88,20 @@ int main(int argc, const char* argv[]) {
     int ret_e = 0;
     oe_enclave_t* enclave = NULL;
     Operator* op;
+    uint32_t flags;
 
-    uint32_t flags = OE_ENCLAVE_FLAG_DEBUG;
-    if (check_simulate_opt(&argc, argv)) {
-        flags |= OE_ENCLAVE_FLAG_SIMULATE;
-    }
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s enclave_image_path [ --simulate  ]\n", argv[0]);
-        goto exit;
-    }
+    if (RET_SUCCESS != parseArgs(argc, argv, flags))
+        return ret;
 
     // Create the enclave
     result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_AUTO, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
     if (OE_OK != result) {
-        error_print(string("oe_create_ecledger_enclave(): ") + string(oe_result_str(result)));
+        ERROR_PRINT("oe_create_ecledger_enclave(): %s", oe_result_str(result));
         goto exit;
     }
     info_print("SGX successfully initialized.");
 
+    // Initialize EVM part of the enclave, generate/lead keys and get E_PK_PB
     secp256k1_pubkey encl_pk;
 
     result = ecall_initialize_evm(enclave, &ret_e, &encl_pk, sizeof(encl_pk));
@@ -144,19 +113,16 @@ int main(int argc, const char* argv[]) {
     }
 
     op = new Operator(&encl_pk);
-    op->persistMyKeys();
-
-    operator_loop(enclave);
+    op->operatorLoop(enclave); // the main loop of operator
 
     ret = 0;
 
 exit:
-    // Clean up the enclave if we created one
-    if (enclave) {
-        if (OE_OK != (result = oe_terminate_enclave(enclave))) {
+    if (enclave) { // Clean up the enclave if we created one
+        if (OE_OK != (result = oe_terminate_enclave(enclave)))
             error_print(string("Enclave was not destryed correctly: ") + string(oe_result_str(result)));
-        }
-        info_print("Enclave successfully destroyed.");
+        else
+            info_print("Enclave successfully destroyed.");
     }
     if (op)
         free(op);

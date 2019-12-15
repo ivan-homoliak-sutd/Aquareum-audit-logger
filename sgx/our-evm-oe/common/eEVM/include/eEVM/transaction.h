@@ -3,6 +3,7 @@
 
 #pragma once
 #include "address.h"
+#include "bigint.h"
 
 #include <array>
 #include <nlohmann/json.hpp>
@@ -70,14 +71,31 @@ namespace eevm {
             const Address origin,
             uint64_t value = 0,
             Code code = {},
+            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {},
             uint64_t gas_price = 0,
-            uint64_t gas_limit = 0,
-            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : origin(origin),
-                                                                     value(value),
-                                                                     code(code),
-                                                                     gas_price(gas_price),
-                                                                     gas_limit(gas_limit),
-                                                                     signature(signature) {}
+            uint64_t gas_limit = 0) : origin(origin),
+                                      value(value),
+                                      code(code),
+                                      gas_price(gas_price),
+                                      gas_limit(gas_limit),
+                                      signature(signature) {}
+
+        std::vector<uint8_t> & asDataForHash() {
+            std::vector<uint8_t> & ret = *(new std::vector<uint8_t> (sizeof(Address) + sizeof(uint64_t) * 3 + code.size()));
+
+            // construct data object in the order: origin, value, gas_price, gas_limit, code
+            // std::vector<uint8_t> addr(32);
+            uint8_t addr[32];
+            intx::be::unsafe::store((uint8_t *) &addr, this->origin); // convert Address to vector of Bytes ((intx::uint<256>))
+            memcpy(ret.data(), addr, 32);
+
+            memcpy(ret.data() + sizeof(Address), &(this->value), sizeof(uint64_t));
+            memcpy(ret.data() + sizeof(Address) + sizeof(uint64_t), &(this->gas_price), sizeof(uint64_t));
+            memcpy(ret.data() + sizeof(Address) + 2 * sizeof(uint64_t), &(this->gas_limit), sizeof(uint64_t));
+            memcpy(ret.data() + sizeof(Address) + 3 * sizeof(uint64_t), this->code.data(), this->code.size());
+
+            return ret;
+        };
     };
 
     /**
@@ -94,7 +112,7 @@ namespace eevm {
             uint64_t value = 0,
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
-            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : PersistantTransaction(origin, value, code, gas_price, gas_limit, signature),
+            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : PersistantTransaction(origin, value, code, signature, gas_price, gas_limit),
                                                                      log_handler(lh) {}
     };
 } // namespace eevm

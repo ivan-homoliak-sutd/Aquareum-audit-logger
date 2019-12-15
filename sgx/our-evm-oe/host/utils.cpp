@@ -10,16 +10,17 @@
 using namespace std;
 
 void info_print(const string& str) {
-    std::cout << "[INFO] " << str << std::endl;
+    std::cout << "[INFO] " << str << "\n";
 }
 
 void warning_print(const string& str) {
-    std::cerr << "[WARNING] " << str << std::endl;
+    std::cerr << "[WARNING] " << str << "\n";
 }
 
 void error_print(const string& str) {
-    std::cerr << "[ERROR] " << str << std::endl;
+    std::cerr << "[ERROR] " << str << "\n";
 }
+
 
 int is_error(int error_code) {
     char err_message[100];

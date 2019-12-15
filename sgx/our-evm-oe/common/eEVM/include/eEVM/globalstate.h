@@ -35,8 +35,6 @@ namespace eevm
    */
   struct GlobalState
   {
-    // GlobalState() {};
-    // ~GlobalState() {}
     virtual void remove(const Address& addr) = 0;
 
     /**
@@ -49,7 +47,5 @@ namespace eevm
     virtual const Block& get_current_block() = 0;
     virtual uint256_t get_block_hash(uint8_t offset) = 0;
   };
-
-  // GlobalState::GlobalState(){}; // non-inline definition that resolves ...
 
 } // namespace eevm
