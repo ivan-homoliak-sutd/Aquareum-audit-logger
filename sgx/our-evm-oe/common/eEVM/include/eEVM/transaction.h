@@ -77,15 +77,17 @@ namespace eevm {
             Code code = {},
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
-            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : origin(origin),
-                                                         to(to),
-                                                         nonce(nonce),
-                                                         value(value),
-                                                         gas_price(gas_price),
-                                                         gas_limit(gas_limit),
-                                                         code(code) {
+            uint8_t* signature = NULL) : origin(origin),
+                                         to(to),
+                                         nonce(nonce),
+                                         value(value),
+                                         gas_price(gas_price),
+                                         gas_limit(gas_limit),
+                                         code(code) {
 
-            memcpy(this->signature, signature, SIG_SIZE_PB_BYTES);
+            if (signature) {
+                memcpy(this->signature, signature, SIG_SIZE_PB_BYTES);
+            }
         }
 
         std::vector<uint8_t>& asDataForHash() {
@@ -128,20 +130,20 @@ namespace eevm {
             uint64_t nonce = 0,
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
-            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : PersistantTransaction(origin, to, nonce, value, code, gas_price, gas_limit, signature),
-                                                         log_handler(lh) {}
+            uint8_t* signature = NULL) : PersistantTransaction(origin, to, nonce, value, code, gas_price, gas_limit, signature),
+                                         log_handler(lh) {}
 
         // constructor with pointers to Address fields
         Transaction(
-            Address * origin,
-            Address * to,
+            Address* origin,
+            Address* to,
             LogHandler& lh,
             Code code = {},
             uint64_t value = 0,
             uint64_t nonce = 0,
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
-            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : PersistantTransaction(*origin, *to, nonce, value, code, gas_price, gas_limit, signature),
-                                                         log_handler(lh) {}
+            uint8_t* signature = NULL) : PersistantTransaction(*origin, *to, nonce, value, code, gas_price, gas_limit, signature),
+                                         log_handler(lh) {}
     };
 } // namespace eevm

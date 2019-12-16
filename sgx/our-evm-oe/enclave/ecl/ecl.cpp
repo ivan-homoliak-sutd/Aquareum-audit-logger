@@ -13,16 +13,20 @@
 
 int ECLedger::execute_tx(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size) {
 
+    TRACE_ENCLAVE("execute_tx invoked");
+
     // create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
     auto lh = eevm::NullLogHandler();
 
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
-                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, tx->signature);
+                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t *) tx->signature);
 
     // Deploy contract to global state
     const eevm::AccountState contract = this->gs.create(etx.to, 0, c);
+
+    TRACE_ENCLAVE("running processor...");
 
     // Create processor
     eevm::Processor p(this->gs);

@@ -71,6 +71,7 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
         error_print("Error when signing hello world TX.");
     }
     int i = 0;
+
     memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
 
     return tx;

@@ -23,7 +23,8 @@ ECLedger _ecl;
 
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger() {
-    fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
+    // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
+    std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
 
     // Call back into the host
     oe_result_t result = ocall_host_ecledger();

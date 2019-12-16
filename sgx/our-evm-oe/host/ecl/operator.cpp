@@ -113,6 +113,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
                 error_print("Failed to initialize EVM enclave.");
             }
             this->print_evm_state(pub_evm_state);
+        } else if (0 == strcmp(command, "test")) {
+            info_print("Invoking internally generated TXs in enclave...");
+
+            ecall_ret = ecall_enclave_ecledger(enclave);
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when invoking internal TX generation.");
+            }
+            info_print("...done");
         } else if (0 == strcmp(command, "tx add")) {
             info_print("Creating TX that sums 1 + 1 ...");
 
@@ -127,6 +135,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
 
             // create and sign TX
             eevm::PersistantTransaction* tx = this->ecl.createHelloWorldTX(this->PK_O, this->SK_O, *(this->ctx));
+
+            info_print("...done");
 
             ecall_ret = ecall_run_single_tx(enclave,
                                             &ret, (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
