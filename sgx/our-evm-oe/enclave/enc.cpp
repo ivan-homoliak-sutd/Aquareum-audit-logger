@@ -159,19 +159,6 @@ int ecall_sync_evm_sealed_state_to_disk(void) {
 
 int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size) {
     (*pub_evm_state) = _evm_state.pub;
-
-    // ECLedger l = ECLedger();
-    // l.execute_hello_world();
-
-    // uint32_t plaintext_size = sizeof(EvmState_T);
-    // EvmState_T* evm_state_unsealed = (EvmState_T*)malloc(plaintext_size);
-
-    // // generate EVM key under sig. scheme of PB and store it to evm state struct
-    // if(0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)){
-    //     free(evm_state_unsealed);
-    //     return ERR_KEYPAIR_GEN_FAILED;
-    // }
-
     return 0;
 }
 

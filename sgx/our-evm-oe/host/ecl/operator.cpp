@@ -1,15 +1,17 @@
+#include "operator.h"
+#include "common.h"
+#include "secp256k1.h"
+#include "utils.h"
+
+#include <boost/tokenizer.hpp>
 #include <fmt/format_header_only.h>
 #include <fstream>
 #include <iostream>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+#include <stdexcept>
 #include <string>
 #include <sys/stat.h>
-
-#include "common.h"
-#include "operator.h"
-#include "secp256k1.h"
-#include "utils.h"
 
 using namespace ecl;
 
@@ -121,28 +123,47 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
                 error_print("Error when invoking internal TX generation.");
             }
             info_print("...done");
-        } else if (0 == strcmp(command, "tx add")) {
-            info_print("Creating TX that sums 1 + 1 ...");
+        } else if (0 == strncmp(command, "tx add", 6)) {
+
+            const std::string& delims = " ";
+            typedef boost::char_separator<char> separator;
+            boost::tokenizer<separator> tokens(string(std::move(command)), separator(delims.c_str()));
+            if (std::distance(tokens.begin(), tokens.end()) != 4) {
+                std::cerr << "wrong token count: " << std::distance(tokens.begin(), tokens.end()) << std::endl;
+                continue;
+            }
+            int a, b;
+            try {
+                auto it = tokens.begin();
+                std::advance(it, 2);
+                a = std::stoi(*it);
+                b = std::stoi(*std::next(it));
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+            INFO_PRINT( "Creating TX that sums %d + %d ...", a, b);
 
             // create TX using eEVM
+            eevm::PersistantTransaction* tx = this->ecl.createSumTx(a, b, this->PK_O, this->SK_O, *(this->ctx));
 
-            // ecall_ret = ecall_run_single_tx(enclave, &ret, tx);
-            // if (ecall_ret != OE_OK || is_error(ret)) {
-            //     error_print("Error when processing sum TX in Enclave.");
-            // }
+            ecall_ret = ecall_run_single_tx(enclave, &ret,
+                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when processing sum TX in Enclave.");
+            }
         } else if (0 == strcmp(command, "tx 0")) {
             info_print("Creating hello world TX ...");
 
             // create and sign TX
             eevm::PersistantTransaction* tx = this->ecl.createHelloWorldTX(this->PK_O, this->SK_O, *(this->ctx));
 
-            info_print("...done");
-
-            ecall_ret = ecall_run_single_tx(enclave,
-                                            &ret, (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            ecall_ret = ecall_run_single_tx(enclave, &ret,
+                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                             (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when processing hello world TX in Enclave.");
+                error_print("Error when processing print hello world TX in Enclave.");
             }
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");

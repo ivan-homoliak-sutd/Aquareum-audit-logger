@@ -15,7 +15,11 @@
 
 #include <openssl/sha.h>
 
-std::vector<uint8_t> create_bytecode(const std::string& s) {
+ECLedger::ECLedger(){};
+
+/////////////////// bytecode generation ///////////////////
+
+std::vector<uint8_t> create_printStr_bytecode(const std::string& s) {
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;
     const uint8_t rsize = s.size() + 1;
@@ -40,7 +44,61 @@ std::vector<uint8_t> create_bytecode(const std::string& s) {
     return code;
 }
 
-ECLedger::ECLedger(){};
+void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
+    code.push_back(eevm::Opcode::PUSH32); // Append opcode
+
+    // Resize code array
+    const size_t pre_size = code.size();
+    code.resize(pre_size + 32);
+
+    // Serialize number into code array
+    eevm::to_big_endian(n, code.data() + pre_size); // IH: store n to real memory pointed by code.data() + pre_size
+}
+
+std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b) {
+    std::vector<uint8_t> code;
+    constexpr uint8_t mdest = 0x0;  //< Memory start address for result
+    constexpr uint8_t rsize = 0x20; //< Size of result
+
+    // Push args and ADD
+    push_uint256(code, a);
+    push_uint256(code, b);
+    code.push_back(eevm::Opcode::ADD);
+
+    // Store result
+    code.push_back(eevm::Opcode::PUSH1);
+    code.push_back(mdest);
+    code.push_back(eevm::Opcode::MSTORE);
+
+    // Return
+    code.push_back(eevm::Opcode::PUSH1);
+    code.push_back(rsize);
+    code.push_back(eevm::Opcode::PUSH1);
+    code.push_back(mdest);
+    code.push_back(eevm::Opcode::RETURN);
+
+    return code;
+}
+
+
+/////////////////// AUX ///////////////////
+
+void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE], secp256k1_context& ctx) {
+    auto inp4hash = tx->asDataForHash();
+
+    eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+
+    secp256k1_ecdsa_signature tx_sig;
+    int ret = secp256k1_ecdsa_sign(&ctx, &tx_sig, tx_hash.data(), SK_sender, NULL, NULL);
+    if (1 != ret) {
+        error_print("Error when signing hello world TX.");
+    }
+    int i = 0;
+
+    memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
+}
+
+/////////////////// Transaction creation ///////////////////
 
 eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t (&SK_sender)[ECC_SK_SIZE],
@@ -56,23 +114,39 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
 
     // Create code
     std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
-    const eevm::Code code = create_bytecode(hello_world);
+    const eevm::Code code = create_printStr_bytecode(hello_world);
 
     uint64_t nonce = 0; // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
+    sign_tx(tx, SK_sender, ctx);
 
-    auto inp4hash = tx->asDataForHash();
+    return tx;
+}
 
-    eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
+                                                   secp256k1_pubkey& PK_sender,
+                                                   uint8_t (&SK_sender)[ECC_SK_SIZE],
+                                                   secp256k1_context& ctx) {
 
-    secp256k1_ecdsa_signature tx_sig;
-    int ret = secp256k1_ecdsa_sign(&ctx, &tx_sig, tx_hash.data(), SK_sender, NULL, NULL);
-    if (1 != ret) {
-        error_print("Error when signing hello world TX.");
-    }
-    int i = 0;
+    // Parse args
+    const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
+    const uint256_t arg_b = eevm::to_uint256(std::to_string(b));
 
-    memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
+    // Create addresses for sender using his PK
+    const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
+
+    // Create random addresses for contract
+    std::vector<uint8_t> raw_address(20); // addrress has 20 Bytes
+    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+    const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
+
+    // Create summing bytecode
+    const eevm::Code code = create_a_plus_b_bytecode(arg_a, arg_b);
+
+    // Construct a transaction object
+    uint64_t nonce = 0; // TODO: this is temporary (it should be extracted from evm)
+    auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
+    sign_tx(tx, SK_sender, ctx);
 
     return tx;
 }

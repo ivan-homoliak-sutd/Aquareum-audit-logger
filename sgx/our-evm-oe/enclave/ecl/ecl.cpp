@@ -21,7 +21,7 @@ int ECLedger::execute_tx(PersistantTxProxy_T* tx, const uint8_t* code, size_t co
 
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
-                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t *) tx->signature);
+                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
     // Deploy contract to global state
     const eevm::AccountState contract = this->gs.create(etx.to, 0, c);
@@ -41,8 +41,12 @@ int ECLedger::execute_tx(PersistantTxProxy_T* tx, const uint8_t* code, size_t co
         return ERR_EVM_WRONG_RET_CODE;
     }
 
-    const std::string response(reinterpret_cast<const char*>(e.output.data()));
-    TRACE_ENCLAVE("output: %s", response.c_str());
+    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
+    TRACE_ENCLAVE("output as str: %s", response.c_str());
+
+    const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
+    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+
     return RET_SUCCESS;
 }
 
@@ -212,8 +216,7 @@ int ECLedger::execute_sum_a_b(int a, int b) {
     eevm::Processor p(gs);
 
     if (verbose)
-        std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender),
-                                 eevm::to_checksum_address(to))
+        std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender), eevm::to_checksum_address(to))
                   << std::endl;
 
     // Run transaction

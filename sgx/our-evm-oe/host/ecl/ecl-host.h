@@ -4,9 +4,14 @@
 #include "eEVM/transaction.h"
 #include "secp256k1.h"
 
-class ECLedger{
+class ECLedger {
 
   public:
-	ECLedger();
-	eevm::PersistantTransaction * createHelloWorldTX(secp256k1_pubkey & PK_sender, uint8_t (& SK_sender) [ECC_SK_SIZE], secp256k1_context & ctx);
+    ECLedger();
+    eevm::PersistantTransaction* createHelloWorldTX(secp256k1_pubkey& PK_sender, uint8_t (&SK_sender)[ECC_SK_SIZE], secp256k1_context& ctx);
+
+    eevm::PersistantTransaction* createSumTx(int a, int b,
+                                               secp256k1_pubkey& PK_sender,
+                                               uint8_t (&SK_sender)[ECC_SK_SIZE],
+                                               secp256k1_context& ctx);
 };

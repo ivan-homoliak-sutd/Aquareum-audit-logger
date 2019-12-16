@@ -1,10 +1,9 @@
-#include <cstring>
-#include <stdio.h>
-
-#include "common.h"
 #include "utils.h"
+#include "common.h"
 
+#include <cstring>
 #include <iostream>
+#include <stdio.h>
 #include <string>
 
 using namespace std;
@@ -20,7 +19,6 @@ void warning_print(const string& str) {
 void error_print(const string& str) {
     std::cerr << "[ERROR] " << str << "\n";
 }
-
 
 int is_error(int error_code) {
     char err_message[100];
@@ -67,7 +65,7 @@ int is_error(int error_code) {
 }
 
 string to_hex_str(const unsigned char* _bytes, size_t cnt) {
-    auto hex_buf = (char *) malloc(2 * cnt + 1);
+    auto hex_buf = (char*)malloc(2 * cnt + 1);
     for (size_t i = 0; i < cnt; i++) {
         std::sprintf(hex_buf + 2 * i, "%02X", _bytes[i]);
     }

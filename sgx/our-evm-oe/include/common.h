@@ -44,6 +44,12 @@ typedef struct _sealed_data_t {
             "\t[ERROR]: " fmt "\n", \
             ##__VA_ARGS__)
 
+#define INFO_PRINT(fmt, ...)             \
+        fprintf(stdout,                                 \
+            "\t[INFO]: " fmt "\n", \
+            ##__VA_ARGS__)
+
+
 
 // errors shared by host and enclaves
 #define ERROR_SIGNATURE_VERIFY_FAIL 1
