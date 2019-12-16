@@ -47,15 +47,19 @@ typedef struct { // used as persested object in the sealed storage
 
 // TX object should be constructed only from elementary C types (this should match TX defined in eEVM)
 typedef struct {
-    const char origin[ADDRESS_SIZE_PB];
+    uint8_t origin[ADDRESS_SIZE_PB]; // sender of the TX
+    uint8_t to[ADDRESS_SIZE_PB];     // the recepient of the TX
+    uint64_t nonce;                  // the number of TXs send by the sender of this TX (i.e., protection against replay attacks)
 
-    const uint64_t value; // call_value
-    const unsigned char** code;
+    uint64_t value; // call_value
 
-    const uint64_t gas_price;
-    const uint64_t gas_limit;
+    uint64_t gas_price;
+    uint64_t gas_limit;
 
-    unsigned char signature[SIG_SIZE_PB]; // computed over: origin, value, code, gas_price, gas_limit,
-} PersistantTransaction_T;
+    uint8_t signature[SIG_SIZE_PB]; // computed over: origin, value, code, gas_price, gas_limit,
+
+    // unsigned char** code; // this will be outside of this struct
+
+} PersistantTxProxy_T;
 
 //////////////////////////// HOST ///////////////////////////////////

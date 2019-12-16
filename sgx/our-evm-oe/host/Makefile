@@ -25,11 +25,12 @@ CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 INTX_LIB_DIR := ./libs/intx/build/lib/intx/
 
+EEVM_LIB_DIR := ../common/eEVM/build/
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
-	-L$(INTX_LIB_DIR) -lintx
-	# -L$(EEVM_LIB_DIR) -leevm
+	-L$(INTX_LIB_DIR) -lintx \
+	-L$(EEVM_LIB_DIR) -leevm
 
 Host_Include_Paths := \
 	-I. \

@@ -19,6 +19,7 @@ EvmState_T _evm_state;
 bool _evm_initialized = false;
 
 Sealing _sealer;
+ECLedger _ecl;
 
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger() {
@@ -69,7 +70,7 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
         const size_t data_size = sizeof(EvmState_T);
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
-        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
                                     (const unsigned char*)evm_state_unsealed, data_size,
                                     &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
@@ -137,9 +138,9 @@ int ecall_sync_evm_sealed_state_to_disk(void) {
     size_t data_size = sizeof(EvmState_T);
     sealed_data_t* sealed_data = NULL;
     size_t sealed_data_size = 0;
-    int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char *)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                (unsigned char*)&_evm_state, data_size,
-                                &sealed_data, &sealed_data_size);
+    int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                    (unsigned char*)&_evm_state, data_size,
+                                    &sealed_data, &sealed_data_size);
     if (OE_OK != lib_ret) {
         TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
         return ERR_FAIL_SEAL_STATE;
@@ -171,4 +172,8 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
     // }
 
     return 0;
+}
+
+int ecall_run_single_tx(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
+    return _ecl.execute_tx(tx, code, code_size);
 }

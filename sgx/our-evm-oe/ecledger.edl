@@ -20,6 +20,13 @@ enclave {
         );
 
         public int ecall_sync_evm_sealed_state_to_disk(void);
+
+        public int ecall_run_single_tx(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size
+        );
     };
 
 

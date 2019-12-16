@@ -18,7 +18,7 @@ namespace eevm
     Address address = {};
     uint256_t balance = {};
     Code code = {};
-    Nonce nonce = {};
+    Nonce nonce = {}; // the number of TXs send by the owner of the account
 
   public:
     SimpleAccount() = default;

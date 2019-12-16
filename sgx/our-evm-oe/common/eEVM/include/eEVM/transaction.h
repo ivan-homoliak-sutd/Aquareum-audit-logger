@@ -6,10 +6,13 @@
 #include "bigint.h"
 
 #include <array>
+#include <cassert>
 #include <nlohmann/json.hpp>
 #include <vector>
 
 #define SIG_SIZE_PB_BYTES 64
+#define ADDRESS_SIZE 32
+// note that only 20B of 32 are used, but the full 32B are required due to internals of eevm
 
 namespace eevm {
     using Code = std::vector<uint8_t>;
@@ -57,42 +60,53 @@ namespace eevm {
    *
    */
     struct PersistantTransaction {
-        Address origin;
-
+        Address origin; // sender of the TX
+        Address to;     // the recepient of the TX
+        uint64_t nonce; // the number of TXs send by the sender of this TX (i.e., protection against replay attacks)
         uint64_t value; // call_value
-        Code code;
-
         uint64_t gas_price;
         uint64_t gas_limit;
-
-        std::array<uint8_t, SIG_SIZE_PB_BYTES> signature; // computed over: origin, value, code, gas_price, gas_limit,
+        uint8_t signature[SIG_SIZE_PB_BYTES]; // computed over: origin, to, value, code, gas_price, gas_limit, nonce
+        Code code;
 
         PersistantTransaction(
-            const Address origin,
+            Address origin,
+            Address to,
+            uint64_t nonce,
             uint64_t value = 0,
             Code code = {},
-            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {},
             uint64_t gas_price = 0,
-            uint64_t gas_limit = 0) : origin(origin),
-                                      value(value),
-                                      code(code),
-                                      gas_price(gas_price),
-                                      gas_limit(gas_limit),
-                                      signature(signature) {}
+            uint64_t gas_limit = 0,
+            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : origin(origin),
+                                                         to(to),
+                                                         nonce(nonce),
+                                                         value(value),
+                                                         gas_price(gas_price),
+                                                         gas_limit(gas_limit),
+                                                         code(code) {
 
-        std::vector<uint8_t> & asDataForHash() {
-            std::vector<uint8_t> & ret = *(new std::vector<uint8_t> (sizeof(Address) + sizeof(uint64_t) * 3 + code.size()));
+            memcpy(this->signature, signature, SIG_SIZE_PB_BYTES);
+        }
 
-            // construct data object in the order: origin, value, gas_price, gas_limit, code
-            // std::vector<uint8_t> addr(32);
-            uint8_t addr[32];
-            intx::be::unsafe::store((uint8_t *) &addr, this->origin); // convert Address to vector of Bytes ((intx::uint<256>))
-            memcpy(ret.data(), addr, 32);
+        std::vector<uint8_t>& asDataForHash() {
+            assert(sizeof(Address) == ADDRESS_SIZE);
 
-            memcpy(ret.data() + sizeof(Address), &(this->value), sizeof(uint64_t));
-            memcpy(ret.data() + sizeof(Address) + sizeof(uint64_t), &(this->gas_price), sizeof(uint64_t));
-            memcpy(ret.data() + sizeof(Address) + 2 * sizeof(uint64_t), &(this->gas_limit), sizeof(uint64_t));
-            memcpy(ret.data() + sizeof(Address) + 3 * sizeof(uint64_t), this->code.data(), this->code.size());
+            std::vector<uint8_t>& ret = *(new std::vector<uint8_t>(2 * sizeof(Address) + sizeof(uint64_t) * 4 + code.size()));
+
+            // construct data object in the order: origin, to, value, gas_price, gas_limit, nonce, code
+            uint8_t addr[ADDRESS_SIZE];
+
+            intx::be::unsafe::store((uint8_t*)&addr, this->origin); // convert Address to vector of Bytes ((intx::uint<256>))
+            memcpy(ret.data(), addr, ADDRESS_SIZE);
+
+            intx::be::unsafe::store((uint8_t*)&addr, this->to); // convert Address to vector of Bytes ((intx::uint<256>))
+            memcpy(ret.data() + sizeof(Address), addr, ADDRESS_SIZE);
+
+            memcpy(ret.data() + 2 * sizeof(Address), &(this->value), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + sizeof(uint64_t), &(this->gas_price), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 2 * sizeof(uint64_t), &(this->gas_limit), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 3 * sizeof(uint64_t), &(this->nonce), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 4 * sizeof(uint64_t), this->code.data(), this->code.size());
 
             return ret;
         };
@@ -106,13 +120,28 @@ namespace eevm {
         std::vector<Address> destroy_list;
 
         Transaction(
-            const Address origin,
+            Address origin,
+            Address to,
             LogHandler& lh,
             Code code = {},
             uint64_t value = 0,
+            uint64_t nonce = 0,
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
-            std::array<uint8_t, SIG_SIZE_PB_BYTES> signature = {}) : PersistantTransaction(origin, value, code, signature, gas_price, gas_limit),
-                                                                     log_handler(lh) {}
+            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : PersistantTransaction(origin, to, nonce, value, code, gas_price, gas_limit, signature),
+                                                         log_handler(lh) {}
+
+        // constructor with pointers to Address fields
+        Transaction(
+            Address * origin,
+            Address * to,
+            LogHandler& lh,
+            Code code = {},
+            uint64_t value = 0,
+            uint64_t nonce = 0,
+            uint64_t gas_price = 0,
+            uint64_t gas_limit = 0,
+            uint8_t signature[SIG_SIZE_PB_BYTES] = {}) : PersistantTransaction(*origin, *to, nonce, value, code, gas_price, gas_limit, signature),
+                                                         log_handler(lh) {}
     };
 } // namespace eevm

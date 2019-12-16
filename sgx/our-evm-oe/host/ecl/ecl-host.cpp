@@ -58,7 +58,8 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
     std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
     const eevm::Code code = create_bytecode(hello_world);
 
-    auto tx = new eevm::PersistantTransaction(sender, 0, code);
+    uint64_t nonce = 0; // TODO: this is temporary (it should be extracted from evm)
+    auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
 
     auto inp4hash = tx->asDataForHash();
 
@@ -70,7 +71,7 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
         error_print("Error when signing hello world TX.");
     }
     int i = 0;
-    memcpy(tx->signature.data(), tx_sig.data, SIG_SIZE_PB);
+    memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
 
     return tx;
 }

@@ -11,6 +11,37 @@
 #include "eEVM/processor.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
+int ECLedger::execute_tx(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size) {
+
+    // create eevm::Tx object from the proxy and code
+    auto c = std::vector<uint8_t>(std::move(code), code + code_size);
+    auto lh = eevm::NullLogHandler();
+
+    auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
+                                 reinterpret_cast<eevm::Address*>(tx->to),
+                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, tx->signature);
+
+    // Deploy contract to global state
+    const eevm::AccountState contract = this->gs.create(etx.to, 0, c);
+
+    // Create processor
+    eevm::Processor p(this->gs);
+
+    // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
+    // with empty input (and no trace collection)
+    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
+
+    // Check the response
+    if (e.er != eevm::ExitReason::returned) {
+        std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+        return ERR_EVM_WRONG_RET_CODE;
+    }
+
+    const std::string response(reinterpret_cast<const char*>(e.output.data()));
+    TRACE_ENCLAVE("output: %s", response.c_str());
+    return RET_SUCCESS;
+}
+
 std::vector<uint8_t> create_bytecode(const std::string& s) {
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;
@@ -59,7 +90,7 @@ int ECLedger::execute_hello_world() {
 
     // Create transaction
     eevm::NullLogHandler ignore;
-    eevm::Transaction tx(sender, ignore);
+    eevm::Transaction tx(sender, to, ignore);
 
     // Create processor
     eevm::Processor p(gs);
@@ -169,7 +200,7 @@ int ECLedger::execute_sum_a_b(int a, int b) {
     // Construct a transaction object
     eevm::NullLogHandler ignore; //< Ignore any logs produced by this transaction
     std::cout << "[ENCLAVE]: Creating Transaction" << std::endl;
-    eevm::Transaction tx(sender, ignore);
+    eevm::Transaction tx(sender, to, ignore);
 
     std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
 

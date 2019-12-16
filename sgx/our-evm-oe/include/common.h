@@ -67,3 +67,6 @@ typedef struct _sealed_data_t {
 #define ERR_CANNOT_LOAD_SEALED_STATE 109
 #define ERR_SAVING_OPER_KEYS 110
 #define ERR_WRONG_ARGS 111
+
+#define ERR_EVM_EXEC 201
+#define ERR_EVM_WRONG_RET_CODE 202
