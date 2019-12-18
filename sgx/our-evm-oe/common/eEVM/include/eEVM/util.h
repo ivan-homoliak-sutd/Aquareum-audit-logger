@@ -49,8 +49,7 @@ namespace eevm {
         // KeccakHash.h.
         Keccak_HashInstance hi;
         Keccak_HashInitialize(&hi, 1088, 512, 256, 0x01);
-        Keccak_HashUpdate(
-            &hi, input, inputByteLen * std::numeric_limits<unsigned char>::digits);
+        Keccak_HashUpdate(&hi, input, inputByteLen * std::numeric_limits<unsigned char>::digits);
         Keccak_HashFinal(&hi, output);
     }
 

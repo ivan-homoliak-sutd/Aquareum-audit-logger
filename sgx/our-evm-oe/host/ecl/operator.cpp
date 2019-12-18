@@ -146,14 +146,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
 
             // create TX using eEVM
             eevm::PersistantTransaction* tx = this->ecl.createSumTx(a, b, this->PK_O, this->SK_O, *(this->ctx));
-
             ecall_ret = ecall_run_single_tx(enclave, &ret,
                                             (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                             (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing sum TX in Enclave.");
             }
-        } else if (0 == strcmp(command, "tx 0")) {
+        } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
 
             // create and sign TX
