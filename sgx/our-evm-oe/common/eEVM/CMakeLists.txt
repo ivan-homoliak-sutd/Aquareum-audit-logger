@@ -1,12 +1,27 @@
 cmake_minimum_required(VERSION 3.10)
 
+###################################################
+## configure HUNTER first
+set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Hunter configuration types")
+set(HUNTER_JOBS_NUMBER 4 CACHE STRING "Hunter jobs number")
+set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache" CACHE STRING "Hunter cache servers")
+set(HUNTER_PASSWORDS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Hunter/passwords.cmake CACHE STRING "Hunter password path")
+
+include("cmake/HunterGate.cmake")
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.23.211.tar.gz"
+    SHA1 "c022f0c2480e835a6bafdd734035ec2071b51897"
+    LOCAL
+)
+
+###################################################
+## Project eEVM
 project(eevm)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_VERBOSE_MAKEFILE on)
-
 include(CheckCXXCompilerFlag) # TODO:
 
 # Apply Spectre mitigations if available.
@@ -50,6 +65,8 @@ SET(OE_SDK_CXX_INCLUDES
   "/opt/openenclave/include/openenclave/3rdparty/libc"
   "/opt/openenclave/include/openenclave/3rdparty"
   "/opt/openenclave/include"
+  "/opt/boost-incl"
+  # "/usr/lib/gcc/x86_64-linux-gnu/7/include"
 )
 
 include_directories("${OE_SDK_CXX_INCLUDES}")
@@ -75,7 +92,6 @@ endif()
 
 file(GLOB KECCAK_SOURCES
   3rdparty/keccak/*.c
-  # 3rdparty/keccak/*.cpp
 )
 
 add_subdirectory(3rdparty)
@@ -87,6 +103,21 @@ option(RECORD_TRACE "Record a detailed trace of EVM execution during test runs" 
 if(RECORD_TRACE)
   add_definitions(-DRECORD_TRACE)
 endif(RECORD_TRACE)
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Dependencies of 3rd party libs
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# IH: removed dependency on linking "threat-related boost object
+# set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+# set(Boost_USE_STATIC_LIBS ON)
+# set(Boost_USE_MULTITHREADED ON)
+
+# hunter_add_package(Boost COMPONENTS thread)
+# find_package(Boost CONFIG REQUIRED thread)
+
+hunter_add_package(ethash)
+find_package(ethash CONFIG REQUIRED)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Common variables
@@ -131,7 +162,7 @@ target_include_directories(eevm PRIVATE
 
 target_link_libraries(eevm
   intx::intx
-  # keccaklib::keccaklib
+  aleth::mp3
   oeenclave
   oecryptombed
   mbedx509

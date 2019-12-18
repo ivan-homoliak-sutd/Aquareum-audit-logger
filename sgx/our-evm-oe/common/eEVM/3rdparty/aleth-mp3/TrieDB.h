@@ -5,7 +5,7 @@
 #pragma once
 
 #include "Exceptions.h"
-#include "Log.h"
+// #include "Log.h"
 #include "SHA3.h"
 #include "TrieCommon.h"
 #include <memory>
