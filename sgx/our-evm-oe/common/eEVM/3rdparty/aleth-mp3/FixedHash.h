@@ -10,11 +10,38 @@
 #include <cstdint>
 #include <algorithm>
 #include <random>
-#include <boost/functional/hash.hpp>
+// #include <boost/functional/hash.hpp>
 #include "CommonData.h"
+
+#include "intx/intx.hpp"
 
 namespace dev
 {
+
+template <unsigned N, class Iter>
+inline size_t hash_range(Iter first, Iter last){
+    size_t seed = 0;
+    for (; first != last; ++first){
+        typename std::iterator_traits<Iter>::value_type a;
+        a = (*first);
+        seed ^= std::hash<typename std::iterator_traits<Iter>::value_type>{}(a) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+}
+
+// template <unsigned N, class Iter>
+// inline size_t hash_range(Iter first, Iter last){
+//     size_t seed = 0;
+//     assert(sizeof(typename std::iterator_traits<Iter>::value_type) == 1);
+
+//     for (; first != last; ++first){
+//         unsigned char b;
+//         memcpy(&b, &(*first), 1);
+//         seed ^= std::hash<unsigned char>{}(b) + (size_t) 0x9e3779b9 + (seed << 6) + (seed >> 2);
+//     }
+//     return seed;
+// }
+
 
 /// Compile-time calculation of Log2 of constant values.
 template <unsigned N> struct StaticLog2 { enum { result = 1 + StaticLog2<N/2>::result }; };
@@ -30,7 +57,7 @@ class FixedHash
 {
 public:
     /// The corresponding arithmetic type.
-    using Arith = boost::multiprecision::number<boost::multiprecision::cpp_int_backend<N * 8, N * 8, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>;
+    using Arith = intx::uint<N * 8>; // not that intx has its asserts allowing only power of 2 sizes
 
     /// The size of the container.
     enum { size = N };
@@ -152,7 +179,10 @@ public:
     struct hash
     {
         /// Make a hash of the object's data.
-        size_t operator()(FixedHash const& _value) const { return boost::hash_range(_value.m_data.cbegin(), _value.m_data.cend()); }
+        size_t operator()(FixedHash const& _value) const {
+            auto arr =_value.asArray();
+            return hash_range<N>(arr.begin(), arr.end());
+        }
     };
 
     template <unsigned P, unsigned M> inline FixedHash& shiftBloom(FixedHash<M> const& _h)
@@ -301,8 +331,12 @@ template<> inline bool FixedHash<32>::operator==(FixedHash<32> const& _other) co
 /// Fast std::hash compatible hash function object for h256.
 template<> inline size_t FixedHash<32>::hash::operator()(FixedHash<32> const& value) const
 {
-    uint64_t const* data = reinterpret_cast<uint64_t const*>(value.data());
-    return boost::hash_range(data, data + 4);
+    // uint64_t const* data = reinterpret_cast<uint64_t const*>(value.data());
+    auto data = value.asArray();
+
+    auto end = data.begin();
+    std::advance(end, 4);
+    return hash_range<32>(data.begin(), end);
 }
 
 /// Stream I/O for the FixedHash class.
@@ -336,47 +370,47 @@ using h1024 = FixedHash<128>;
 using h520 = FixedHash<65>;
 using h512 = FixedHash<64>;
 using h256 = FixedHash<32>;
-using h160 = FixedHash<20>;
-using h128 = FixedHash<16>;
-using h64 = FixedHash<8>;
+// using h160 = FixedHash<20>;
+// using h128 = FixedHash<16>;
+// using h64 = FixedHash<8>;
 using h512s = std::vector<h512>;
 using h256s = std::vector<h256>;
-using h160s = std::vector<h160>;
+// using h160s = std::vector<h160>;
 using h256Set = std::set<h256>;
-using h160Set = std::set<h160>;
+// using h160Set = std::set<h160>;
 using h256Hash = std::unordered_set<h256>;
-using h160Hash = std::unordered_set<h160>;
+// using h160Hash = std::unordered_set<h160>;
 
 /// Convert the given value into h160 (160-bit unsigned integer) using the right 20 bytes.
-inline h160 right160(h256 const& _t)
-{
-    h160 ret;
-    memcpy(ret.data(), _t.data() + 12, 20);
-    return ret;
-}
+// inline h160 right160(h256 const& _t)
+// {
+//     h160 ret;
+//     memcpy(ret.data(), _t.data() + 12, 20);
+//     return ret;
+// }
 
-h128 fromUUID(std::string const& _uuid);
+// h128 fromUUID(std::string const& _uuid);
 
-std::string toUUID(h128 const& _uuid);
+// std::string toUUID(h128 const& _uuid);
 
-inline std::string toString(h256s const& _bs)
-{
-    std::ostringstream out;
-    out << "[ ";
-    for (h256 const& i: _bs)
-        out << i.abridged() << ", ";
-    out << "]";
-    return out.str();
-}
+// inline std::string toString(h256s const& _bs)
+// {
+//     std::ostringstream out;
+//     out << "[ ";
+//     for (h256 const& i: _bs)
+//         out << i.abridged() << ", ";
+//     out << "]";
+//     return out.str();
+// }
 
 }
 
 namespace std
 {
     /// Forward std::hash<dev::FixedHash> to dev::FixedHash::hash.
-    template<> struct hash<dev::h64>: dev::h64::hash {};
-    template<> struct hash<dev::h128>: dev::h128::hash {};
-    template<> struct hash<dev::h160>: dev::h160::hash {};
+    // template<> struct hash<dev::h64>: dev::h64::hash {};
+    // template<> struct hash<dev::h128>: dev::h128::hash {};
+    // template<> struct hash<dev::h160>: dev::h160::hash {};
     template<> struct hash<dev::h256>: dev::h256::hash {};
     template<> struct hash<dev::h512>: dev::h512::hash {};
 }

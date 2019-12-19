@@ -2,6 +2,9 @@
 // Copyright 2013-2019 Aleth Authors.
 // Licensed under the GNU General Public License, Version 3.
 #include "RLP.h"
+
+#include "eEVM/bigint.h" // from eEVM
+
 using namespace std;
 using namespace dev;
 

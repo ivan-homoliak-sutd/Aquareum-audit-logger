@@ -51,6 +51,10 @@ namespace dev
 {
 extern std::string const EmptyString;
 
+typedef struct {
+    uint8_t data[20];
+} eth_addr_t;
+
 // Binary data types.
 using byte = uint8_t;
 using bytes = std::vector<byte>;
@@ -107,7 +111,7 @@ using bytesSec = secure_vector<byte>;
 // Numeric types.
 using u512 = intx::uint512;
 using u256 = intx::uint256;
-using u160 = intx::uint256; // TODO: this is inefficient since intx does not support arbitrary length integers!!!
+using u160 = intx::uint256;  //eth_addr_t; // TODO: let see whether it will work with eEVM, or we will need to use u256
 using u256s = std::vector<u256>;
 using u160s = std::vector<u160>;
 using u256Set = std::set<u256>;

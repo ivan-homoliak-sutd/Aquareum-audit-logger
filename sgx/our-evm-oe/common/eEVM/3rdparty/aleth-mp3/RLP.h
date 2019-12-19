@@ -22,8 +22,8 @@ namespace dev
 class RLP;
 
 template <class _T> struct intTraits { static const unsigned maxSize = sizeof(_T); };
-template <> struct intTraits<u160> { static const unsigned maxSize = 20; };
-template <> struct intTraits<u256> { static const unsigned maxSize = 32; };
+// template <> struct intTraits<u160> { static const unsigned maxSize = 20; };
+// template <> struct intTraits<u256> { static const unsigned maxSize = 32; };
 template <> struct intTraits<bigint> { static const unsigned maxSize = ~(unsigned)0; };
 
 static const byte c_rlpMaxLengthBytes = 8;
@@ -110,8 +110,8 @@ public:
     template <unsigned _N> bool operator!=(FixedHash<_N> const& _s) const { return isData() && toHash<_N>() != _s; }
     bool operator==(unsigned const& _i) const { return isInt() && toInt<unsigned>() == _i; }
     bool operator!=(unsigned const& _i) const { return isInt() && toInt<unsigned>() != _i; }
-    bool operator==(u256 const& _i) const { return isInt() && toInt<u256>() == _i; }
-    bool operator!=(u256 const& _i) const { return isInt() && toInt<u256>() != _i; }
+    // bool operator==(u256 const& _i) const { return isInt() && toInt<u256>() == _i; }
+    // bool operator!=(u256 const& _i) const { return isInt() && toInt<u256>() != _i; }
     bool operator==(bigint const& _i) const { return isInt() && toInt<bigint>() == _i; }
     bool operator!=(bigint const& _i) const { return isInt() && toInt<bigint>() != _i; }
 
@@ -350,8 +350,8 @@ template <> struct Converter<uint8_t> { static uint8_t convert(RLP const& _r, in
 template <> struct Converter<uint16_t> { static uint16_t convert(RLP const& _r, int _flags) { return _r.toInt<uint16_t>(_flags); } };
 template <> struct Converter<uint32_t> { static uint32_t convert(RLP const& _r, int _flags) { return _r.toInt<uint32_t>(_flags); } };
 template <> struct Converter<uint64_t> { static uint64_t convert(RLP const& _r, int _flags) { return _r.toInt<uint64_t>(_flags); } };
-template <> struct Converter<u160> { static u160 convert(RLP const& _r, int _flags) { return _r.toInt<u160>(_flags); } };
-template <> struct Converter<u256> { static u256 convert(RLP const& _r, int _flags) { return _r.toInt<u256>(_flags); } };
+// template <> struct Converter<u160> { static u160 convert(RLP const& _r, int _flags) { return _r.toInt<u160>(_flags); } };
+// template <> struct Converter<u256> { static u256 convert(RLP const& _r, int _flags) { return _r.toInt<u256>(_flags); } };
 template <> struct Converter<bigint> { static bigint convert(RLP const& _r, int _flags) { return _r.toInt<bigint>(_flags); } };
 template <unsigned N> struct Converter<FixedHash<N>> { static FixedHash<N> convert(RLP const& _r, int _flags) { return _r.toHash<FixedHash<N>>(_flags); } };
 template <class T, class U> struct Converter<std::pair<T, U>> { static std::pair<T, U> convert(RLP const& _r, int _flags) { return _r.toPair<T, U>(_flags); } };
@@ -378,8 +378,8 @@ public:
 
     /// Append given datum to the byte stream.
     RLPStream& append(unsigned _s) { return append(bigint(_s)); }
-    RLPStream& append(u160 _s) { return append(bigint(_s)); }
-    RLPStream& append(u256 _s) { return append(bigint(_s)); }
+    // RLPStream& append(u160 _s) { return append(bigint(_s)); }
+    // RLPStream& append(u256 _s) { return append(bigint(_s)); }
     RLPStream& append(bigint _s);
     RLPStream& append(bytesConstRef _s, bool _compact = false);
     RLPStream& append(bytes const& _s) { return append(bytesConstRef(&_s)); }

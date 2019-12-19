@@ -44,6 +44,8 @@ set(ALETH_MP3_SRC
   # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieCommon.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieDB.h
   ${CMAKE_CURRENT_LIST_DIR}/intx/include/intx/intx.hpp
+  ${CMAKE_CURRENT_LIST_DIR}/../include/eEVM/bigint.h
+  ${CMAKE_CURRENT_LIST_DIR}/keccak/KeccakHash.h
 )
 set(ALETH_DB_SRC
   # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/db.h
@@ -61,6 +63,7 @@ target_sources(mp3 INTERFACE
 target_include_directories(mp3 INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/
+  # ${CMAKE_CURRENT_LIST_DIR}/../include/
 )
 
 
