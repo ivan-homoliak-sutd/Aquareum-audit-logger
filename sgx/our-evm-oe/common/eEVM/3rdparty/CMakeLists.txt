@@ -54,6 +54,8 @@ set(ALETH_DB_SRC
   # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/Guards.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/MemoryDB.cpp
   # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/MemoryDB.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/OverlayDB.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/StateCacheDB.cpp
 )
 
 target_sources(mp3 INTERFACE

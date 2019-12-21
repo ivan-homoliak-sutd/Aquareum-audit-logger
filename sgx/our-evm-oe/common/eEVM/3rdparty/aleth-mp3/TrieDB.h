@@ -63,7 +63,8 @@ namespace dev {
             }
             if (_v == Verification::Normal)
                 if (!node(m_root).size())
-                    BOOST_THROW_EXCEPTION(RootNotFound());
+                    throw std::logic_error("RootNotFound()");
+                    // BOOST_THROW_EXCEPTION(RootNotFound());
         }
 
         /// True if the trie is uninitialised (i.e. that the DB doesn't contain the root node).
@@ -196,8 +197,8 @@ namespace dev {
         bool check(bool _requireNoLeftOvers) const {
             try {
                 return leftOvers().empty() || !_requireNoLeftOvers;
-            } catch (...) {
-                cwarn << boost::current_exception_diagnostic_information();
+            } catch (std::exception e) {
+                std::cerr << "Exception cought in GenericTrieDB::check() | " << e.what();
                 return false;
             }
         }

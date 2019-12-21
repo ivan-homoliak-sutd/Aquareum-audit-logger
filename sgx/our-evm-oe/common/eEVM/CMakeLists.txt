@@ -65,7 +65,7 @@ SET(OE_SDK_CXX_INCLUDES
   "/opt/openenclave/include/openenclave/3rdparty/libc"
   "/opt/openenclave/include/openenclave/3rdparty"
   "/opt/openenclave/include"
-  "/opt/boost-incl"
+  # "/opt/boost-incl"
   # "/usr/lib/gcc/x86_64-linux-gnu/7/include"
 )
 
