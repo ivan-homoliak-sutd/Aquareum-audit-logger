@@ -8,6 +8,7 @@
 // IH: move logging to cerr or cout
 // #include "Log.h"
 #include <iostream>
+#include <fmt/format_header_only.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -30,18 +31,18 @@ void InvariantChecker::checkInvariants(
     HasInvariants const* _this, char const* _fn, char const* _file, int _line, bool _pre) {
     if (!_this->invariants()) {
         // IH: cwarn replaced by cerr
-        std::cerr << (_pre ? "Pre" : "Post") << "invariant failed in" << _fn << "at" << _file << ":"
-             << _line;
-        ::boost::exception_detail::throw_exception_(FailedInvariant(), _fn, _file, _line);
+        std::cerr << (_pre ? "Pre" : "Post") << "invariant failed in" << _fn << "at" << _file << ":" << _line;
+        throw std::logic_error(fmt::format("FailedInvariant():  {} | {} | {}", _fn, _file, _line));
+        // ::boost::exception_detail::throw_exception_(FailedInvariant(), _fn, _file, _line);
     }
 }
 
 TimerHelper::~TimerHelper() {
     auto e = std::chrono::high_resolution_clock::now() - m_t;
     if (!m_ms || e > std::chrono::milliseconds(m_ms))
-    // IH: replaced
-    // clog(VerbosityDebug, "timer")  << m_id << " " << chrono::duration_cast<chrono::milliseconds>(e).count() << " ms";
-    std::cerr << "[DEBUG]: timer, " << m_id << " " << std::chrono::duration_cast<std::chrono::milliseconds>(e).count() << " ms";
+        // IH: replaced
+        // clog(VerbosityDebug, "timer")  << m_id << " " << chrono::duration_cast<chrono::milliseconds>(e).count() << " ms";
+        std::cerr << "[DEBUG]: timer, " << m_id << " " << std::chrono::duration_cast<std::chrono::milliseconds>(e).count() << " ms";
 }
 
 int64_t utcTime() {

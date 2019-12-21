@@ -53,7 +53,7 @@ public:
     virtual void forEach(std::function<bool(Slice, Slice)> f) const = 0;
 };
 
-DEV_SIMPLE_EXCEPTION(DatabaseError);
+// DEV_SIMPLE_EXCEPTION(DatabaseError);
 
 enum class DatabaseStatus
 {
@@ -66,8 +66,8 @@ enum class DatabaseStatus
     Unknown
 };
 
-using errinfo_dbStatusCode = boost::error_info<struct tag_dbStatusCode, DatabaseStatus>;
-using errinfo_dbStatusString = boost::error_info<struct tag_dbStatusString, std::string>;
+// using errinfo_dbStatusCode = boost::error_info<struct tag_dbStatusCode, DatabaseStatus>;
+// using errinfo_dbStatusString = boost::error_info<struct tag_dbStatusString, std::string>;
 
 }  // namespace db
 }  // namespace dev

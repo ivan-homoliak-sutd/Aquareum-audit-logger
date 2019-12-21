@@ -9,10 +9,11 @@
 #include "SHA3.h"
 #include "TrieCommon.h"
 #include <memory>
+#include <fmt/format_header_only.h>
 
 namespace dev {
 
-    struct InvalidTrie : virtual dev::Exception {};
+    // struct InvalidTrie : virtual dev::Exception {};
 
     enum class Verification {
         Skip,
@@ -72,7 +73,8 @@ namespace dev {
 
         h256 const& root() const {
             if (node(m_root).empty())
-                BOOST_THROW_EXCEPTION(BadRoot() << errinfo_hash256(m_root));
+                throw std::logic_error(fmt::format("BadRoot: - {}", m_root.hex()));
+                // BOOST_THROW_EXCEPTION(BadRoot() << errinfo_hash256(m_root));
             return m_root;
         } // patch the root in the case of the empty trie. TODO: handle this properly.
 
@@ -155,7 +157,8 @@ namespace dev {
             else if (_r.isList())
                 descendList(_r, _keyMask, _wasExt, _out, _indent);
             else
-                BOOST_THROW_EXCEPTION(InvalidTrie());
+                throw std::logic_error("InvalidTrie()");
+                // BOOST_THROW_EXCEPTION(InvalidTrie());
         }
 
         /// Used for debugging, scans the whole trie.
@@ -172,7 +175,8 @@ namespace dev {
                     if (!_r[i].isEmpty()) // 16 branches are allowed to be empty
                         descendEntry(_r[i], _keyMask, false, _out, _indent + 1);
             } else
-                BOOST_THROW_EXCEPTION(InvalidTrie());
+                throw std::logic_error("InvalidTrie()");
+                // BOOST_THROW_EXCEPTION(InvalidTrie());
         }
 
         /// Used for debugging, scans the whole trie.
