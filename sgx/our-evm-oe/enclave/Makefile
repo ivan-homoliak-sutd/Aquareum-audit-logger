@@ -18,11 +18,12 @@ endif
 
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
-EEVM_LIB_DIR := ../common/eEVM/build/
+EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
 
 CFLAGS=$(shell pkg-config oeenclave-$(COMPILER) --cflags)
 CXXFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --cflags)
 LDFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --libs)
+CXX_STANDARD := c++1z
 
 OE_SDK_INCLUDE := /opt/openenclave/include/
 OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}openenclave/3rdparty/libc/bits/
@@ -40,12 +41,21 @@ Enclave_Include_Paths := \
 	-I. \
 	-I../include \
 	-I../common/secp256k1/include \
-	-I../common/eEVM/3rdparty/intx/include -I../common/eEVM/3rdparty -I../common/eEVM/include
+	-I../common/eEVM/3rdparty/intx/include \
+	-I../common/eEVM/3rdparty \
+	-I../common/eEVM/3rdparty/aleth-mp3 \
+	-I../common/eEVM/3rdparty/aleth-mp3/database \
+	-I../common/eEVM/include
+
+
+# LDFLAGS_PARTIAL := -nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now
+# LDFLAGS_PARTIAL_LIBS := -L/opt/openenclave/lib/openenclave/enclave # -loeenclave -loesyscall -loecore # note that the rest is already link in static lib eevm.a
+# Enclave_Link_Flags := $(LDFLAGS_PARTIAL) $(LDFLAGS_PARTIAL_LIBS)
+
+EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Enclave_Link_Flags := $(LDFLAGS) \
-	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
-	-L$(EEVM_LIB_DIR) -leevm
-
+	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1
 
 all:
 	$(MAKE) build
@@ -56,9 +66,9 @@ build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	oeedger8r ../ecledger.edl --trusted
 	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
-	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -std=c++17 -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
+	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths)  -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
-	$(CXX) -o ecledger_enc ecledger_t.o enc.o signing.o sealing.o keys.o ecl.o $(Enclave_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o ecledger_enc ecledger_t.o enc.o signing.o sealing.o keys.o ecl.o $(EEVM_OBJECTS) $(Enclave_Link_Flags)
 
 sign:
 	oesign sign -e ecledger_enc -c ecledger.conf -k private.pem

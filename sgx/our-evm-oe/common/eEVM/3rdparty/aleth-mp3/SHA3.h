@@ -34,13 +34,21 @@ inline void _keccak_256(
 
 /// Calculate SHA3-256 hash of the given input and load it into the given output.
 /// @returns false if o_output.size() != 32.
-bool sha3(bytesConstRef _input, bytesRef o_output) noexcept;
+ bool sha3(bytesConstRef _input, bytesRef o_output) noexcept;
+// bool _sha3(bytesConstRef _input, bytesRef o_output) noexcept {
+//     if(32 != o_output.size()){
+//         return false;
+//     }
+//     _keccak_256(_input.data(), _input.size(), o_output.data());
+//     return true;
+// }
 
 /// Calculate SHA3-256 hash of the given input, returning as a 256-bit hash.
 inline h256 sha3(bytesConstRef _input) noexcept {
-    h256 ret;
-    sha3(_input, ret.ref());
-    return ret;
+
+    uint8_t h[32];
+    _keccak_256(_input.data(), _input.size(), h);
+    return h256{h, h256::ConstructFromPointer};
 }
 
 inline SecureFixedHash<32> sha3Secure(bytesConstRef _input) noexcept {
@@ -51,6 +59,9 @@ inline SecureFixedHash<32> sha3Secure(bytesConstRef _input) noexcept {
 
 /// Calculate SHA3-256 hash of the given input, returning as a 256-bit hash.
 inline h256 sha3(bytes const& _input) noexcept {
+    // uint8_t h[32];
+    // _keccak_256(bytesConstRef(&_input).data(), _input.size(), h);
+    // return h256{h, h256::ConstructFromPointer};
     return sha3(bytesConstRef(&_input));
 }
 
@@ -71,9 +82,10 @@ inline SecureFixedHash<32> sha3Secure(std::string const& _input) noexcept {
 inline h256 sha3(h256 const& _input) noexcept {
     // ethash::hash256 hash = ethash::keccak256_32(_input.data());
 
-    uint8_t h[32];
-    _keccak_256(_input.data(), _input.size, h);
-    return h256{h, h256::ConstructFromPointer};
+    // uint8_t h[32];
+    // _keccak_256(_input.data(), _input.size, h);
+    // return h256{h, h256::ConstructFromPointer};
+    return sha3(_input.ref());
 }
 
 /// Calculate SHA3-256 hash of the given input (presented as a FixedHash), returns a 256-bit hash.

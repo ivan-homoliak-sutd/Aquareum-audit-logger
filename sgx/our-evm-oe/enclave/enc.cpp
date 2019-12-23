@@ -15,6 +15,10 @@
 #include "sealing/sealing.h"
 #include "signing-PB/signing.h"
 
+#include "aleth-mp3/TrieDB.h"
+#include "aleth-mp3/database/OverlayDB.h"
+#include "aleth-mp3/database/SecureTrieDB.h"
+
 EvmState_T _evm_state;
 bool _evm_initialized = false;
 
@@ -34,6 +38,18 @@ void ecall_enclave_ecledger() {
     ECLedger l = ECLedger();
     l.execute_hello_world();
     l.execute_sum_a_b(2, 3);
+
+
+    // dev::OverlayDB m_db;
+    dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB> t;
+
+    assert(t.isNull());
+    t.init();
+    assert(t.isEmpty());
+    // t.insert(x, y);
+    // assert(t.at(x) == y.toString());
+    // t.remove(x);
+    // assert(t.isEmpty());
 }
 
 /*

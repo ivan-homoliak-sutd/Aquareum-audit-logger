@@ -8,8 +8,8 @@ add_library(intx::intx ALIAS intx)
 
 target_sources(intx INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/intx/include/intx/intx.hpp
-  # ${CMAKE_CURRENT_LIST_DIR}/intx/lib/intx/div.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/intx/lib/intx/div.hpp
+  ${CMAKE_CURRENT_LIST_DIR}/intx/lib/intx/div.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/intx/lib/intx/div.hpp
 )
 target_include_directories(intx INTERFACE
   ${CMAKE_CURRENT_LIST_DIR}/intx/include/
@@ -32,28 +32,29 @@ add_library(aleth::mp3 ALIAS mp3)
 
 set(ALETH_MP3_SRC
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/Common.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/Common.h
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/CommonData.h
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/Exceptions.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/Common.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/CommonData.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/CommonData.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/Exceptions.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/FixedHash.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/FixedHash.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/FixedHash.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/RLP.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/RLP.h
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/SHA3.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/RLP.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/SHA3.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieCommon.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieCommon.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieCommon.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/TrieDB.h
   ${CMAKE_CURRENT_LIST_DIR}/intx/include/intx/intx.hpp
   ${CMAKE_CURRENT_LIST_DIR}/../include/eEVM/bigint.h
   ${CMAKE_CURRENT_LIST_DIR}/keccak/KeccakHash.h
 )
 set(ALETH_DB_SRC
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/db.h
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/dbfwd.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/db.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/dbfwd.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/Guards.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/Guards.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/Guards.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/MemoryDB.cpp
-  # ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/MemoryDB.h
+  ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/MemoryDB.h
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/OverlayDB.cpp
   ${CMAKE_CURRENT_LIST_DIR}/aleth-mp3/database/StateCacheDB.cpp
 )

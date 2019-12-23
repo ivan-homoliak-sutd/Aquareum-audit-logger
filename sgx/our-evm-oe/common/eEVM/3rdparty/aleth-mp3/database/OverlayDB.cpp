@@ -68,7 +68,8 @@ void OverlayDB::commit()
                 if (i == 9)
                 {
                     std::cerr << "Fail writing to state database. Bombing out.";
-                    exit(-1);
+                    throw std::logic_error("Exit(): Fail writing to state database. Bombing out");
+                    // exit(-1);
                 }
                 std::cerr << "Error writing to state database: " << ex.what() << "\n";
                 std::cerr << "Sleeping for" << (i + 1) << "seconds, then retrying." << "\n";

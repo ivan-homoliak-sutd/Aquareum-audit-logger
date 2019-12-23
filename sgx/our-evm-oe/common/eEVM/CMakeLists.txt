@@ -21,6 +21,7 @@ project(eevm)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_VERBOSE_MAKEFILE on)
 include(CheckCXXCompilerFlag) # TODO:
 
@@ -116,8 +117,8 @@ endif(RECORD_TRACE)
 # hunter_add_package(Boost COMPONENTS thread)
 # find_package(Boost CONFIG REQUIRED thread)
 
-hunter_add_package(ethash)
-find_package(ethash CONFIG REQUIRED)
+# hunter_add_package(ethash)
+# find_package(ethash CONFIG REQUIRED)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Common variables
@@ -142,19 +143,19 @@ set(EEVM_SIMPLE_SRCS
 )
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Libraries
+# Libraries -
+#           we archive eevm lib as object archive that does not contain static libraries
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-add_library(eevm STATIC
+add_library(eevm OBJECT
   ${EEVM_CORE_SRCS}
   ${EEVM_SIMPLE_SRCS}
   ${KECCAK_SOURCES}
 )
 
-
 link_directories(/opt/openenclave/lib/openenclave/enclave/)
-set_property(TARGET eevm
-    PROPERTY POSITION_INDEPENDENT_CODE ON
-)
+# set_property(TARGET eevm
+#     PROPERTY POSITION_INDEPENDENT_CODE ON
+# )
 
 target_include_directories(eevm PRIVATE
   ${EEVM_INCLUDE_DIRS}
@@ -163,14 +164,15 @@ target_include_directories(eevm PRIVATE
 target_link_libraries(eevm
   intx::intx
   aleth::mp3
-  oeenclave
-  oecryptombed
-  mbedx509
-  mbedcrypto
-  oelibcxx
-  oelibc
-  oesyscall
-  oecore
+  # oeenclave
+  # oecryptombed
+  # mbedx509
+  # mbedcrypto
+  # oeenclave
+  # oelibcxx
+  # oelibc
+  # oesyscall
+  # oecore
 )
 
 
