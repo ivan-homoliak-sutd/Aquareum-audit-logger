@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
+
+# Setting this flag allow conditional type of eEVM compilation: enclave part or host part
+SET(BUILD_ENCLAVE "false")
+
 ###################################################
 ## configure HUNTER first
 set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Hunter configuration types")
@@ -21,7 +25,6 @@ project(eevm)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-# set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_VERBOSE_MAKEFILE on)
 include(CheckCXXCompilerFlag) # TODO:
 
@@ -40,27 +43,11 @@ else ()
   message(WARNING "Spectre 1 mitigations NOT supported")
 endif ()
 
-# Obtanined by: $ pkg-config oeenclave-g++ --libs
-SET(CXX_ENCLAVE_LINK_FLAGS
-  "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
-)
-
-# Obtanined by: $ pkg-config oeenclave-g++ --cflags
-SET(CXX_ENCLAVE_COMPILE_FLAGS
-  "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
-)
-SET(CMAKE_CXX_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
-SET(CMAKE_CC_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
-
-SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
-# SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${CXX_ENCLAVE_LINK_FLAGS}")
-
-SET(OE_SDK_CC_INCLUDES
-  "/opt/openenclave/include/openenclave/3rdparty/libc"
-  "/opt/openenclave/include/openenclave/3rdparty"
-  "/opt/openenclave/include"
-)
-
+# SET(OE_SDK_CC_INCLUDES
+#   "/opt/openenclave/include/openenclave/3rdparty/libc"
+#   "/opt/openenclave/include/openenclave/3rdparty"
+#   "/opt/openenclave/include"
+# )
 SET(OE_SDK_CXX_INCLUDES
   "/opt/openenclave/include/openenclave/3rdparty/libcxx"
   "/opt/openenclave/include/openenclave/3rdparty/libc"
@@ -70,7 +57,43 @@ SET(OE_SDK_CXX_INCLUDES
   # "/usr/lib/gcc/x86_64-linux-gnu/7/include"
 )
 
-include_directories("${OE_SDK_CXX_INCLUDES}")
+# Obtanined by: $ pkg-config oeenclave-g++ --libs
+SET(CXX_ENCLAVE_LINK_FLAGS
+  "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
+)
+
+# Obtanined by: $ pkg-config oehost-g++ --libs
+SET(CXX_HOST_LINK_FLAGS
+  "-rdynamic -Wl,-z,noexecstack"
+)
+
+# Obtanined by: $ pkg-config oeenclave-g++ --cflags
+SET(CXX_ENCLAVE_COMPILE_FLAGS
+  "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
+)
+
+# Obtanined by: $ pkg-config oehost-g++ --cflags
+SET(CXX_HOST_COMPILE_FLAGS
+  "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
+)
+
+if(BUILD_ENCLAVE STREQUAL "true")
+  # building eEVM for enclave
+  message(STATUS ">>> BUILDING EEVM for ENCLAVE <<<")
+  SET(CMAKE_CXX_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_CC_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
+  include_directories("${OE_SDK_CXX_INCLUDES}")
+  SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
+else()
+  # building eEVM for host
+  message(STATUS ">>> BUILDING EEVM for HOST <<<")
+  SET(CMAKE_CXX_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_CC_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
+  SET(SUM_CXX_INCLUDES "")
+endif()
+message(STATUS " ")
 
 if(MSVC)
   # Set Windows compiler options.
@@ -189,7 +212,7 @@ add_executable(eevm_tests
 )
 target_include_directories(eevm_tests PRIVATE
   ${EEVM_INCLUDE_DIRS}
-  ${OE_SDK_CXX_INCLUDES}
+  ${SUM_CXX_INCLUDES}
 )
 target_compile_options(eevm_tests PRIVATE ${COVERAGE_FLAGS})
 target_link_libraries(eevm_tests eevm ${PLATFORM_SPECIFIC_TEST_LIBS})

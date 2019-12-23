@@ -14,8 +14,12 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #ifndef _KeccakHashInterface_h_
 #define _KeccakHashInterface_h_
 
-#ifndef KeccakP1600_excluded
+#if defined (__cplusplus)
+  extern "C" {
+#endif
 
+
+#ifndef KeccakP1600_excluded
 #include "KeccakSpongeWidth1600.h"
 #include <string.h>
 
@@ -113,4 +117,10 @@ HashReturn Keccak_HashSqueeze(Keccak_HashInstance *hashInstance, BitSequence *da
 
 #endif
 
+// __cplusplus
+#if defined (__cplusplus)
+  }
+#endif
+
+// #ifndef _KeccakHashInterface_h_
 #endif

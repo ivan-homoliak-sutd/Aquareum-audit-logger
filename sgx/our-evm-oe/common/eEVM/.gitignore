@@ -294,3 +294,5 @@ __pycache__/
 doxygen/
 sphinx/build/
 sphinx/source/apidoc/
+
+build-host/

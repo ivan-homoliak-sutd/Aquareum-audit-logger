@@ -47,11 +47,6 @@ Enclave_Include_Paths := \
 	-I../common/eEVM/3rdparty/aleth-mp3/database \
 	-I../common/eEVM/include
 
-
-# LDFLAGS_PARTIAL := -nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now
-# LDFLAGS_PARTIAL_LIBS := -L/opt/openenclave/lib/openenclave/enclave # -loeenclave -loesyscall -loecore # note that the rest is already link in static lib eevm.a
-# Enclave_Link_Flags := $(LDFLAGS_PARTIAL) $(LDFLAGS_PARTIAL_LIBS)
-
 EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Enclave_Link_Flags := $(LDFLAGS) \
