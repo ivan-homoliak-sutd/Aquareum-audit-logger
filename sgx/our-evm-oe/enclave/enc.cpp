@@ -15,9 +15,10 @@
 #include "sealing/sealing.h"
 #include "signing-PB/signing.h"
 
-#include "aleth-mp3/TrieDB.h"
+// eEVM imports
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
+#include "eEVM/util.h"
 
 EvmState_T _evm_state;
 bool _evm_initialized = false;
@@ -39,17 +40,28 @@ void ecall_enclave_ecledger() {
     l.execute_hello_world();
     l.execute_sum_a_b(2, 3);
 
+    dev::OverlayDB m_db;
+    auto t = new dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB>(&m_db);
+    assert(t->isNull());
 
-    // dev::OverlayDB m_db;
-    dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB> t;
+    t->init();
 
-    assert(t.isNull());
-    t.init();
-    assert(t.isEmpty());
-    // t.insert(x, y);
-    // assert(t.at(x) == y.toString());
-    // t.remove(x);
-    // assert(t.isEmpty());
+    assert(!t->isNull());
+    assert(t->isEmpty());
+
+    string inp4hash("some input text 4 hash");
+    eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+
+    TRACE_ENCLAVE("1");
+    auto hash = dev::h256(tx_hash.data(), dev::h256::ConstructFromPointer);
+    TRACE_ENCLAVE("2");
+    t->insert(hash, inp4hash);
+    TRACE_ENCLAVE("3");
+    assert(t->at(hash) == inp4hash);
+    TRACE_ENCLAVE("4");
+    t->remove(hash);
+    TRACE_ENCLAVE("5");
+    assert(t->isEmpty());
 }
 
 /*
@@ -57,7 +69,6 @@ void ecall_enclave_ecledger() {
 * The initialization of SK and PK under the signature scheme of the blockchain is performed here.
 */
 int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
-
     oe_result_t ocall_status, sealing_status;
     int ocall_ret, lib_ret;
 
@@ -81,15 +92,15 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
         evm_state_unsealed->pub.diskInits = 0;
 
         // store EVM state in enclave memory
-        memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T)); // TODO: later do deep copy of err TXs
+        memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
 
         // seal evm state object
         const size_t data_size = sizeof(EvmState_T);
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
         lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                    (const unsigned char*)evm_state_unsealed, data_size,
-                                    &sealed_data, &sealed_data_size);
+            (const unsigned char*)evm_state_unsealed, data_size,
+            &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
             TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
             return ERR_FAIL_SEAL_STATE;
@@ -110,9 +121,8 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
         (*enc_pk) = _evm_state.sec.keypair.PK_PB;
         return RET_SUCCESS_INIT_NEW_STATE;
     } else {
-
         // EVM state file exists, so initialize from it
-        size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + KEY_INFO_SIZE + MAX_PADDING; // the last X Bytes are for keyinfo, TODO: check the precise size of key info
+        size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + KEY_INFO_SIZE + MAX_PADDING;  // the last X Bytes are for keyinfo, TODO: check the precise size of key info
         uint8_t* sealed_data = (uint8_t*)malloc(tmp_sealed_data_size);
         ocall_status = ocall_load_evm_state(&ocall_ret, sealed_data, tmp_sealed_data_size);
         if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
@@ -136,7 +146,7 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
         EvmState_T* st = (EvmState_T*)data;
 
         st->pub.diskInits++;
-        memcpy(&_evm_state, data, sizeof(EvmState_T)); // TODO: later do deep copy of err TXs
+        memcpy(&_evm_state, data, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
         _evm_initialized = true;
 
         free(sealed_data);
@@ -148,7 +158,6 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
 }
 
 int ecall_sync_evm_sealed_state_to_disk(void) {
-
     int ocall_ret;
 
     // seal internal EVM state object which is held in memory
@@ -156,8 +165,8 @@ int ecall_sync_evm_sealed_state_to_disk(void) {
     sealed_data_t* sealed_data = NULL;
     size_t sealed_data_size = 0;
     int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                    (unsigned char*)&_evm_state, data_size,
-                                    &sealed_data, &sealed_data_size);
+        (unsigned char*)&_evm_state, data_size,
+        &sealed_data, &sealed_data_size);
     if (OE_OK != lib_ret) {
         TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
         return ERR_FAIL_SEAL_STATE;

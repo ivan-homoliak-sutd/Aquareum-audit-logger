@@ -59,6 +59,7 @@ all:
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
+	rm -f ../data/*
 	oeedger8r ../ecledger.edl --trusted
 	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
 	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths)  -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
@@ -69,7 +70,7 @@ sign:
 	oesign sign -e ecledger_enc -c ecledger.conf -k private.pem
 
 clean:
-	rm -f enc.o ecledger_enc ecledger.signed private.pem public.pem ecl.o ecledger_t.o ecledger_t.h ecledger_t.c ecledger_args.h
+	rm -f enc.o ecledger_enc ecledger.signed private.pem public.pem ecl.o ecledger_t.o ecledger_t.h ecledger_t.c ecledger_args.h ../data/*
 
 keys:
 	openssl genrsa -out private.pem -3 3072
