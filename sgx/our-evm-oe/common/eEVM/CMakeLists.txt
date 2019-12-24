@@ -1,22 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
-
-# Setting this flag allow conditional type of eEVM compilation: enclave part or host part
-SET(BUILD_ENCLAVE "false")
-
 ###################################################
 ## configure HUNTER first
-set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Hunter configuration types")
-set(HUNTER_JOBS_NUMBER 4 CACHE STRING "Hunter jobs number")
-set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache" CACHE STRING "Hunter cache servers")
-set(HUNTER_PASSWORDS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Hunter/passwords.cmake CACHE STRING "Hunter password path")
+# set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Hunter configuration types")
+# set(HUNTER_JOBS_NUMBER 4 CACHE STRING "Hunter jobs number")
+# set(HUNTER_CACHE_SERVERS "https://github.com/ethereum/hunter-cache" CACHE STRING "Hunter cache servers")
+# set(HUNTER_PASSWORDS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Hunter/passwords.cmake CACHE STRING "Hunter password path")
 
-include("cmake/HunterGate.cmake")
-HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.23.211.tar.gz"
-    SHA1 "c022f0c2480e835a6bafdd734035ec2071b51897"
-    LOCAL
-)
+# include("cmake/HunterGate.cmake")
+# HunterGate(
+#     URL "https://github.com/ruslo/hunter/archive/v0.23.211.tar.gz"
+#     SHA1 "c022f0c2480e835a6bafdd734035ec2071b51897"
+#     LOCAL
+# )
 
 ###################################################
 ## Project eEVM
@@ -77,7 +73,14 @@ SET(CXX_HOST_COMPILE_FLAGS
   "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
 )
 
-if(BUILD_ENCLAVE STREQUAL "true")
+if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")
+  # building eEVM for host
+  message(STATUS ">>> BUILDING EEVM for HOST <<<")
+  SET(CMAKE_CXX_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_CC_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
+  SET(SUM_CXX_INCLUDES "")
+else()
   # building eEVM for enclave
   message(STATUS ">>> BUILDING EEVM for ENCLAVE <<<")
   SET(CMAKE_CXX_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
@@ -85,13 +88,6 @@ if(BUILD_ENCLAVE STREQUAL "true")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
   include_directories("${OE_SDK_CXX_INCLUDES}")
   SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
-else()
-  # building eEVM for host
-  message(STATUS ">>> BUILDING EEVM for HOST <<<")
-  SET(CMAKE_CXX_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
-  SET(CMAKE_CC_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
-  SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
-  SET(SUM_CXX_INCLUDES "")
 endif()
 message(STATUS " ")
 

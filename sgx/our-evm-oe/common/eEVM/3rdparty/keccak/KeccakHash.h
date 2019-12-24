@@ -14,10 +14,6 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #ifndef _KeccakHashInterface_h_
 #define _KeccakHashInterface_h_
 
-#if defined (__cplusplus)
-  extern "C" {
-#endif
-
 
 #ifndef KeccakP1600_excluded
 #include "KeccakSpongeWidth1600.h"
@@ -28,6 +24,12 @@ http://creativecommons.org/publicdomain/zero/1.0/
 typedef unsigned char BitSequence;
 
 typedef size_t BitLength;
+#endif
+
+
+
+#if defined (__cplusplus)
+  extern "C" {
 #endif
 
 typedef enum { SUCCESS = 0, FAIL = 1, BAD_HASHLEN = 2 } HashReturn;
@@ -115,12 +117,14 @@ HashReturn Keccak_HashFinal(Keccak_HashInstance *hashInstance, BitSequence *hash
   */
 HashReturn Keccak_HashSqueeze(Keccak_HashInstance *hashInstance, BitSequence *data, BitLength databitlen);
 
-#endif
-
 // __cplusplus
 #if defined (__cplusplus)
   }
 #endif
+
+
+#endif
+
 
 // #ifndef _KeccakHashInterface_h_
 #endif
