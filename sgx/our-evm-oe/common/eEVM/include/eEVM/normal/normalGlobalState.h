@@ -1,0 +1,67 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+#pragma once
+
+#include "eEVM/globalstate.h"
+#include "eEVM/simple/simpleaccount.h"
+#include "eEVM/simple/simplestorage.h"
+
+#include "aleth-mp3/Common.h"
+#include "aleth-mp3/database/MemoryDB.h"
+#include "aleth-mp3/database/SecureTrieDB.h"
+
+using namespace dev;
+
+namespace eevm
+{
+    /**
+   * MP3 from Aleth is used as state preserving object
+   */
+    class NormalGlobalState : public GlobalState {
+    public:
+        using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
+
+
+    private:
+        Block currentBlock;
+
+        SecureTrieDB<h256, db::MemoryDB> m_accounts;  // full global state: all accounts (except storage)
+
+        std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts
+
+
+    public:
+        NormalGlobalState()
+          : m_accounts(new db::MemoryDB()) {
+            m_accounts.init();  // create some tmp node into MP3
+        };
+
+        explicit NormalGlobalState(Block b)
+          : currentBlock(std::move(b)) {}
+
+        virtual void remove(const Address& addr) override;
+
+        AccountState get(const Address& addr) override;
+        AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
+
+        bool exists(const Address& addr);
+        size_t num_accounts();
+
+        virtual const Block& get_current_block() override;
+        virtual uint256_t get_block_hash(uint8_t offset) override;
+
+        /**
+     * For tests which require some initial state, allow manual insertion of
+     * pre-constructed accounts
+     */
+        void insert(const StateEntry& e);
+
+        friend void to_json(nlohmann::json&, const NormalGlobalState&);
+        friend void from_json(const nlohmann::json&, NormalGlobalState&);
+    };
+
+    void to_json(nlohmann::json&, const NormalGlobalState&);
+    void from_json(const nlohmann::json&, NormalGlobalState&);
+    // bool operator==(const NormalGlobalState&, const NormalGlobalState&);
+}  // namespace eevm
