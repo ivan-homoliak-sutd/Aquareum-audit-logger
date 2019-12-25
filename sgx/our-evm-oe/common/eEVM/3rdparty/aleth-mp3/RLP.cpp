@@ -89,6 +89,7 @@ size_t RLP::actualSize() const {
         return 1;
     if (isData() || isList())
         return payloadOffset() + length();
+
     return 0;
 }
 

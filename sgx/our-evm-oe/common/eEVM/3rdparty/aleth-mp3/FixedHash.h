@@ -62,7 +62,7 @@ class FixedHash
 {
 public:
     /// The corresponding arithmetic type.
-    using Arith = intx::uint<N * 8>; // not that intx has its asserts allowing only power of 2 sizes
+    using Arith = intx::uint<N * 8>; // note that intx has its asserts allowing only power of 2 sizes
 
     /// The size of the container.
     enum { size = N };

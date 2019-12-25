@@ -474,6 +474,9 @@ namespace dev {
 
 } // namespace dev
 
+
+
+
 // Template implementations...
 namespace dev {
 
@@ -735,7 +738,8 @@ namespace dev {
             if (n.isEmpty())
                 return std::string();
             else
-                return atAux(n.isList() ? n : RLP(node(n.toHash<h256>())), _key.mid(1));
+                return atAux(n.isList() ? n : RLP(node(n.toHash<h256>())), _key.mid(1)); // mid(1) creates new NibbleSlice, but 1 nibble shorter
+
         }
     }
 

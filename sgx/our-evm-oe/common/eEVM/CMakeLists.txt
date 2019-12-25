@@ -159,6 +159,7 @@ set(EEVM_SIMPLE_SRCS
   src/simple/simpleaccount.cpp
   src/simple/simpleglobalstate.cpp
   src/simple/simplestorage.cpp
+  src/normal/normalGlobalState.cpp
 )
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

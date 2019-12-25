@@ -40,7 +40,7 @@ struct NibbleSlice
 
 	NibbleSlice(bytesConstRef _data = bytesConstRef(), unsigned _offset = 0): data(_data), offset(_offset) {}
 	byte operator[](unsigned _index) const { return nibble(data, offset + _index); }
-	unsigned size() const { return data.size() * 2 - offset; }
+	unsigned size() const { return data.size() * 2 - offset; } //IH: the number of valid nibbles in this slice
 	bool empty() const { return !size(); }
 	NibbleSlice mid(unsigned _index) const { return NibbleSlice(data, offset + _index); }
 	void clear() { data.reset(); offset = 0; }
@@ -88,7 +88,7 @@ inline NibbleSlice keyOf(bytesConstRef _hpe)
 {
 	if (!_hpe.size())
 		return NibbleSlice(_hpe, 0);
-	if (_hpe[0] & 0x10)
+	if (_hpe[0] & 0x10) // NOTE: IH: should not it be 0xF0 here?
 		return NibbleSlice(_hpe, 1);
 	else
 		return NibbleSlice(_hpe, 2);

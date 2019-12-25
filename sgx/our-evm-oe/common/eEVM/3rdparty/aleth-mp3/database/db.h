@@ -16,8 +16,7 @@ namespace db
 {
 // WriteBatchFace implements database write batch for a specific concrete
 // database implementation.
-class WriteBatchFace
-{
+class WriteBatchFace {
 public:
     virtual ~WriteBatchFace() = default;
 
@@ -34,8 +33,7 @@ protected:
     WriteBatchFace& operator=(WriteBatchFace&&) = delete;
 };
 
-class DatabaseFace
-{
+class DatabaseFace {
 public:
     virtual ~DatabaseFace() = default;
     virtual std::string lookup(Slice _key) const = 0;
@@ -55,8 +53,7 @@ public:
 
 // DEV_SIMPLE_EXCEPTION(DatabaseError);
 
-enum class DatabaseStatus
-{
+enum class DatabaseStatus {
     Ok,
     NotFound,
     Corruption,

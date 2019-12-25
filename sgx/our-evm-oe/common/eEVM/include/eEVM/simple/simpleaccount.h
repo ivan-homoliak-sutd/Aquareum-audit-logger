@@ -5,42 +5,44 @@
 
 #include "eEVM/account.h"
 
+#include "aleth-mp3/Common.h"
 #include <nlohmann/json.hpp>
+
+using namespace dev;
 
 namespace eevm
 {
-  /**
+/**
    * Simple implementation of Account
    */
-  class SimpleAccount : public Account
-  {
-  private:
+class SimpleAccount : public Account {
+private:
     Address address = {};
     uint256_t balance = {};
     Code code = {};
-    Nonce nonce = {}; // the number of TXs send by the owner of the account
+    Nonce nonce = {};  // the number of TXs send by the owner of the account
 
-  public:
+public:
     SimpleAccount() = default;
     // SimpleAccount();
     // ~SimpleAccount();
 
-    SimpleAccount(const Address& a, const uint256_t& b, const Code& c) :
-      address(a),
-      balance(b),
-      code(c),
-      nonce(0)
-    {}
+    SimpleAccount(const Address& a, const uint256_t& b, const Code& c)
+      : address(a),
+        balance(b),
+        code(c),
+        nonce(0) {}
 
     SimpleAccount(
-      const Address& a, const uint256_t& b, const Code& c, Nonce n) :
-      address(a),
-      balance(b),
-      code(c),
-      nonce(n)
-    {}
+        const Address& a, const uint256_t& b, const Code& c, Nonce n)
+      : address(a),
+        balance(b),
+        code(c),
+        nonce(n) {}
 
     virtual Address get_address() const override;
+    virtual bytesConstRef get_address_h256() const;
+
     void set_address(const Address& a);
 
     virtual uint256_t get_balance() const override;
@@ -56,10 +58,12 @@ namespace eevm
 
     bool operator==(const Account&) const;
 
+    virtual bytesConstRef asJsonBytesRef();
+
     friend void to_json(nlohmann::json&, const SimpleAccount&);
     friend void from_json(const nlohmann::json&, SimpleAccount&);
-  };
+};
 
-  void to_json(nlohmann::json&, const SimpleAccount&);
-  void from_json(const nlohmann::json&, SimpleAccount&);
-} // namespace eevm
+void to_json(nlohmann::json&, const SimpleAccount&);
+void from_json(const nlohmann::json&, SimpleAccount&);
+}  // namespace eevm

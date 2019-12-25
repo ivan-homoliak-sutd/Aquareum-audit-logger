@@ -38,8 +38,7 @@ namespace eevm
     virtual void remove(const Address& addr) = 0;
 
     /**
-     * Creates a new zero-initialized account under the given address if none
-     * exists
+     * Creates a new zero-initialized account under the given address if none exists
      */
     virtual AccountState get(const Address& addr) = 0;
     virtual AccountState create(const Address& addr, const uint256_t& balance, const Code& code) = 0;

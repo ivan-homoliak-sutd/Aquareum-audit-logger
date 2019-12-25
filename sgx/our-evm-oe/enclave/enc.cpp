@@ -17,6 +17,7 @@
 
 // eEVM imports
 #include "aleth-mp3/database/OverlayDB.h"
+#include "aleth-mp3/database/MemoryDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
 #include "eEVM/util.h"
 
@@ -40,8 +41,11 @@ void ecall_enclave_ecledger() {
     l.execute_hello_world();
     l.execute_sum_a_b(2, 3);
 
-    dev::OverlayDB m_db;
-    auto t = new dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB>(&m_db);
+
+    // some tmp experiments with MP3 and DB
+    auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
+    dev::OverlayDB * m_db = new dev::OverlayDB(std::move(mem_db));
+    auto t = new dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
     assert(t->isNull());
 
     t->init();

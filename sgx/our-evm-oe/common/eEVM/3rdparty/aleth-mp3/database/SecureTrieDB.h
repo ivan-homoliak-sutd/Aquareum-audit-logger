@@ -8,9 +8,10 @@
 
 namespace dev
 {
-namespace eth
-{
-#if ETH_FATDB
+
+#define ETH_FATDB
+
+#ifdef ETH_FATDB
 template <class KeyType, class DB>
 using SecureTrieDB = SpecificTrieDB<FatGenericTrieDB<DB>, KeyType>;
 #else
@@ -18,5 +19,4 @@ template <class KeyType, class DB>
 using SecureTrieDB = SpecificTrieDB<HashedGenericTrieDB<DB>, KeyType>;
 #endif
 
-}  // namespace eth
 }  // namespace dev

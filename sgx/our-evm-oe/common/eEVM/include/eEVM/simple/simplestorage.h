@@ -13,7 +13,7 @@ namespace eevm
   /**
    * Simple std::map-backed implementation of Storage
    *
-   * IH: it seems that it is a per account storage
+   * IH: it is a per account storage that support only uint256_t to uint256_t mapping
    */
   class SimpleStorage : public Storage
   {

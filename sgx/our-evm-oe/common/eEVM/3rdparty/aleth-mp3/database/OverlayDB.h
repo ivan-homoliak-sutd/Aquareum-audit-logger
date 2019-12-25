@@ -16,7 +16,7 @@ namespace dev
 class OverlayDB : public StateCacheDB {
 public:
     explicit OverlayDB(std::unique_ptr<db::DatabaseFace> _db = nullptr)
-      : m_db(_db.release(), [](db::DatabaseFace* db) {
+      : m_db(_db.release(), [](db::DatabaseFace* db) { // the lambda function is deleter of managed object (called when the last shared pointer is released)
             // if(VerbosityDebug == currentVerbosity)
             std::cerr << "overlaydb: " << "Closing state DB\n";
             delete db;
@@ -43,7 +43,7 @@ public:
 private:
     using StateCacheDB::clear;
 
-    std::shared_ptr<db::DatabaseFace> m_db;
+    std::shared_ptr<db::DatabaseFace> m_db; // this is the pointer on the database (i.e., MemoryDB or LevelDB)
 };
 
 }  // namespace dev
