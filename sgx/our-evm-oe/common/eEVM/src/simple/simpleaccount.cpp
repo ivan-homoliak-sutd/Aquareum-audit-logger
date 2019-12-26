@@ -64,8 +64,9 @@ bool SimpleAccount::operator==(const Account& a) const {
            get_code() == a.get_code();
 }
 
-
-bytesConstRef SimpleAccount::asJsonBytesRef(){
+// It serializes the Account object into JSON string (further transformed to const byte vector)
+// the output is inserted as value to global account state of the ledger
+bytesConstRef SimpleAccount::asJsonBytesRef() const {
     nlohmann::json j;
     to_json(j, *this); // populate JSON object
     return bytesConstRef(j.dump());

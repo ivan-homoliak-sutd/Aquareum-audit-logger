@@ -26,7 +26,8 @@ struct Environment {
     const nlohmann::json& contract_definition;
 };
 
-size_t rand_range(size_t exclusive_upper_bound) {
+size_t rand_range(size_t exclusive_upper_bound)
+{
     std::random_device rand_device;
     std::mt19937 generator(rand_device());
     std::uniform_int_distribution<size_t> dist(0, exclusive_upper_bound - 1);
@@ -34,13 +35,15 @@ size_t rand_range(size_t exclusive_upper_bound) {
     return dist(generator);
 }
 
-uint256_t get_random_uint256(size_t bytes = 32) {
+uint256_t get_random_uint256(size_t bytes = 32)
+{
     std::vector<uint8_t> raw(bytes);
     std::generate(raw.begin(), raw.end(), []() { return rand(); });
     return eevm::from_big_endian(raw.data(), raw.size());
 }
 
-eevm::Address get_random_address() {
+eevm::Address get_random_address()
+{
     return get_random_uint256(20);
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,7 +53,8 @@ std::vector<uint8_t> run_and_check_result(
     Environment& env,
     const eevm::Address& from,
     const eevm::Address& to,
-    const eevm::Code& input) {
+    const eevm::Code& input)
+{
     // Ignore any logs produced by this transaction
     eevm::NullLogHandler ignore;
     eevm::Transaction tx(from, ignore);
@@ -79,7 +83,8 @@ std::vector<uint8_t> run_and_check_result(
 
 // Modify code to append ABI-encoding of arg, suitable for passing to contract
 // execution
-void append_argument(std::vector<uint8_t>& code, const uint256_t& arg) {
+void append_argument(std::vector<uint8_t>& code, const uint256_t& arg)
+{
     // To ABI encode a function call with a uint256_t (or Address) argument,
     // simply append the big-endian byte representation to the code (function
     // selector, or bin). ABI-encoding for more complicated types is more
@@ -91,7 +96,8 @@ void append_argument(std::vector<uint8_t>& code, const uint256_t& arg) {
 
 // Deploy the ERC20 contract defined in env, with total_supply tokens. Return
 // the address the contract was deployed to
-eevm::Address deploy_erc20_contract(Environment& env, const uint256_t total_supply) {
+eevm::Address deploy_erc20_contract(Environment& env, const uint256_t total_supply)
+{
     // Generate the contract address
     const auto contract_address = eevm::generate_address(env.owner_address, 0u);
 
@@ -107,6 +113,9 @@ eevm::Address deploy_erc20_contract(Environment& env, const uint256_t total_supp
     // Run a transaction to initialise this account
     auto result = run_and_check_result(env, env.owner_address, contract_address, {});
 
+
+    // IH: why they replace the code that was already inserted in the ctor of Account?
+    //
     // Result of running the compiled constructor is the code that should be the
     // contract's body (constructor will also have setup contract's Storage)
     contract.acc.set_code(std::move(result));
@@ -116,7 +125,8 @@ eevm::Address deploy_erc20_contract(Environment& env, const uint256_t total_supp
 
 // Get the total token supply by calling totalSupply on the contract_address
 uint256_t get_total_supply(
-    Environment& env, const eevm::Address& contract_address) {
+    Environment& env, const eevm::Address& contract_address)
+{
     // Anyone can call totalSupply - prove this by asking from a randomly
     // generated address
     const auto caller = get_random_address();
@@ -133,7 +143,8 @@ uint256_t get_total_supply(
 uint256_t get_balance(
     Environment& env,
     const eevm::Address& contract_address,
-    const eevm::Address& target_address) {
+    const eevm::Address& target_address)
+{
     // Anyone can call balanceOf - prove this by asking from a randomly generated
     // address
     const auto caller = get_random_address();
@@ -154,7 +165,8 @@ bool transfer(
     const eevm::Address& contract_address,
     const eevm::Address& source_address,
     const eevm::Address& target_address,
-    const uint256_t& amount) {
+    const uint256_t& amount)
+{
     // To transfer tokens, the caller must be the intended source address
     auto function_call = eevm::to_bytes(env.contract_definition["hashes"]["transfer(address,uint256)"]);
 
@@ -183,7 +195,8 @@ bool transfer(
 
 // Send N randomly generated token transfers. Some will be to new user addresses
 template <size_t N>
-void run_random_transactions(Environment& env, const eevm::Address& contract_address, Addresses& users) {
+void run_random_transactions(Environment& env, const eevm::Address& contract_address, Addresses& users)
+{
     const auto total_supply = get_total_supply(env, contract_address);
     const auto transfer_max = (2 * total_supply) / N;
 
@@ -209,7 +222,8 @@ void print_erc20_state(
     const std::string& heading,
     Environment& env,
     const eevm::Address& contract_address,
-    const Addresses& users) {
+    const Addresses& users)
+{
     const auto total_supply = get_total_supply(env, contract_address);
 
     using Balances = std::vector<std::pair<eevm::Address, uint256_t>>;
@@ -241,7 +255,8 @@ void print_erc20_state(
 // - Deploy ERC20 contract
 // - Transfer ERC20 tokens
 // - Print summary of state
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     srand(time(nullptr));
 
     if (argc < 2) {

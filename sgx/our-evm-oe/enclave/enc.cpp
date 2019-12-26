@@ -45,7 +45,7 @@ void ecall_enclave_ecledger() {
     // some tmp experiments with MP3 and DB
     auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
     dev::OverlayDB * m_db = new dev::OverlayDB(std::move(mem_db));
-    auto t = new dev::eth::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
+    auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
     assert(t->isNull());
 
     t->init();
@@ -191,6 +191,6 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
     return 0;
 }
 
-int ecall_run_single_tx(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
+int ecall_run_single_tx_stateless(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
     return _ecl.execute_tx(tx, code, code_size);
 }

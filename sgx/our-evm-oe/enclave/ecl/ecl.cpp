@@ -11,8 +11,9 @@
 #include "eEVM/processor.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
-int ECLedger::execute_tx(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size) {
-
+int ECLedger::execute_tx(PersistantTxProxy_T* tx,
+                         const uint8_t* code,
+                         size_t code_size) {
     TRACE_ENCLAVE("execute_tx invoked");
 
     // create eevm::Tx object from the proxy and code
@@ -61,24 +62,23 @@ std::vector<uint8_t> create_bytecode(const std::string& s) {
         code.push_back(eevm::Opcode::PUSH1);
         code.push_back(c);
         code.push_back(eevm::Opcode::PUSH1);
-        code.push_back(mcurrent++); // IH: this represents the address in the memory, starting from 0;
+        code.push_back(mcurrent++);  // IH: this represents the address in the memory, starting from 0;
         code.push_back(eevm::Opcode::MSTORE8);
     }
 
     // Return
     code.push_back(eevm::Opcode::PUSH1);
-    code.push_back(rsize); // the size to read from memory (i.e., length of string)
+    code.push_back(rsize);  // the size to read from memory (i.e., length of string)
     code.push_back(eevm::Opcode::PUSH1);
-    code.push_back(mdest); // starting from memory 0x00
+    code.push_back(mdest);  // starting from memory 0x00
     code.push_back(eevm::Opcode::RETURN);
 
     return code;
 }
 
 int ECLedger::execute_hello_world() {
-
     // Create random addresses for sender and contract
-    std::vector<uint8_t> raw_address(20); // addrress has 20 Bytes
+    std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
     std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
 
     const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
@@ -130,20 +130,20 @@ int ECLedger::execute_hello_world() {
 ////////////////////////////////////////////////////////////
 
 void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
-    code.push_back(eevm::Opcode::PUSH32); // Append opcode
+    code.push_back(eevm::Opcode::PUSH32);  // Append opcode
 
     // Resize code array
     const size_t pre_size = code.size();
     code.resize(pre_size + 32);
 
     // Serialize number into code array
-    eevm::to_big_endian(n, code.data() + pre_size); // IH: store n to real memory pointed by code.data() + pre_size
+    eevm::to_big_endian(n, code.data() + pre_size);  // IH: store n to real memory pointed by code.data() + pre_size
 }
 
 std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b) {
     std::vector<uint8_t> code;
-    constexpr uint8_t mdest = 0x0;  //< Memory start address for result
-    constexpr uint8_t rsize = 0x20; //< Size of result
+    constexpr uint8_t mdest = 0x0;   //< Memory start address for result
+    constexpr uint8_t rsize = 0x20;  //< Size of result
 
     // Push args and ADD
     push_uint256(code, a);
@@ -206,7 +206,7 @@ int ECLedger::execute_sum_a_b(int a, int b) {
     }
 
     // Construct a transaction object
-    eevm::NullLogHandler ignore; //< Ignore any logs produced by this transaction
+    eevm::NullLogHandler ignore;  //< Ignore any logs produced by this transaction
     std::cout << "[ENCLAVE]: Creating Transaction" << std::endl;
     eevm::Transaction tx(sender, to, ignore);
 
@@ -225,9 +225,9 @@ int ECLedger::execute_sum_a_b(int a, int b) {
         tx,
         sender,
         contract,
-        {}, //< No input - the arguments are hard-coded in the contract
-        0,  //< No gas value
-        &tr //< Record execution trace
+        {},  //< No input - the arguments are hard-coded in the contract
+        0,   //< No gas value
+        &tr  //< Record execution trace
     );
 
     if (e.er != eevm::ExitReason::returned) {

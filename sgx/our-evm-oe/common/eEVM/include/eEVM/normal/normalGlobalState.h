@@ -9,6 +9,7 @@
 
 #include "aleth-mp3/Common.h"
 #include "aleth-mp3/database/MemoryDB.h"
+#include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
 
 using namespace dev;
@@ -26,14 +27,16 @@ namespace eevm
     private:
         Block currentBlock;
 
-        SecureTrieDB<h256, db::MemoryDB> m_accounts;  // full global state: all accounts (except storage)
+        SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storage)
 
         std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts
 
 
     public:
         NormalGlobalState()
-          : m_accounts(new db::MemoryDB()) {
+          : m_accounts(
+                new OverlayDB(std::move(
+                    std::unique_ptr<db::DatabaseFace>(new db::MemoryDB())))) {
             m_accounts.init();  // create some tmp node into MP3
         };
 

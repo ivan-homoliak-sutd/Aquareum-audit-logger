@@ -58,7 +58,7 @@ public:
 
     bool operator==(const Account&) const;
 
-    virtual bytesConstRef asJsonBytesRef();
+    virtual bytesConstRef asJsonBytesRef () const;
 
     friend void to_json(nlohmann::json&, const SimpleAccount&);
     friend void from_json(const nlohmann::json&, SimpleAccount&);

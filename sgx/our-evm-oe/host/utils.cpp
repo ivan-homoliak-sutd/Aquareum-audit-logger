@@ -12,6 +12,14 @@ void info_print(const string& str) {
     std::cout << "[INFO] " << str << "\n";
 }
 
+void debug_print(const string& str) {
+    std::cout << "[DEBUG] " << str << "\n";
+}
+
+void debug_print(const char * str) {
+    std::cout << "[DEBUG] " << str << "\n";
+}
+
 void warning_print(const string& str) {
     std::cerr << "[WARNING] " << str << "\n";
 }

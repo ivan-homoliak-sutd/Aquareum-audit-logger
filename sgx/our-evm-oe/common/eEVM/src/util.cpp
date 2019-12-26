@@ -9,7 +9,8 @@
 
 using namespace std;
 
-namespace eevm {
+namespace eevm
+{
     string strip(const string& s) {
         return (s.size() >= 2 && s[1] == 'x') ? s.substr(2) : s;
     }
@@ -21,7 +22,7 @@ namespace eevm {
     vector<uint8_t> to_bytes(const string& _s) {
         auto s = strip(_s);
 
-        const size_t byte_len = (s.size() + 1) / 2; // round up
+        const size_t byte_len = (s.size() + 1) / 2;  // round up
         vector<uint8_t> v(byte_len);
 
         // Handle odd-length strings
@@ -48,4 +49,4 @@ namespace eevm {
 
         return from_big_endian(buffer + 12u, 20u);
     }
-} // namespace eevm
+}  // namespace eevm

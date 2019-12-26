@@ -15,7 +15,7 @@ namespace eevm
     // they are stored in EVM bytecode/memory.
     using Address = uint256_t;
 
-    size_t ADDR_SIZE_B = 32;
+    const size_t ADDR_SIZE_B = 32;
 
     struct addr_as_hash {
         /// Make a hash of the object's data.

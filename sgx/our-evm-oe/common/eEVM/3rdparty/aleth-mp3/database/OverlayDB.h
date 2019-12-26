@@ -40,6 +40,8 @@ public:
 
     bytes lookupAux(h256 const& _h) const;
 
+    std::shared_ptr<db::DatabaseFace> db() { return m_db; };
+
 private:
     using StateCacheDB::clear;
 

@@ -7,6 +7,7 @@
 #include <fmt/format_header_only.h>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <stdexcept>
@@ -15,8 +16,9 @@
 
 using namespace ecl;
 
-Operator::Operator(secp256k1_pubkey* _enc_PK) : ecl() {
-
+Operator::Operator(secp256k1_pubkey* _enc_PK)
+  : ecl()
+{
     // If keys were generated and persisted before, just load them, otherwise generate new keys
     if (this->existsMyKeyFile()) {
         info_print(string("loading operator's keys from file."));
@@ -35,7 +37,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK) : ecl() {
             return;
         }
 
-        this->ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY); // ECC context
+        this->ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);  // ECC context
 
         // 2) compute PK of operator (under PB)
         if (1 != secp256k1_ec_pubkey_create(this->ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
@@ -51,7 +53,8 @@ Operator::Operator(secp256k1_pubkey* _enc_PK) : ecl() {
     info_print(string("PK_O = ") + to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE));
 }
 
-int Operator::loadMyKeysFromFile() {
+int Operator::loadMyKeysFromFile()
+{
     ifstream file(FILE_OPERATOR_KEYS, ios::in | ios::binary);
     if (file.fail()) {
         return 1;
@@ -62,7 +65,8 @@ int Operator::loadMyKeysFromFile() {
     return 0;
 }
 
-bool Operator::existsMyKeyFile() {
+bool Operator::existsMyKeyFile()
+{
     struct stat buffer;
     if (0 != stat(FILE_OPERATOR_KEYS, &buffer)) {
         return false;
@@ -70,7 +74,8 @@ bool Operator::existsMyKeyFile() {
     return true;
 }
 
-int Operator::persistMyKeys() {
+int Operator::persistMyKeys()
+{
     ofstream file(FILE_OPERATOR_KEYS, ios::out | ios::binary);
     if (file.fail()) {
         return ERR_SAVING_OPER_KEYS;
@@ -83,7 +88,23 @@ int Operator::persistMyKeys() {
 
 //////////////////// AUX ////////////////////
 
-void Operator::print_evm_state(PublicSealedData_T& es) {
+typedef boost::char_separator<char> separator;
+
+bool correct_token_cnt(char* command, uint N, boost::tokenizer<separator>* tokens)
+{
+    const std::string& delims = " ";
+
+    tokens = new boost::tokenizer<separator>(string(std::move(command)), separator(delims.c_str()));
+
+    if (std::distance(tokens->begin(), tokens->end()) != N) {
+        std::cerr << "wrong token count: " << std::distance(tokens->begin(), tokens->end()) << "\n";
+        return false;
+    }
+    return true;
+}
+
+void Operator::print_evm_state(PublicSealedData_T& es)
+{
     cout << "\t PK_E_PB = " << to_hex_str(this->PK_E_PB.data, ECC_PK_SIZE) << "\n"
          << "\t PK_O = " << to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE) << "\n"
          << "\t SK_O = " << to_hex_str((const unsigned char*)&this->SK_O, ECC_SK_SIZE) << "\n";
@@ -98,17 +119,38 @@ void Operator::print_evm_state(PublicSealedData_T& es) {
 // Processing commands from operator  //
 ////////////////////////////////////////
 
-void Operator::operatorLoop(oe_enclave_t* enclave) {
-
-    int ret;               // internal return value
-    oe_result_t ecall_ret; // return value of general enclave call
+void Operator::operatorLoop(oe_enclave_t* enclave)
+{
+    int ret;                // internal return value
+    oe_result_t ecall_ret;  // return value of general enclave call
     char command[MAX_CMD_LEN];
+    boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
+
 
     while (true) {
+        if (tokens) {
+            free(tokens);
+            tokens = NULL;
+        }
 
         cout << "$>";
         cin.getline(command, MAX_CMD_LEN);
-        if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
+        if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+            std::cout << "Supported commands are:\n"
+                      << "\t show:"
+                      << "\t display info about operator and enclave."
+                      << "\n"
+                      << "\t test:"
+                      << "\t create some TX in enclave and run it there."
+                      << "\n"
+                      << "\t tx:"
+                      << "\t create TX that returns hello word string and send it to enclave."
+                      << "\n"
+                      << "\t tx add a b:"
+                      << " create TX that sums {a} and {b} in host and send it to enclave."
+                      << "\n"
+                      << "\n";
+        } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
             PublicSealedData_T pub_evm_state;
             ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
             if (ecall_ret != OE_OK && is_error(ret)) {
@@ -122,19 +164,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when invoking internal TX generation.");
             }
-            info_print("...done");
+            // info_print("...done");
         } else if (0 == strncmp(command, "tx add", 6)) {
-
-            const std::string& delims = " ";
-            typedef boost::char_separator<char> separator;
-            boost::tokenizer<separator> tokens(string(std::move(command)), separator(delims.c_str()));
-            if (std::distance(tokens.begin(), tokens.end()) != 4) {
-                std::cerr << "wrong token count: " << std::distance(tokens.begin(), tokens.end()) << std::endl;
+            if (!correct_token_cnt(command, 4, tokens))
                 continue;
-            }
+
             int a, b;
             try {
-                auto it = tokens.begin();
+                auto it = tokens->begin();
                 std::advance(it, 2);
                 a = std::stoi(*it);
                 b = std::stoi(*std::next(it));
@@ -142,7 +179,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
                 std::cerr << "Invalid argument\n";
                 continue;
             }
-            INFO_PRINT( "Creating TX that sums %d + %d ...", a, b);
+            INFO_PRINT("Creating TX that sums %d + %d ...", a, b);
 
             // create TX using eEVM
             eevm::PersistantTransaction* tx = this->ecl.createSumTx(a, b, this->PK_O, this->SK_O, *(this->ctx));
@@ -151,6 +188,56 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
                                             (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing sum TX in Enclave.");
+            }
+        } else if (0 == strcmp(command, "tx inc")) {
+            info_print("Creating increment counter TX ...");
+
+            // create and sign TX
+            eevm::PersistantTransaction* tx = this->ecl.createIncCounterTX(this->PK_O, this->SK_O, *(this->ctx));
+
+            ecall_ret = ecall_run_single_tx(enclave, &ret,
+                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when processing increment counter TX in Enclave.");
+            }
+
+        } else if (0 == strncmp(command, "deploy ", 7)) {
+            info_print("Creating contract ...");
+            if (!correct_token_cnt(command, 2, tokens))
+                continue;
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            const auto contract_path = *it;
+            std::ifstream contract_fstream(contract_path);
+            if (!contract_fstream) {
+                throw std::runtime_error(fmt::format("Unable to open contract definition file {}", contract_path));
+                continue;
+            }
+
+            // Parse the contract definition from file
+            const auto contracts_definition = nlohmann::json::parse(contract_fstream);
+            const auto all_contracts = contracts_definition["contracts"];
+            if (1 != all_contracts.count()) {
+                std::cerr << "Multiple constracts found in the definition file... just is supported for now."
+                          << "\n";
+                continue;
+            }
+            const auto contract_definition = all_contracts[0];
+
+            // create and sign deployment TX
+            eevm::PersistantTransaction* tx = this->ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, *(this->ctx));
+
+            ecall_ret = ecall_run_single_tx_stateless(enclave, &ret,
+                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            // ecall_ret = ecall_run_single_tx_stateless(enclave, &ret,
+            //                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            //                                 (const uint8_t*)tx->code.data(), tx->code.size());
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when deploying contract in Enclave.");
             }
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
@@ -170,10 +257,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave) {
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when syncing sealed state.");
             }
-            cout << "Operator shell quits...\n";
+            std::cout << "Operator shell quits...\n";
             break;
         } else {
-            cout << "Unknown command\n";
+            std::cout << "Unknown command\n";
         }
     }
 }

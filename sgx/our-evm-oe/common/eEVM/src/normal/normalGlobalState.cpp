@@ -43,7 +43,7 @@ bool NormalGlobalState::exists(const Address& addr) {
 }
 
 size_t NormalGlobalState::num_accounts() {
-    return m_accounts.db()->size();
+    return (dynamic_cast<db::MemoryDB *>(m_accounts.db()->db().get()))->size();
 }
 
 const Block& NormalGlobalState::get_current_block() {
@@ -58,23 +58,30 @@ void NormalGlobalState::insert(const StateEntry& p) {
     m_accounts.insert(p.first.get_address(),  p.first.asJsonBytesRef());
 }
 
-void to_json(nlohmann::json& j, const NormalGlobalState& s) {
-    j["block"] = s.currentBlock;
-    auto o = nlohmann::json::array();
-    for (const auto& p : s.m_accounts) {
-        o.push_back({to_hex_string(p.first), p.second});
-    }
-    j["accounts"] = o;
-}
+// void to_json(nlohmann::json& j, const NormalGlobalState& s) {
+//     j["block"] = s.currentBlock;
+//     auto o = nlohmann::json::array();
 
-void from_json(const nlohmann::json& j, NormalGlobalState& a) {
-    if (j.find("block") != j.end()) {
-        a.currentBlock = j["block"];
-    }
+//     // items of iterator for MP3 are std::pair<bytesConstRef, bytesConstRef> // maybe interepret second?
+//     for (const auto& p : s.m_accounts) {
+//         // o.push_back({to_hex_string(p.first), p.second});
+//         o.push_back({to_hex_string(p.first), to_hex_string(p.second.begin(), p.second.end())});
+//     }
+//     j["accounts"] = o;
+// }
 
-    for (const auto& it : j["accounts"].items()) {
-        const auto& v = it.value();
-        a.m_accounts.insert(make_pair(to_uint256(v[0]), v[1]));
-    }
-}
+// void from_json(const nlohmann::json& j, NormalGlobalState& s) {
+//     if (j.find("block") != j.end()) {
+//         s.currentBlock = j["block"];
+//     }
+
+//     for (const auto& it : j["accounts"].items()) {
+//         const auto& v = it.value();
+//         // a.m_accounts.insert(make_pair(to_uint256(v[0]), v[1]));
+//         s.m_accounts.insert(to_uint256(v[0]),  bytesConstRef(v[1]));
+
+//         // TODO: persist storages later
+//         // s.m_storages[to_uint256(v[0])] = v[1];
+//     }
+// }
 }  // namespace eevm
