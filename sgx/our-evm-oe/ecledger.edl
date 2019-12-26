@@ -21,11 +21,23 @@ enclave {
 
         public int ecall_sync_evm_sealed_state_to_disk(void);
 
-        public int ecall_run_single_tx_stateless(
+        public int ecall_run_single_tx_simplestate(
             [in, size=tx_size] PersistantTxProxy_T* tx,
             size_t tx_size,
             [in, size=code_size] const uint8_t* code,
             size_t code_size
+        );
+
+        public int ecall_run_single_tx_mp3state_full(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size,
+            [in, size=db_keys_size] const uint8_t* db_keys, // each key in the array has constant size
+            size_t db_keys_size,
+            [user_check] const uint8_t* db_values, // each value (Account) in the array has variable size that is determined in the follow up parameter
+            [in, size=db_values_sizes_size] const uint64_t * values_sizes,
+            size_t db_values_sizes_size
         );
     };
 

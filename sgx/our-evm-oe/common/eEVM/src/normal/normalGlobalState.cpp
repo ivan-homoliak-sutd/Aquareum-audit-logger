@@ -38,6 +38,13 @@ AccountState NormalGlobalState::create(const Address& addr, const uint256_t& bal
     return get(addr);
 }
 
+void void dump_full_db(uint8_t* db_keys, uint8_t* db_values, size_t* db_keys_size, size_t** values_sizes_size){
+
+    TODO !!!!
+
+}
+
+
 bool NormalGlobalState::exists(const Address& addr) {
     return m_accounts.contains(addr);
 }

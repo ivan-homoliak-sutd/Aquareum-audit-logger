@@ -9,10 +9,10 @@
 using namespace eevm;
 
 class ECLedger {
-    NormalGlobalState m_gs;  // the full global state of the ECL ledger
-
 public:
     ECLedger();
+
+    NormalGlobalState m_gs;  // the full global state of the ECL ledger
 
     PersistantTransaction* createHelloWorldTX(secp256k1_pubkey& PK_sender,
                                               uint8_t (&SK_sender)[ECC_SK_SIZE],

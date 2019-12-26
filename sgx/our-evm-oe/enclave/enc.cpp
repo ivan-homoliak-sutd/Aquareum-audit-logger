@@ -191,6 +191,6 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
     return 0;
 }
 
-int ecall_run_single_tx_stateless(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
+int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
     return _ecl.execute_tx(tx, code, code_size);
 }

@@ -36,7 +36,8 @@ namespace eevm
         NormalGlobalState()
           : m_accounts(
                 new OverlayDB(std::move(
-                    std::unique_ptr<db::DatabaseFace>(new db::MemoryDB())))) {
+                    std::unique_ptr<db::DatabaseFace>(new db::MemoryDB()))))
+        {
             m_accounts.init();  // create some tmp node into MP3
         };
 
@@ -45,11 +46,15 @@ namespace eevm
 
         virtual void remove(const Address& addr) override;
 
+        inline db::MemoryDB* db() { m_accounts->db().db().get(); }
+
         AccountState get(const Address& addr) override;
         AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
 
         bool exists(const Address& addr);
         size_t num_accounts();
+
+        void dump_full_db(uint8_t * db_keys, uint8_t * db_values,  size_t* db_keys_size,  size_t** values_sizes_size);
 
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
