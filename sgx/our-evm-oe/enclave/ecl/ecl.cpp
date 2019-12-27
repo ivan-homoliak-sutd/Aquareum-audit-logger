@@ -63,7 +63,7 @@ int ECLedger::execute_tx_mp3state_full(PersistantTxProxy_T* tx, const uint8_t* c
                          const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                          uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
-    TRACE_ENCLAVE("execute_tx_simplestate_internal invoked");
+    TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
     // create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);

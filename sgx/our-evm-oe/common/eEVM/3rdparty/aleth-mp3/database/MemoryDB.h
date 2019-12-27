@@ -45,7 +45,7 @@ public:
 
     size_t size() const { return m_db.size(); }
 
-    inline std::unordered_map<std::string, std::string> & data() const { return m_db};
+    inline std::unordered_map<std::string, std::string> & data() { return m_db; }
 
 private:
     std::unordered_map<std::string, std::string> m_db;

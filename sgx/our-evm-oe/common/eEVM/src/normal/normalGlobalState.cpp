@@ -3,7 +3,6 @@
 
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/bigint.h"
-#include "utils.h"
 
 #include "aleth-mp3/FixedHash.h"
 
@@ -49,7 +48,7 @@ namespace eevm
                                          std::vector<std::string>* db_values,
                                          std::vector<size_t>* values_sizes,
                                          size_t& db_keys_size, size_t& values_sizes_size,
-                                         std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const
+                                         std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size)
     {
         db::MemoryDB* mem_db = this->db();
 
@@ -74,7 +73,7 @@ namespace eevm
             _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
         }
         db_keys_size = mem_db->size() * 32;
-        debug_print(fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} ", db_keys_size, summed_keys_size));
+        std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
         assert(db_keys_size == summed_keys_size);
     }
 

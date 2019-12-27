@@ -247,7 +247,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),
                                                           db_keys->data(), db_keys_size,
-                                                          db_values->data(), values_sizes->data(), values_sizes_size);
+                                                          db_values->data(), values_sizes->data(), values_sizes_size,
+                                                          storages->data(), storages_sizes->data(), storages_sizes_size);
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             //                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             //                                 (const uint8_t*)tx->code.data(), tx->code.size());

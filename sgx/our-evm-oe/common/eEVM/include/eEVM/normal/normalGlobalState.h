@@ -47,7 +47,7 @@ namespace eevm
 
         virtual void remove(const Address& addr) override;
 
-        inline db::MemoryDB* db() const { m_accounts.db()->db().get(); }
+        inline db::MemoryDB* db() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
 
         // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
 
@@ -64,7 +64,7 @@ namespace eevm
                           std::vector<std::string>* db_values,
                           std::vector<size_t>* values_sizes,
                           size_t& db_keys_size, size_t& values_sizes_size,
-                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const;
+                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size);
 
         /**
          * For tests which require some initial state, allow manual insertion of pre-constructed accounts

@@ -22,7 +22,7 @@ namespace eevm
 
     void SimpleStorage::store(const uint256_t& key, const uint256_t& value)
     {
-        s[key] = value;
+        m_s[key] = value;
     }
 
     uint256_t SimpleStorage::load(const uint256_t& key)
@@ -74,14 +74,14 @@ namespace eevm
     /////////////////////////////////
     bool SimpleStorage::operator==(const SimpleStorage& that) const
     {
-        return s == that.s;
+        return m_s == that.m_s;
     }
 
     void to_json(nlohmann::json& j, const SimpleStorage& s)
     {
         j = nlohmann::json::object();
 
-        for (const auto& p : s.s) {
+        for (const auto& p : s.m_s) {
             j[to_hex_string(p.first)] = to_hex_string(p.second);
         }
     }

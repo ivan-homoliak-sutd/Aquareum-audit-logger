@@ -35,7 +35,7 @@ namespace eevm
             nonce(0),
             storage_hash(
                 from_big_endian(
-                    keccak_256(std::map<uint256_t, uint256_t>())))
+                    keccak_256(std::map<uint256_t, uint256_t>()).data()))
         {}
 
         SimpleAccount(
@@ -46,7 +46,7 @@ namespace eevm
             nonce(n),
             storage_hash(
                 from_big_endian(
-                    keccak_256(std::map<uint256_t, uint256_t>())))
+                    keccak_256(std::map<uint256_t, uint256_t>()).data()))
         {}
 
         SimpleAccount(
@@ -73,7 +73,7 @@ namespace eevm
         virtual void set_code(Code&& c) override;
         virtual bool has_code() override;
 
-        inline uint256_t& get_stHash() const { return storage_hash; };
+        inline uint256_t& get_stHash() { return storage_hash; };
         inline void set_stHash(uint256_t& h) { storage_hash = h; };
 
         bool operator==(const Account&) const;
