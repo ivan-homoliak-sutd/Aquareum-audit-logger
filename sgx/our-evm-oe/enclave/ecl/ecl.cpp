@@ -11,10 +11,14 @@
 #include "eEVM/processor.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
-int ECLedger::execute_tx(PersistantTxProxy_T* tx,
-                         const uint8_t* code,
-                         size_t code_size) {
-    TRACE_ENCLAVE("execute_tx invoked");
+/**
+ * This is only tmp method since it fully maintains global state within the enclave.
+ */
+int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
+                                              const uint8_t* code,
+                                              size_t code_size)
+{
+    TRACE_ENCLAVE("execute_tx_simplestate_internal invoked");
 
     // create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
@@ -24,13 +28,13 @@ int ECLedger::execute_tx(PersistantTxProxy_T* tx,
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    // Deploy contract to global state
-    const eevm::AccountState contract = this->gs.create(etx.to, 0, c);
+    // Deploy contract to simple global state (internal to enclave)
+    const eevm::AccountState contract = this->simple_gs.create(etx.to, 0, c);
 
     TRACE_ENCLAVE("running processor...");
 
     // Create processor
-    eevm::Processor p(this->gs);
+    eevm::Processor p(this->simple_gs);
 
     // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
     // with empty input (and no trace collection)
@@ -51,7 +55,54 @@ int ECLedger::execute_tx(PersistantTxProxy_T* tx,
     return RET_SUCCESS;
 }
 
-std::vector<uint8_t> create_bytecode(const std::string& s) {
+/**
+ * Considers full MP3 global state transferred from the host part here.
+ */
+int ECLedger::execute_tx_mp3state_full(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+                         const uint8_t* db_keys, size_t db_keys_size,
+                         const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                         uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+{
+    TRACE_ENCLAVE("execute_tx_simplestate_internal invoked");
+
+    // create eevm::Tx object from the proxy and code
+    auto c = std::vector<uint8_t>(std::move(code), code + code_size);
+    auto lh = eevm::NullLogHandler();
+
+    auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
+                                 reinterpret_cast<eevm::Address*>(tx->to),
+                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
+
+    // Contract should be already deployed at global state
+    const eevm::AccountState contract = this->simple_gs.create(etx.to, 0, c);
+
+    TRACE_ENCLAVE("running processor...");
+
+    // Create processor
+    eevm::Processor p(this->simple_gs);
+
+    // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
+    // with empty input (and no trace collection)
+    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
+
+    // Check the response
+    if (e.er != eevm::ExitReason::returned) {
+        std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+        return ERR_EVM_WRONG_RET_CODE;
+    }
+
+    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
+    TRACE_ENCLAVE("output as str: %s", response.c_str());
+
+    const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
+    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+
+    return RET_SUCCESS;
+}
+
+
+std::vector<uint8_t> create_bytecode(const std::string& s)
+{
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;
     const uint8_t rsize = s.size() + 1;
@@ -76,7 +127,8 @@ std::vector<uint8_t> create_bytecode(const std::string& s) {
     return code;
 }
 
-int ECLedger::execute_hello_world() {
+int ECLedger::execute_hello_world()
+{
     // Create random addresses for sender and contract
     std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
     std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
@@ -129,7 +181,8 @@ int ECLedger::execute_hello_world() {
 
 ////////////////////////////////////////////////////////////
 
-void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
+void push_uint256(std::vector<uint8_t>& code, const uint256_t& n)
+{
     code.push_back(eevm::Opcode::PUSH32);  // Append opcode
 
     // Resize code array
@@ -140,7 +193,8 @@ void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
     eevm::to_big_endian(n, code.data() + pre_size);  // IH: store n to real memory pointed by code.data() + pre_size
 }
 
-std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b) {
+std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b)
+{
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;   //< Memory start address for result
     constexpr uint8_t rsize = 0x20;  //< Size of result
@@ -165,7 +219,8 @@ std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_
     return code;
 }
 
-int ECLedger::execute_sum_a_b(int a, int b) {
+int ECLedger::execute_sum_a_b(int a, int b)
+{
     // Validate args, read verbose option
     bool verbose = true;
     srand(time(nullptr));

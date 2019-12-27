@@ -12,58 +12,78 @@ using namespace dev;
 
 namespace eevm
 {
-/**
+    /**
    * Simple implementation of Account
    */
-class SimpleAccount : public Account {
-private:
-    Address address = {};
-    uint256_t balance = {};
-    Code code = {};
-    Nonce nonce = {};  // the number of TXs send by the owner of the account
+    class SimpleAccount : public Account {
+    private:
+        Address address = {};
+        uint256_t balance = {};
+        Code code = {};
+        Nonce nonce = {};             // the number of TXs send by the owner of the account
+        uint256_t storage_hash = {};  // the integrity value of the storage related to this account (might be the root hash of MP3 or just hash of the set)
 
-public:
-    SimpleAccount() = default;
-    // SimpleAccount();
-    // ~SimpleAccount();
+    public:
+        SimpleAccount() = default;
+        // SimpleAccount();
+        // ~SimpleAccount();
 
-    SimpleAccount(const Address& a, const uint256_t& b, const Code& c)
-      : address(a),
-        balance(b),
-        code(c),
-        nonce(0) {}
+        SimpleAccount(const Address& a, const uint256_t& b, const Code& c)
+          : address(a),
+            balance(b),
+            code(c),
+            nonce(0),
+            storage_hash(
+                from_big_endian(
+                    keccak_256(std::map<uint256_t, uint256_t>())))
+        {}
 
-    SimpleAccount(
-        const Address& a, const uint256_t& b, const Code& c, Nonce n)
-      : address(a),
-        balance(b),
-        code(c),
-        nonce(n) {}
+        SimpleAccount(
+            const Address& a, const uint256_t& b, const Code& c, Nonce n)
+          : address(a),
+            balance(b),
+            code(c),
+            nonce(n),
+            storage_hash(
+                from_big_endian(
+                    keccak_256(std::map<uint256_t, uint256_t>())))
+        {}
 
-    virtual Address get_address() const override;
-    virtual bytesConstRef get_address_h256() const;
+        SimpleAccount(
+            const Address& a, const uint256_t& b, const Code& c, Nonce n, uint256_t storage_h)
+          : address(a),
+            balance(b),
+            code(c),
+            nonce(n),
+            storage_hash(storage_h) {}
 
-    void set_address(const Address& a);
+        virtual Address get_address() const override;
+        virtual bytesConstRef get_address_h256() const;
 
-    virtual uint256_t get_balance() const override;
-    virtual void set_balance(const uint256_t& b) override;
+        void set_address(const Address& a);
 
-    virtual Nonce get_nonce() const override;
-    void set_nonce(Nonce n);
-    virtual void increment_nonce() override;
+        virtual uint256_t get_balance() const override;
+        virtual void set_balance(const uint256_t& b) override;
 
-    virtual Code get_code() const override;
-    virtual void set_code(Code&& c) override;
-    virtual bool has_code() override;
+        virtual Nonce get_nonce() const override;
+        void set_nonce(Nonce n);
+        virtual void increment_nonce() override;
 
-    bool operator==(const Account&) const;
+        virtual Code get_code() const override;
+        virtual void set_code(Code&& c) override;
+        virtual bool has_code() override;
 
-    virtual bytesConstRef asJsonBytesRef () const;
+        inline uint256_t& get_stHash() const { return storage_hash; };
+        inline void set_stHash(uint256_t& h) { storage_hash = h; };
 
-    friend void to_json(nlohmann::json&, const SimpleAccount&);
-    friend void from_json(const nlohmann::json&, SimpleAccount&);
-};
+        bool operator==(const Account&) const;
 
-void to_json(nlohmann::json&, const SimpleAccount&);
-void from_json(const nlohmann::json&, SimpleAccount&);
+        virtual bytesConstRef asJsonBytesRef() const;
+
+        friend void to_json(nlohmann::json&, const SimpleAccount&);
+        friend void from_json(const nlohmann::json&, SimpleAccount&);
+    };
+
+    void to_json(nlohmann::json&, const SimpleAccount&);
+    void from_json(const nlohmann::json&, SimpleAccount&);
 }  // namespace eevm

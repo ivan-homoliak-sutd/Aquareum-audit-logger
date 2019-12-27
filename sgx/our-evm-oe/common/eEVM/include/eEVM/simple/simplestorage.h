@@ -17,7 +17,7 @@ namespace eevm
    */
   class SimpleStorage : public Storage
   {
-    std::map<uint256_t, uint256_t> s;
+    std::map<uint256_t, uint256_t> m_s;
 
   public:
     SimpleStorage() = default;
@@ -27,6 +27,8 @@ namespace eevm
     uint256_t load(const uint256_t& key) override;
     bool exists(const uint256_t& key);
     bool remove(const uint256_t& key) override;
+
+    size_t toBytes(std::vector<uint8_t>* toAppend) const;
 
     bool operator==(const SimpleStorage& that) const;
 

@@ -16,8 +16,8 @@
 #include "signing-PB/signing.h"
 
 // eEVM imports
-#include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/MemoryDB.h"
+#include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
 #include "eEVM/util.h"
 
@@ -28,7 +28,8 @@ Sealing _sealer;
 ECLedger _ecl;
 
 // TODO: this is just temp function: drop it later
-void ecall_enclave_ecledger() {
+void ecall_enclave_ecledger()
+{
     // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
     std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
 
@@ -44,7 +45,7 @@ void ecall_enclave_ecledger() {
 
     // some tmp experiments with MP3 and DB
     auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
-    dev::OverlayDB * m_db = new dev::OverlayDB(std::move(mem_db));
+    dev::OverlayDB* m_db = new dev::OverlayDB(std::move(mem_db));
     auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
     assert(t->isNull());
 
@@ -72,7 +73,8 @@ void ecall_enclave_ecledger() {
 * This function is called only once - when sealed file does not exist.
 * The initialization of SK and PK under the signature scheme of the blockchain is performed here.
 */
-int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
+int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
+{
     oe_result_t ocall_status, sealing_status;
     int ocall_ret, lib_ret;
 
@@ -103,8 +105,8 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
         lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-            (const unsigned char*)evm_state_unsealed, data_size,
-            &sealed_data, &sealed_data_size);
+                                    (const unsigned char*)evm_state_unsealed, data_size,
+                                    &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
             TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
             return ERR_FAIL_SEAL_STATE;
@@ -161,7 +163,8 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size) {
     }
 }
 
-int ecall_sync_evm_sealed_state_to_disk(void) {
+int ecall_sync_evm_sealed_state_to_disk(void)
+{
     int ocall_ret;
 
     // seal internal EVM state object which is held in memory
@@ -169,8 +172,8 @@ int ecall_sync_evm_sealed_state_to_disk(void) {
     sealed_data_t* sealed_data = NULL;
     size_t sealed_data_size = 0;
     int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-        (unsigned char*)&_evm_state, data_size,
-        &sealed_data, &sealed_data_size);
+                                    (unsigned char*)&_evm_state, data_size,
+                                    &sealed_data, &sealed_data_size);
     if (OE_OK != lib_ret) {
         TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
         return ERR_FAIL_SEAL_STATE;
@@ -186,11 +189,25 @@ int ecall_sync_evm_sealed_state_to_disk(void) {
     return 0;
 }
 
-int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size) {
+int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size)
+{
     (*pub_evm_state) = _evm_state.pub;
     return 0;
 }
 
-int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size) {
-    return _ecl.execute_tx(tx, code, code_size);
+int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
+{
+    return _ecl.execute_tx_simplestate_internal(tx, code, code_size);
+}
+
+
+int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
+                                      const uint8_t* code, size_t code_size,
+                                      const uint8_t* db_keys, size_t db_keys_size,
+                                      const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                      uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+{
+    return _ecl.execute_tx_mp3state_full(tx, code, code_size, db_keys, db_keys_size,
+                                         db_values, values_sizes, db_values_sizes_size,
+                                         storages, storages_sizes, storages_sizes_size);
 }

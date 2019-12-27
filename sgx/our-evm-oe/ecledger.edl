@@ -36,8 +36,11 @@ enclave {
             [in, size=db_keys_size] const uint8_t* db_keys, // each key in the array has constant size
             size_t db_keys_size,
             [user_check] const uint8_t* db_values, // each value (Account) in the array has variable size that is determined in the follow up parameter
-            [in, size=db_values_sizes_size] const uint64_t * values_sizes,
+            [in, size=db_values_sizes_size] const size_t * values_sizes,
             size_t db_values_sizes_size
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size
         );
     };
 

@@ -230,18 +230,24 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // create and sign deployment TX
             eevm::PersistantTransaction* tx = this->ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, *(this->ctx));
 
+            // dump DB into basic C types (to be passed into enclave)
+            // global account state
+            std::vector<std::string>*db_keys, *db_values;  // will be allocated in the DB's method - thus we need to delete them afterwards
+            std::vector<size_t>* values_sizes;             // will be allocated in the DB's method - thus we need to delete it afterwards
+            size_t db_keys_size, values_sizes_size;
+            // storages of all accounts
+            std::vector<uint8_t>* storages;
+            std::vector<size_t>* storages_sizes;
+            size_t storages_sizes_size;
 
-            uint8_t *db_keys, db_values;  // will be allocated in the DB's method - thus we need to delete them afterwards
-            size_t db_keys_size;
-            size_t* values_sizes_size;  // will be allocated in the DB's method - thus we need to delete it afterwards
-            ecl.m_gs.dump_full_db(db_keys, db_values, &db_keys_size, values_sizes_size);
+            ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, &storages_sizes_size);
 
 
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),
-
-            );
+                                                          db_keys->data(), db_keys_size,
+                                                          db_values->data(), values_sizes->data(), values_sizes_size);
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             //                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             //                                 (const uint8_t*)tx->code.data(), tx->code.size());
@@ -250,7 +256,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             delete db_keys;
             delete db_values;
-            delete values_sizes_size;
+            delete values_sizes;
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");

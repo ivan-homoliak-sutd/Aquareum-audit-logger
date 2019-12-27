@@ -27,10 +27,11 @@ namespace eevm
     private:
         Block currentBlock;
 
-        SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storage)
+        SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
 
         std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts
 
+        void _dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const;
 
     public:
         NormalGlobalState()
@@ -46,7 +47,9 @@ namespace eevm
 
         virtual void remove(const Address& addr) override;
 
-        inline db::MemoryDB* db() { m_accounts->db().db().get(); }
+        inline db::MemoryDB* db() const { m_accounts.db()->db().get(); }
+
+        // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
 
         AccountState get(const Address& addr) override;
         AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
@@ -54,15 +57,18 @@ namespace eevm
         bool exists(const Address& addr);
         size_t num_accounts();
 
-        void dump_full_db(uint8_t * db_keys, uint8_t * db_values,  size_t* db_keys_size,  size_t** values_sizes_size);
-
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
+        void dump_full_db(std::vector<std::string>* db_keys,
+                          std::vector<std::string>* db_values,
+                          std::vector<size_t>* values_sizes,
+                          size_t& db_keys_size, size_t& values_sizes_size,
+                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const;
+
         /**
-     * For tests which require some initial state, allow manual insertion of
-     * pre-constructed accounts
-     */
+         * For tests which require some initial state, allow manual insertion of pre-constructed accounts
+         */
         void insert(const StateEntry& e);
 
         friend void to_json(nlohmann::json&, const NormalGlobalState&);

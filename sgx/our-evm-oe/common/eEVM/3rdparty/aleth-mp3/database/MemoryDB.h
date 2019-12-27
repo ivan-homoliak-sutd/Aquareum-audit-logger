@@ -45,6 +45,8 @@ public:
 
     size_t size() const { return m_db.size(); }
 
+    inline std::unordered_map<std::string, std::string> & data() const { return m_db};
+
 private:
     std::unordered_map<std::string, std::string> m_db;
     mutable Mutex m_mutex;
