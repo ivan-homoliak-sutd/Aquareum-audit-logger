@@ -1,6 +1,7 @@
 #pragma once
 
 #include "data_types.h"
+#include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
 class ECLedger {
@@ -15,8 +16,6 @@ public:
 
     int execute_tx_simplestate_internal(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size);
 
-    int execute_tx_mp3state_full(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
-                                 const uint8_t* db_keys, size_t db_keys_size,
-                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                                 uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size);
+    int execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+                                 const uint8_t* db_keys, size_t db_keys_size);
 };

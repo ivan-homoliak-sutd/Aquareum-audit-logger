@@ -25,7 +25,7 @@ namespace eevm
 
 
     private:
-        Block currentBlock;
+        Block currentBlock; // not used so far
 
         SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
 
@@ -39,15 +39,14 @@ namespace eevm
                 new OverlayDB(std::move(
                     std::unique_ptr<db::DatabaseFace>(new db::MemoryDB()))))
         {
-            m_accounts.init();  // create some tmp node into MP3
+            m_accounts.init();  // create empty node into MP3
         };
-
-        explicit NormalGlobalState(Block b)
-          : currentBlock(std::move(b)) {}
 
         virtual void remove(const Address& addr) override;
 
         inline db::MemoryDB* db() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
+        inline const h256& root() { return m_accounts.root(); }
+
 
         // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
 
@@ -70,6 +69,10 @@ namespace eevm
          * For tests which require some initial state, allow manual insertion of pre-constructed accounts
          */
         void insert(const StateEntry& e);
+
+        static int construct_full_state(NormalGlobalState* out_gs, const uint8_t* db_keys, size_t db_keys_size,
+                                        const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                        uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size);
 
         friend void to_json(nlohmann::json&, const NormalGlobalState&);
         friend void from_json(const nlohmann::json&, NormalGlobalState&);

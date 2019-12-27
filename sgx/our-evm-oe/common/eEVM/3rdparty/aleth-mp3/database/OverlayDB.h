@@ -18,7 +18,7 @@ public:
     explicit OverlayDB(std::unique_ptr<db::DatabaseFace> _db = nullptr)
       : m_db(_db.release(), [](db::DatabaseFace* db) { // the lambda function is deleter of managed object (called when the last shared pointer is released)
             // if(VerbosityDebug == currentVerbosity)
-            std::cerr << "overlaydb: " << "Closing state DB\n";
+            std::cerr << "overlaydb: " << "Closing MP3 database...\n";
             delete db;
         }) {}
 
@@ -31,7 +31,7 @@ public:
     OverlayDB(OverlayDB&&) = default;
     OverlayDB& operator=(OverlayDB&&) = default;
 
-    void commit();
+    void commit();  // this methods commits data from state cache to the PERSISTANT DB in m_db. It stores entries from both 'm_main' and 'm_aux' !
     void rollback();
 
     std::string lookup(h256 const& _h) const;
@@ -45,7 +45,7 @@ public:
 private:
     using StateCacheDB::clear;
 
-    std::shared_ptr<db::DatabaseFace> m_db; // this is the pointer on the database (i.e., MemoryDB or LevelDB)
+    std::shared_ptr<db::DatabaseFace> m_db; // this is the pointer on the PERSISTANT database (i.e., MemoryDB or LevelDB)
 };
 
 }  // namespace dev

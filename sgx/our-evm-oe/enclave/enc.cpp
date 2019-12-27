@@ -19,6 +19,7 @@
 #include "aleth-mp3/database/MemoryDB.h"
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
+#include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/util.h"
 
 EvmState_T _evm_state;
@@ -207,7 +208,8 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                       uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
-    return _ecl.execute_tx_mp3state_full(tx, code, code_size, db_keys, db_keys_size,
-                                         db_values, values_sizes, db_values_sizes_size,
-                                         storages, storages_sizes, storages_sizes_size);
+    auto gs = eevm::NormalGlobalState::construct_full_state(db_values, values_sizes, db_values_sizes_size,
+                                                            storages, storages_sizes, storages_sizes_size);
+
+    return _ecl.execute_tx_mp3state_full(gs, tx, code, code_size, db_keys, db_keys_size);
 }

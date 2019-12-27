@@ -35,7 +35,7 @@ void OverlayDB::commit()
 {
     if (m_db)
     {
-        auto writeBatch = m_db->createWriteBatch();
+        auto writeBatch = m_db->createWriteBatch(); // IH: this is just an empty batch object (with set) that will be populated
 //      cnote << "Committing nodes to disk DB:";
 #if DEV_GUARDED_DB
         DEV_READ_GUARDED(x_this)

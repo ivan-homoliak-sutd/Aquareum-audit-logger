@@ -221,8 +221,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             const auto contracts_definition = nlohmann::json::parse(contract_fstream);
             const auto all_contracts = contracts_definition["contracts"];
             if (1 != all_contracts.count()) {
-                std::cerr << "Multiple constracts found in the definition file... just is supported for now."
-                          << "\n";
+                std::cerr << "Multiple contracts found in the definition file... just is supported for now.\n";
                 continue;
             }
             const auto contract_definition = all_contracts[0];
@@ -242,22 +241,26 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, &storages_sizes_size);
 
-
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),
                                                           db_keys->data(), db_keys_size,
                                                           db_values->data(), values_sizes->data(), values_sizes_size,
                                                           storages->data(), storages_sizes->data(), storages_sizes_size);
-            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
-            //                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-            //                                 (const uint8_t*)tx->code.data(), tx->code.size());
+
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when deploying contract in Enclave.");
             }
-            delete db_keys;
-            delete db_values;
-            delete values_sizes;
+
+            // Create a new account entry in the global state of host and compare the root hash with the one from the enclave
+            debug_print(std::string("host->state_root before TX = ") + ecl.m_gs.root().toHex());
+            ecl.m_gs.create(tx->to, tx->value, tx->code);
+            debug_print(std::string("host->state_root after TX = ") + ecl.m_gs.root().toHex());
+            // TODO: ...
+            // assert(ecl.m_gs.root() == ...);
+
+
+            delete db_keys, db_values, values_sizes, storages, storages_sizes;
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");

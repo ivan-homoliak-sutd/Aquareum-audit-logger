@@ -9,7 +9,6 @@
 #include "eEVM/bigint.h"
 #include "eEVM/opcode.h"
 #include "eEVM/processor.h"
-#include "eEVM/simple/simpleglobalstate.h"
 
 /**
  * This is only tmp method since it fully maintains global state within the enclave.
@@ -58,10 +57,8 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 /**
  * Considers full MP3 global state transferred from the host part here.
  */
-int ECLedger::execute_tx_mp3state_full(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
-                         const uint8_t* db_keys, size_t db_keys_size,
-                         const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                         uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+                                       const uint8_t* db_keys, size_t db_keys_size)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -73,16 +70,18 @@ int ECLedger::execute_tx_mp3state_full(PersistantTxProxy_T* tx, const uint8_t* c
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    // Contract should be already deployed at global state
+
+    // Contract should be already deployed at global state that is passed in arguments
+
     const eevm::AccountState contract = this->simple_gs.create(etx.to, 0, c);
 
     TRACE_ENCLAVE("running processor...");
 
     // Create processor
-    eevm::Processor p(this->simple_gs);
+    eevm::Processor p(*gs);
 
-    // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
-    // with empty input (and no trace collection)
+    // Execute code. All executions are associated with a TX. This TX is called by sender,
+    // executing the code in contract, with empty input (and no trace collection)
     const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
 
     // Check the response
@@ -298,4 +297,17 @@ int ECLedger::execute_sum_a_b(int a, int b)
     std::cout << "[ENCLAVE:]" << fmt::format("{} + {} = {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b), eevm::to_lower_hex_string(result)) << std::endl;
 
     return 0;
+}
+
+
+////////////////////////////// Static Methods //////////////////////////////
+
+
+/**
+ * Constructs  NormalGlobalState object from parameters passed to ecall.
+ */
+static int construct_full_state(NormalGlobalState& out_gs, const uint8_t* db_keys, size_t db_keys_size,
+                                const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+{
 }

@@ -13,8 +13,6 @@ using namespace dev;
 
 namespace eevm
 {
-    // NormalGlobalState::NormalGlobalState() {}
-
     void NormalGlobalState::remove(const Address& addr)
     {
         m_accounts.remove(h256(addr));
@@ -43,6 +41,12 @@ namespace eevm
         insert({SimpleAccount(addr, balance, code), {}});
         return get(addr);
     }
+
+    bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(addr); }
+    size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
+    const Block& NormalGlobalState::get_current_block() { return currentBlock; }
+    uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
+    void NormalGlobalState::insert(const StateEntry& p) { m_accounts.insert(p.first.get_address(), p.first.asJsonBytesRef()); }
 
     void NormalGlobalState::dump_full_db(std::vector<std::string>* db_keys,
                                          std::vector<std::string>* db_values,
@@ -88,29 +92,24 @@ namespace eevm
     }
 
 
-    bool NormalGlobalState::exists(const Address& addr)
-    {
-        return m_accounts.contains(addr);
-    }
+    ////////////////////////////// Static Methods //////////////////////////////
 
-    size_t NormalGlobalState::num_accounts()
+    /**
+     * Constructs  NormalGlobalState object from parameters passed. (called from enclave)
+     */
+    static int construct_full_state(NormalGlobalState* out_gs, const uint8_t* db_keys, size_t db_keys_size,
+                                    const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                    uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
     {
-        return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size();
-    }
+        out_gs = new NormalGlobalState();
 
-    const Block& NormalGlobalState::get_current_block()
-    {
-        return currentBlock;
-    }
+        // insert account states one by one to global MP3
+        for (size_t i = 0; i < count; i++) {
+            /* code */
+        }
 
-    uint256_t NormalGlobalState::get_block_hash(uint8_t offset)
-    {
-        return 0u;  // IH: cool
-    }
 
-    void NormalGlobalState::insert(const StateEntry& p)
-    {
-        m_accounts.insert(p.first.get_address(), p.first.asJsonBytesRef());
+        out_gs->m_accounts.insert();
     }
 
     // void to_json(nlohmann::json& j, const NormalGlobalState& s) {
@@ -139,4 +138,6 @@ namespace eevm
     //         // s.m_storages[to_uint256(v[0])] = v[1];
     //     }
     // }
+
+
 }  // namespace eevm

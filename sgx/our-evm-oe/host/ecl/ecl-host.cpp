@@ -20,7 +20,8 @@ ECLedger::ECLedger(){};
 
 /////////////////// bytecode generation ///////////////////
 
-std::vector<uint8_t> create_printStr_bytecode(const std::string& s) {
+std::vector<uint8_t> create_printStr_bytecode(const std::string& s)
+{
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;
     const uint8_t rsize = s.size() + 1;
@@ -45,7 +46,8 @@ std::vector<uint8_t> create_printStr_bytecode(const std::string& s) {
     return code;
 }
 
-void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
+void push_uint256(std::vector<uint8_t>& code, const uint256_t& n)
+{
     code.push_back(eevm::Opcode::PUSH32);  // Append opcode
 
     // Resize code array
@@ -56,7 +58,8 @@ void push_uint256(std::vector<uint8_t>& code, const uint256_t& n) {
     eevm::to_big_endian(n, code.data() + pre_size);  // IH: store n to real memory pointed by code.data() + pre_size
 }
 
-std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b) {
+std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_t& b)
+{
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;   //< Memory start address for result
     constexpr uint8_t rsize = 0x20;  //< Size of result
@@ -81,7 +84,8 @@ std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_
     return code;
 }
 
-std::vector<uint8_t> create_inc_counter_bytecode() {
+std::vector<uint8_t> create_inc_counter_bytecode()
+{
     std::vector<uint8_t> code;
     constexpr uint8_t mdest = 0x0;   //< Memory start address for result
     constexpr uint8_t rsize = 0x20;  //< Size of result
@@ -91,7 +95,8 @@ std::vector<uint8_t> create_inc_counter_bytecode() {
     return code;
 }
 
-void append_arg(std::vector<uint8_t>& code, const uint256_t& arg) {
+void append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
+{
     // ABI encode a function call with a uint256_t (or Address) argument.
     // ABI-encoding for more complicated types is more complicated.
     const auto pre_size = code.size();
@@ -102,7 +107,8 @@ void append_arg(std::vector<uint8_t>& code, const uint256_t& arg) {
 
 /////////////////// AUX ///////////////////
 
-void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE], secp256k1_context& ctx) {
+void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE], secp256k1_context& ctx)
+{
     auto inp4hash = tx->asDataForHash();
 
     eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
@@ -121,7 +127,8 @@ void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE],
 
 eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx) {
+                                                          secp256k1_context& ctx)
+{
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
@@ -144,7 +151,8 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
 eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
                                                    secp256k1_pubkey& PK_sender,
                                                    uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                   secp256k1_context& ctx) {
+                                                   secp256k1_context& ctx)
+{
     // Parse args
     const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
     const uint256_t arg_b = eevm::to_uint256(std::to_string(b));
@@ -172,7 +180,8 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& contract_definition,
                                                           secp256k1_pubkey& PK_sender,
                                                           uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx) {
+                                                          secp256k1_context& ctx)
+{
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
@@ -184,13 +193,10 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
     // Get the binary constructor of the contract and its parameters
     auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);
 
-    for(auto & ctor_param: eevm::to_bytes(contract_definition["ctor"]){
+    for (auto& ctor_param : contract_definition["ctor"]) {
         debug_print(fmt::format("\t parsing ctor parameter: {} => {} ", ctor_param.key(), ctor_param.value()));
         append_arg(contract_ctor_code, u256(ctor_param.value()));
     }
-
-    // Create a new account entry in the global state
-    AccountState contract = m_gs.create(contract_address, 0u, contract_ctor_code); // insert code together with arguments of ctor
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
@@ -201,7 +207,8 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
 
 eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx) {
+                                                          secp256k1_context& ctx)
+{
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 

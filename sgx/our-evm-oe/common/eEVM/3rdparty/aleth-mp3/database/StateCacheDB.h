@@ -43,7 +43,7 @@ protected:
     mutable SharedMutex x_this;
 #endif
     std::unordered_map<h256, std::pair<std::string, unsigned>> m_main;
-    std::unordered_map<h256, std::pair<bytes, bool>> m_aux;
+    std::unordered_map<h256, std::pair<bytes, bool>> m_aux; // IH: this si reverse mapping of child hash to the parent hash in MP3
 
     mutable bool m_enforceRefs = false;
 };
