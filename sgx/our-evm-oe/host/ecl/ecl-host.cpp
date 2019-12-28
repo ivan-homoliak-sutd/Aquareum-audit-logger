@@ -14,6 +14,8 @@
 // #include "eEVM/processor.h"
 // #include "eEVM/simple/simpleglobalstate.h"
 
+#include "aleth-mp3/Common.h"
+
 #include <openssl/sha.h>
 
 ECLedger::ECLedger(){};
@@ -194,8 +196,10 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
     auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);
 
     for (auto& ctor_param : contract_definition["ctor"]) {
-        debug_print(fmt::format("\t parsing ctor parameter: {} => {} ", ctor_param.key(), ctor_param.value()));
-        append_arg(contract_ctor_code, u256(ctor_param.value()));
+        debug_print(fmt::format("\t parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
+        if (string(ctor_param["type"]) != "uint256")
+            throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
+        append_arg(contract_ctor_code, u256(ctor_param["value"]));
     }
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)

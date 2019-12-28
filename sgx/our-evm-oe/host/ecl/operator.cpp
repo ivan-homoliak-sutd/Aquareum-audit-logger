@@ -89,17 +89,22 @@ int Operator::persistMyKeys()
 //////////////////// AUX ////////////////////
 
 typedef boost::char_separator<char> separator;
+auto sep = separator{" "};
 
-bool correct_token_cnt(char* command, uint N, boost::tokenizer<separator>* tokens)
+
+bool correct_token_cnt(std::string& command, uint N, boost::tokenizer<separator>** tokens)
 {
-    const std::string& delims = " ";
+    *tokens = new boost::tokenizer<separator>{command, sep};
+    auto _tokens = *tokens;
+    // std::cerr << "tokens = " << _tokens << "\n";
 
-    tokens = new boost::tokenizer<separator>(string(std::move(command)), separator(delims.c_str()));
-
-    if (std::distance(tokens->begin(), tokens->end()) != N) {
-        std::cerr << "wrong token count: " << std::distance(tokens->begin(), tokens->end()) << "\n";
+    // std:cerr << "distance = " << std::distance(tokens->begin(), tokens->end()) << "\n";
+    if (std::distance(_tokens->begin(), _tokens->end()) != N) {
+        std::cerr << "wrong token count: " << std::distance(_tokens->begin(), _tokens->end()) << "\n";
         return false;
     }
+
+
     return true;
 }
 
@@ -125,7 +130,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     oe_result_t ecall_ret;  // return value of general enclave call
     char command[MAX_CMD_LEN];
     boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
-
+    string command_s;
 
     while (true) {
         if (tokens) {
@@ -135,6 +140,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
         cout << "$>";
         cin.getline(command, MAX_CMD_LEN);
+        command_s = string(command);
+
         if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
             std::cout << "Supported commands are:\n"
                       << "\t show:"
@@ -166,7 +173,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             // info_print("...done");
         } else if (0 == strncmp(command, "tx add", 6)) {
-            if (!correct_token_cnt(command, 4, tokens))
+            if (!correct_token_cnt(command_s, 4, &tokens))
                 continue;
 
             int a, b;
@@ -183,9 +190,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // create TX using eEVM
             eevm::PersistantTransaction* tx = this->ecl.createSumTx(a, b, this->PK_O, this->SK_O, *(this->ctx));
-            ecall_ret = ecall_run_single_tx(enclave, &ret,
-                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                        (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing sum TX in Enclave.");
             }
@@ -195,16 +202,16 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // create and sign TX
             eevm::PersistantTransaction* tx = this->ecl.createIncCounterTX(this->PK_O, this->SK_O, *(this->ctx));
 
-            ecall_ret = ecall_run_single_tx(enclave, &ret,
-                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                        (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing increment counter TX in Enclave.");
             }
 
         } else if (0 == strncmp(command, "deploy ", 7)) {
             info_print("Creating contract ...");
-            if (!correct_token_cnt(command, 2, tokens))
+            if (!correct_token_cnt(command_s, 2, &tokens))
                 continue;
 
             auto it = tokens->begin();
@@ -213,52 +220,60 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             const auto contract_path = *it;
             std::ifstream contract_fstream(contract_path);
             if (!contract_fstream) {
-                throw std::runtime_error(fmt::format("Unable to open contract definition file {}", contract_path));
+                error_print(fmt::format("Unable to open contract definition file: \"{}\"", contract_path));
                 continue;
             }
 
             // Parse the contract definition from file
             const auto contracts_definition = nlohmann::json::parse(contract_fstream);
             const auto all_contracts = contracts_definition["contracts"];
-            if (1 != all_contracts.count()) {
-                std::cerr << "Multiple contracts found in the definition file... just is supported for now.\n";
+            if (1 != all_contracts.size()) {
+                error_print("Multiple contracts found in the definition file... just is supported for now.");
                 continue;
             }
-            const auto contract_definition = all_contracts[0];
+            debug_print("2");
+
+            const auto cit = all_contracts.begin();
+            info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
+            const auto& contract_definition = cit.value();
+            debug_print("3");
 
             // create and sign deployment TX
             eevm::PersistantTransaction* tx = this->ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, *(this->ctx));
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state
-            std::vector<std::string>*db_keys, *db_values;  // will be allocated in the DB's method - thus we need to delete them afterwards
-            std::vector<size_t>* values_sizes;             // will be allocated in the DB's method - thus we need to delete it afterwards
+            std::string *db_keys, *db_values;   // will be allocated in the DB's method - thus we need to delete them afterwards
+            std::vector<size_t>* values_sizes;  // will be allocated in the DB's method - thus we need to delete it afterwards
             size_t db_keys_size, values_sizes_size;
             // storages of all accounts
             std::vector<uint8_t>* storages;
             std::vector<size_t>* storages_sizes;
             size_t storages_sizes_size;
 
-            ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, &storages_sizes_size);
+            ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
+
+            std::cout << "Current ccount state tree is:"
+                      << "\n";
+            // std::cout << ecl.m_gs;
 
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),
-                                                          db_keys->data(), db_keys_size,
-                                                          db_values->data(), values_sizes->data(), values_sizes_size,
-                                                          storages->data(), storages_sizes->data(), storages_sizes_size);
+                                                          (const uint8_t*)db_keys->data(), db_keys_size,
+                                                          (const uint8_t*)db_values->data(), values_sizes->data(), values_sizes_size,
+                                                          (const uint8_t*)storages->data(), storages_sizes->data(), storages_sizes_size);
 
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when deploying contract in Enclave.");
             }
 
             // Create a new account entry in the global state of host and compare the root hash with the one from the enclave
-            debug_print(std::string("host->state_root before TX = ") + ecl.m_gs.root().toHex());
+            debug_print(std::string("host->state_root before TX = ") + ecl.m_gs.root().hex());
             ecl.m_gs.create(tx->to, tx->value, tx->code);
-            debug_print(std::string("host->state_root after TX = ") + ecl.m_gs.root().toHex());
+            debug_print(std::string("host->state_root after TX = ") + ecl.m_gs.root().hex());
             // TODO: ...
             // assert(ecl.m_gs.root() == ...);
-
 
             delete db_keys, db_values, values_sizes, storages, storages_sizes;
 
@@ -268,9 +283,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // create and sign TX
             eevm::PersistantTransaction* tx = this->ecl.createHelloWorldTX(this->PK_O, this->SK_O, *(this->ctx));
 
-            ecall_ret = ecall_run_single_tx(enclave, &ret,
-                                            (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                            (const uint8_t*)tx->code.data(), tx->code.size());
+            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                        (const uint8_t*)tx->code.data(), tx->code.size());
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing print hello world TX in Enclave.");
             }

@@ -5,6 +5,8 @@
 #include "eEVM/bigint.h"
 
 #include "aleth-mp3/FixedHash.h"
+#include "aleth-mp3/TrieCommon.h"
+
 
 #include <fmt/format_header_only.h>
 
@@ -20,15 +22,16 @@ namespace eevm
 
     AccountState NormalGlobalState::get(const Address& addr)
     {
-        std::string json_data = m_accounts.at(h256(addr));
+        std::string acnt_json = m_accounts.at(h256(addr));
 
-        if (json_data.empty()) {  // create a new account if it does not exist
+        if (acnt_json.empty()) {  // create a new account if it does not exist
             return create(addr, 0, {});
         }
 
         // populate account object
+        auto j = nlohmann::json::parse(acnt_json);
         SimpleAccount a;
-        from_json(json_data, a);
+        from_json(j, a);
         assert(a.get_address() == addr);
 
         // fetch account's data from storage map
@@ -48,37 +51,46 @@ namespace eevm
     uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
     void NormalGlobalState::insert(const StateEntry& p) { m_accounts.insert(p.first.get_address(), p.first.asJsonBytesRef()); }
 
-    void NormalGlobalState::dump_full_db(std::vector<std::string>* db_keys,
-                                         std::vector<std::string>* db_values,
+    void NormalGlobalState::dump_full_db(std::string* db_keys,
+                                         std::string* db_values,
                                          std::vector<size_t>* values_sizes,
                                          size_t& db_keys_size, size_t& values_sizes_size,
                                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size)
     {
+        // 1) we need to flush state cache of OverlayDB to persistant database (e.g., MemoryDB), coz later we will work with the persistant one
+        this->commitAccntDB();
         db::MemoryDB* mem_db = this->db();
 
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
 
-        db_keys = new std::vector<std::string>();
-        db_values = new std::vector<std::string>();
+        db_keys = new std::string();
+        db_values = new std::string();
         values_sizes = new std::vector<size_t>();
         storages = new std::vector<uint8_t>();
         storages_sizes = new std::vector<size_t>();
 
         for (auto const& e : mem_db->data()) {
-            db_keys->push_back(e.first);
-            db_values->push_back(e.second);
-            values_sizes->push_back(e.second.size());
+            RLP rlp(e.second);
 
-            summed_keys_size += e.first.size();
-            values_sizes_size += e.second.size();
+            // skip non-leaf nodes
+            if (!(rlp.isList() && isLeaf(rlp))) {
+                continue;
 
-            // dump also storages of accounts
-            _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
+                db_keys->append(e.first);
+                db_values->append(e.second);
+                values_sizes->push_back(e.second.size());
+
+                summed_keys_size += e.first.size();
+                values_sizes_size += e.second.size();
+
+                // dump also storage of each account
+                _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
+            }
+            db_keys_size = mem_db->size() * 32;
+            std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
+            assert(db_keys_size == summed_keys_size);
         }
-        db_keys_size = mem_db->size() * 32;
-        std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
-        assert(db_keys_size == summed_keys_size);
     }
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const
@@ -97,20 +109,22 @@ namespace eevm
     /**
      * Constructs  NormalGlobalState object from parameters passed. (called from enclave)
      */
-    static int construct_full_state(NormalGlobalState* out_gs, const uint8_t* db_keys, size_t db_keys_size,
-                                    const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                                    uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
-    {
-        out_gs = new NormalGlobalState();
+    // static int construct_full_state(NormalGlobalState* gs, const uint8_t* db_keys, size_t db_keys_size,
+    //                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+    //                                 uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+    // {
+    //     assert(db_keys_size / 32 == db_values_sizes_size / sizeof(size_t));
 
-        // insert account states one by one to global MP3
-        for (size_t i = 0; i < count; i++) {
-            /* code */
-        }
+    //     // gs = new NormalGlobalState();
 
+    //     // // 1) insert account states one by one to global MP3
+    //     // for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
+    //     //     values_sizes[i];
+    //     // }
 
-        out_gs->m_accounts.insert();
-    }
+    //     // gs->m_accounts.insert();
+    //     return 0;
+    // }
 
     // void to_json(nlohmann::json& j, const NormalGlobalState& s) {
     //     j["block"] = s.currentBlock;
@@ -138,6 +152,5 @@ namespace eevm
     //         // s.m_storages[to_uint256(v[0])] = v[1];
     //     }
     // }
-
 
 }  // namespace eevm

@@ -42,8 +42,8 @@ protected:
 #if DEV_GUARDED_DB
     mutable SharedMutex x_this;
 #endif
-    std::unordered_map<h256, std::pair<std::string, unsigned>> m_main;
-    std::unordered_map<h256, std::pair<bytes, bool>> m_aux; // IH: this si reverse mapping of child hash to the parent hash in MP3
+    std::unordered_map<h256, std::pair<std::string, unsigned>> m_main; // IH: second uint is #_inserted counter (?counts children?)
+    std::unordered_map<h256, std::pair<bytes, bool>> m_aux; // IH: this is reverse mapping of child hash to the parent hash in MP3 (bool flag indicates active|deleted)
 
     mutable bool m_enforceRefs = false;
 };

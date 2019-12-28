@@ -120,7 +120,7 @@ namespace dev {
                 std::string key; // as hexPrefixEncoding.
                 byte child;      // 255 -> entering, 16 -> actually at the node, 17 -> exiting, 0-15 -> actual children.
 
-                // 255 -> 16 -> 0 -> 1 -> ... -> 15 -> 17
+                // 255 -> 16 -> 0 -> 1 -> ... -> 15 -> 17       // IH: this looks to me as pre-order iteration (parent first, then children)
 
                 void setChild(unsigned _i) { child = _i; }
                 void setFirstChild() { child = 16; }
@@ -145,14 +145,13 @@ namespace dev {
             _keyMask.erase(_k);
             if (_k == m_root && _k == EmptyTrie) // root allowed to be empty
                 return;
-            std::string const s = node(_k);
+            std::string const s = node(_k); // lookup in OverlayDB
             RLP r = RLP(s);
             descendList(r, _keyMask, _wasExt, _out, _indent); // if not, it must be a list
         }
 
         /// Used for debugging, scans the whole trie.
-        void descendEntry(
-            RLP const& _r, h256Hash& _keyMask, bool _wasExt, std::ostream* _out, int _indent) const {
+        void descendEntry(RLP const& _r, h256Hash& _keyMask, bool _wasExt, std::ostream* _out, int _indent) const {
             if (_r.isData() && _r.size() == 32)
                 descendKey(_r.toHash<h256>(), _keyMask, _wasExt, _out, _indent);
             else if (_r.isList())
@@ -169,12 +168,17 @@ namespace dev {
                     (*_out) << std::string(_indent * 2, ' ') << (_wasExt ? "!2 " : "2  ") << sha3(_r.data()) << ": " << _r << "\n";
                 if (!isLeaf(_r)) // don't go down leaves
                     descendEntry(_r[1], _keyMask, true, _out, _indent + 1);
+                else
+                    return; // IH: if is leaf, just return
+
             } else if (_r.isList() && _r.itemCount() == 17) {
                 if (_out)
                     (*_out) << std::string(_indent * 2, ' ') << "17 " << sha3(_r.data()) << ": " << _r << "\n";
                 for (unsigned i = 0; i < 16; ++i)
                     if (!_r[i].isEmpty()) // 16 branches are allowed to be empty
                         descendEntry(_r[i], _keyMask, false, _out, _indent + 1);
+                return; // IH: all branches done, just return
+
             } else
                 throw std::logic_error("InvalidTrie()");
                 // BOOST_THROW_EXCEPTION(InvalidTrie());
@@ -182,14 +186,14 @@ namespace dev {
 
         /// Used for debugging, scans the whole trie.
         h256Hash leftOvers(std::ostream* _out = nullptr) const {
-            h256Hash k = m_db->keys();
+            h256Hash k = m_db->keys(); // IH: this requires not flushed OverlayDB to persistant storage !!!
             descendKey(m_root, k, false, _out);
             return k;
         }
 
         /// Used for debugging, scans the whole trie.
         void debugStructure(std::ostream& _out) const {
-            leftOvers(&_out);
+            leftOvers(&_out); // IH: all is preorder iteration
         }
 
         /// Used for debugging, scans the whole trie.
@@ -261,7 +265,7 @@ namespace dev {
         bool isTwoItemNode(RLP const& _n) const;
         std::string deref(RLP const& _n) const;
 
-        std::string node(h256 const& _h) const { return m_db->lookup(_h); }
+        std::string node(h256 const& _h) const { return m_db->lookup(_h); } // IH: returns empty string if not found
 
         // These are low-level node insertion functions that just go straight through into the DB.
         h256 forceInsertNode(bytesConstRef _v) {
@@ -292,7 +296,7 @@ namespace dev {
     template <class DB>
     std::ostream& operator<<(std::ostream& _out, GenericTrieDB<DB> const& _db) {
         for (auto const& i : _db)
-            _out << escaped(i.first.toString(), false) << ": " << escaped(i.second.toString(), false) << std::endl;
+            _out << escaped(i.first.toString(), false) << ": " << escaped(i.second.toString(), false) << "\n";
         return _out;
     }
 
@@ -423,7 +427,7 @@ namespace dev {
         void insert(bytesConstRef _key, bytesConstRef _value) {
             h256 hash = sha3(_key);
             Super::insert(hash, _value);
-            Super::db()->insertAux(hash, _key);
+            Super::db()->insertAux(hash, _key); // IH: reverse pointers from children to parents
         }
 
         void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
@@ -646,7 +650,7 @@ namespace dev {
                     // no need to set .child as 255 - it's already done.
                     continue;
                 } else {
-                    // Already a branch - look for first valid.
+                    // Already a branch - look for first valid.  // IH: 17 items
                     m_trail.back().setFirstChild();
                     // run through to...
                 }
@@ -659,6 +663,7 @@ namespace dev {
                 // else run through to...
                 m_trail.back().incrementChild();
             }
+
 
             // ...here. should only get here if we're a list.
             assert(rlp.isList() && rlp.itemCount() == 17);
@@ -770,8 +775,8 @@ namespace dev {
 
             // partial key is our key - move down.
             if (_k.contains(k) && !isLeaf(_orig)) {
-                if (!_inLine)
-                    killNode(_orig, _origHash);
+                if (!_inLine) // IH: this is by default false
+                    killNode(_orig, _origHash); // IH: I guess it is removing of "stale" node whose hash has changed
                 RLPStream s(2);
                 s.append(_orig[0]);
                 mergeAtAux(s, _orig[1], _k.mid(k.size()), _v);

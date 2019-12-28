@@ -2,7 +2,6 @@
 
 #include "secp256k1.h"
 #include <stdint.h>
-#include <unordered_map>
 
 #define SIG_SIZE_PB 64
 

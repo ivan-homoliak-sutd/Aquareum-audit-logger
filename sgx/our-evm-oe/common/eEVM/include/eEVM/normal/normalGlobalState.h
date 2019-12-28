@@ -25,7 +25,7 @@ namespace eevm
 
 
     private:
-        Block currentBlock; // not used so far
+        Block currentBlock;  // not used so far
 
         SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
 
@@ -34,12 +34,14 @@ namespace eevm
         void _dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const;
 
     public:
-        NormalGlobalState()
+        NormalGlobalState(bool init = true)
           : m_accounts(
                 new OverlayDB(std::move(
-                    std::unique_ptr<db::DatabaseFace>(new db::MemoryDB()))))
+                    std::unique_ptr<db::DatabaseFace>(
+                        new db::MemoryDB()))))  // MemoryDB is just a surrogate for the real persistant DB
         {
-            m_accounts.init();  // create empty node into MP3
+            if (init)
+                m_accounts.init();  // create empty node into MP3
         };
 
         virtual void remove(const Address& addr) override;
@@ -47,6 +49,7 @@ namespace eevm
         inline db::MemoryDB* db() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
         inline const h256& root() { return m_accounts.root(); }
 
+        inline void commitAccntDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB
 
         // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
 
@@ -59,8 +62,8 @@ namespace eevm
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
-        void dump_full_db(std::vector<std::string>* db_keys,
-                          std::vector<std::string>* db_values,
+        void dump_full_db(std::string* db_keys,
+                          std::string* db_values,
                           std::vector<size_t>* values_sizes,
                           size_t& db_keys_size, size_t& values_sizes_size,
                           std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size);
@@ -74,11 +77,12 @@ namespace eevm
                                         const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                         uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size);
 
-        friend void to_json(nlohmann::json&, const NormalGlobalState&);
-        friend void from_json(const nlohmann::json&, NormalGlobalState&);
+        // friend void to_json(nlohmann::json&, const NormalGlobalState&);
+        // friend void from_json(const nlohmann::json&, NormalGlobalState&);
+        friend void from_json(const nlohmann::json&, SimpleAccount&);
     };
 
-    void to_json(nlohmann::json&, const NormalGlobalState&);
-    void from_json(const nlohmann::json&, NormalGlobalState&);
+    // void to_json(nlohmann::json&, const NormalGlobalState&);
+    // void from_json(const nlohmann::json&, NormalGlobalState&);
     // bool operator==(const NormalGlobalState&, const NormalGlobalState&);
 }  // namespace eevm

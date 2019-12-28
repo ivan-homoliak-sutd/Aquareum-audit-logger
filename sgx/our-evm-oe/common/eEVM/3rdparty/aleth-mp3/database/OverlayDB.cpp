@@ -67,7 +67,7 @@ void OverlayDB::commit()
             {
                 if (i == 9)
                 {
-                    std::cerr << "Fail writing to state database. Bombing out.";
+                    std::cerr << "Fail writing to (persistant) state database. Bombing out.";
                     throw std::logic_error("Exit(): Fail writing to state database. Bombing out");
                     // exit(-1);
                 }
@@ -88,10 +88,12 @@ void OverlayDB::commit()
 
 bytes OverlayDB::lookupAux(h256 const& _h) const
 {
+    // 1) search in cache
     bytes ret = StateCacheDB::lookupAux(_h);
     if (!ret.empty() || !m_db)
         return ret;
 
+    // 2) if not successfull, search in peristant DB
     bytes b = _h.asBytes();
     b.push_back(255);   // for aux
     std::string const v = m_db->lookup(toSlice(b));
@@ -111,10 +113,12 @@ void OverlayDB::rollback()
 
 std::string OverlayDB::lookup(h256 const& _h) const
 {
+    // 1) search in cache
     std::string ret = StateCacheDB::lookup(_h);
     if (!ret.empty() || !m_db)
         return ret;
 
+    // 2) if not successfull, search in peristant DB
     return m_db->lookup(toSlice(_h));
 }
 
@@ -136,10 +140,12 @@ void OverlayDB::kill(h256 const& _h)
                 // No point node ref decreasing for EmptyTrie since we never bother incrementing it
                 // in the first place for empty storage tries.
                 if (_h != EmptyTrie)
-                    std::cerr << "Decreasing DB node ref count below zero with no DB node. Probably have a corrupt Trie. "  << _h << "\n";
+                    std::cerr << "Decreasing DB node ref count below zero with no DB node. Probably a corrupted Trie; h = "  << _h << "\n";
                 // TODO: for 1.1: ref-counted triedb.
             }
         }
+
+        // IH: TODO: why there is no delete at persistant DB ???
     }
 }
 

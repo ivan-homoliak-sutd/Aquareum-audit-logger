@@ -62,23 +62,25 @@ bool StateCacheDB::exists(h256 const& _h) const {
     return false;
 }
 
+// Operation insert also updates the entry with a new value
 void StateCacheDB::insert(h256 const& _h, bytesConstRef _v) {
 #if DEV_GUARDED_DB
     WriteGuard l(x_this);
 #endif
     auto it = m_main.find(_h);
     if (it != m_main.end()) {
-        it->second.first = _v.toString();
+        it->second.first = _v.toString(); // IH: (root should also be recomputed)
         it->second.second++;
     } else
         m_main[_h] = make_pair(_v.toString(), 1);
 }
 
+// IH: kill might not delete the node, only decrease #_inserted counter !!
 bool StateCacheDB::kill(h256 const& _h) {
 #if DEV_GUARDED_DB
     ReadGuard l(x_this);
 #endif
-    if (m_main.count(_h)) {
+    if (m_main.count(_h)) { // returns 0 | 1
         if (m_main[_h].second > 0) {
             m_main[_h].second--;
             return true;
@@ -111,6 +113,8 @@ void StateCacheDB::insertAux(h256 const& _h, bytesConstRef _v) {
     m_aux[_h] = make_pair(_v.toBytes(), true);
 }
 
+
+// it deletes inactive items in both maps (i.e., bool flag = false for m_aux; #_inserted counter = 0)
 void StateCacheDB::purge() {
 #if DEV_GUARDED_DB
     WriteGuard l(x_this);

@@ -81,19 +81,21 @@ inline bool isLeaf(RLP const& _twoItem)
 {
 	assert(_twoItem.isList() && _twoItem.itemCount() == 2);
 	auto pl = _twoItem[0].payload();
-	return (pl[0] & 0x20) != 0;
+	return (pl[0] & 0x20) != 0; // IH bit 0x20 in HPE encodes whether a node is leaf (=true) or not
 }
 
+// IH: returns just data part of HPE passed
 inline NibbleSlice keyOf(bytesConstRef _hpe)
 {
 	if (!_hpe.size())
 		return NibbleSlice(_hpe, 0);
-	if (_hpe[0] & 0x10) // NOTE: IH: should not it be 0xF0 here?
+	if (_hpe[0] & 0x10) // IH: 0x10 means odd number of nibbles (in which 1st byte contains the 1st nibble of data => skip 1 nibble in slice)
 		return NibbleSlice(_hpe, 1);
 	else
-		return NibbleSlice(_hpe, 2);
+		return NibbleSlice(_hpe, 2); // IH: even number of nibbles encodes no data at the 1st byte => skipe 2 nibbles in slice
 }
 
+// IH: input node is list with 2 items (partialPath and value|key)
 inline NibbleSlice keyOf(RLP const& _twoItem)
 {
 	return keyOf(_twoItem[0].payload());

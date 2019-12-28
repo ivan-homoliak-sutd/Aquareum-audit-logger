@@ -96,6 +96,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantT
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
+    delete gs; // clear global state allocated before
     return RET_SUCCESS;
 }
 
@@ -306,8 +307,8 @@ int ECLedger::execute_sum_a_b(int a, int b)
 /**
  * Constructs  NormalGlobalState object from parameters passed to ecall.
  */
-static int construct_full_state(NormalGlobalState& out_gs, const uint8_t* db_keys, size_t db_keys_size,
-                                const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                                uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
-{
-}
+// static int construct_full_state(eevm::NormalGlobalState& out_gs, const uint8_t* db_keys, size_t db_keys_size,
+//                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+//                                 uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+// {
+// }
