@@ -232,6 +232,24 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
     return tx;
 }
 
+
+void ECLedger::createNRandomAccounts(unsigned N)
+{
+    for (unsigned i = 0; i < N; i++) {
+        debug_print(fmt::format("\t creating random account: {} ", i));
+        std::vector<uint8_t> raw_address(20);
+        std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+        const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
+
+        debug_print("1");
+        m_gs.create(addr, 1u, {});
+        debug_print("2");
+        eevm::AccountState accntState = m_gs.get(addr);
+        // eevm::SimpleAccount sa = (eevm::SimpleAccount) accntState.acc;
+        debug_print(fmt::format("\t created account: {} ", accntState.acc.asJsonBytesRef().toString()));
+    }
+}
+
 // sha256 with openSSL library
 // unsigned char tx_hash[HASH_SIZE];
 // SHA256_CTX ctx_sha256;

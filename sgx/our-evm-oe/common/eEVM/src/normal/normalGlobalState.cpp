@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include "eEVM/normal/normalGlobalState.h"
+#include "eEVM/simple/simpleglobalstate.h"
+
 #include "eEVM/bigint.h"
 
 #include "aleth-mp3/FixedHash.h"
@@ -20,26 +22,31 @@ namespace eevm
         m_accounts.remove(h256(addr));
     }
 
-    AccountState NormalGlobalState::get(const Address& addr)
+    SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
+        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
+        // auto rlp = RLP(m_accounts.at(h256(addr)));
         std::string acnt_json = m_accounts.at(h256(addr));
+        std::cout << "NormalGlobalState::get  acnt_json = " << acnt_json << "\n";
 
         if (acnt_json.empty()) {  // create a new account if it does not exist
             return create(addr, 0, {});
         }
+        std::cout << "NormalGlobalState::get 2 \n";
 
         // populate account object
         auto j = nlohmann::json::parse(acnt_json);
+        std::cout << "NormalGlobalState::get 3 \n";
         SimpleAccount a;
         from_json(j, a);
         assert(a.get_address() == addr);
 
         // fetch account's data from storage map
         SimpleStorage s = m_storages.at(addr);  // TODO: resolve non-existing
-        return AccountState(a, s);
+        return SimpleAccountState(a, s);        // IH: hope c++ RVO works here
     }
 
-    AccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
+    SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
         insert({SimpleAccount(addr, balance, code), {}});
         return get(addr);
@@ -49,7 +56,21 @@ namespace eevm
     size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
     const Block& NormalGlobalState::get_current_block() { return currentBlock; }
     uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
-    void NormalGlobalState::insert(const StateEntry& p) { m_accounts.insert(p.first.get_address(), p.first.asJsonBytesRef()); }
+    void NormalGlobalState::insert(const StateEntry& p)
+    {
+        auto addr = p.first.get_address();
+        std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
+
+        auto _p = const_cast<StateEntry&>(p);
+        m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
+        std::cout << "NormalGlobalState::insert - 1 \n";
+        if (m_storages.end() != m_storages.find(addr))
+            throw std::logic_error(fmt::format("NormalGlobalState::insert - storage for address '{}' already exists.", to_hex_string(addr)));
+
+        std::cout << "NormalGlobalState::insert - 2 \n";
+        m_storages[addr] = p.second;
+        std::cout << "NormalGlobalState::insert - 3 \n";
+    }
 
     void NormalGlobalState::dump_full_db(std::string* db_keys,
                                          std::string* db_values,
@@ -63,6 +84,7 @@ namespace eevm
 
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
+        unsigned cnt_entries = 0;
 
         db_keys = new std::string();
         db_values = new std::string();
@@ -73,28 +95,33 @@ namespace eevm
         for (auto const& e : mem_db->data()) {
             RLP rlp(e.second);
 
-            // skip non-leaf nodes
+            // skip non-leaf nodes (extension nodes)
             if (!(rlp.isList() && isLeaf(rlp))) {
+                std::cout << "skipping extension/branch node: " << rlp.toString() << "\n";
                 continue;
-
-                db_keys->append(e.first);
-                db_values->append(e.second);
-                values_sizes->push_back(e.second.size());
-
-                summed_keys_size += e.first.size();
-                values_sizes_size += e.second.size();
-
-                // dump also storage of each account
-                _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
             }
-            db_keys_size = mem_db->size() * 32;
-            std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
-            assert(db_keys_size == summed_keys_size);
+            std::cout << fmt::format("\t appending DB entry {} => {} \n", e.first, e.second);
+
+            db_keys->append(e.first);
+            db_values->append(e.second);
+            values_sizes->push_back(e.second.size());
+
+            summed_keys_size += e.first.size();
+            values_sizes_size += e.second.size();
+
+            // dump also storage of each account
+            _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
+            cnt_entries++;
         }
+        db_keys_size = cnt_entries * 32;
+        std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
+        assert(db_keys_size == summed_keys_size);
     }
+
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const
     {
+        std::cout << "\t dumping storage of addr = " << addr << "\n";
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector
@@ -102,7 +129,6 @@ namespace eevm
         storages_sizes->push_back(cur_storage_size);
         storages_sizes_size += sizeof(size_t);  // account for the size variable
     }
-
 
     ////////////////////////////// Static Methods //////////////////////////////
 

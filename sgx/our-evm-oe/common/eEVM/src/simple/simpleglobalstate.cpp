@@ -11,7 +11,7 @@ void SimpleGlobalState::remove(const Address& addr) {
     accounts.erase(addr);
 }
 
-AccountState SimpleGlobalState::get(const Address& addr) {
+SimpleAccountState SimpleGlobalState::get(const Address& addr) {
     const auto acc = accounts.find(addr);
     if (acc != accounts.cend())
         return acc->second;
@@ -19,7 +19,7 @@ AccountState SimpleGlobalState::get(const Address& addr) {
     return create(addr, 0, {});
 }
 
-AccountState SimpleGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code) {
+SimpleAccountState SimpleGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code) {
     insert({SimpleAccount(addr, balance, code), {}});
 
     return get(addr);

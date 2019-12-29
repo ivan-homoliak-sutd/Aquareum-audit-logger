@@ -65,12 +65,12 @@ SET(CXX_HOST_LINK_FLAGS
 
 # Obtanined by: $ pkg-config oeenclave-g++ --cflags
 SET(CXX_ENCLAVE_COMPILE_FLAGS
-  "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
+  "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector -g"
 )
 
 # Obtanined by: $ pkg-config oehost-g++ --cflags
 SET(CXX_HOST_COMPILE_FLAGS
-  "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
+  "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -g"
 )
 
 if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")

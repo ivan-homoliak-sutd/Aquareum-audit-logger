@@ -4,6 +4,7 @@
 #pragma once
 
 #include "address.h"
+#include "aleth-mp3/Common.h"
 #include "bigint.h"
 #include "exception.h"
 #include "util.h"
@@ -60,6 +61,8 @@ namespace eevm
 
         virtual Code get_code() const = 0;
         virtual void set_code(Code&& code) = 0;
+
+        virtual dev::bytesConstRef asJsonBytesRef() = 0;
 
         virtual bool has_code()
         {

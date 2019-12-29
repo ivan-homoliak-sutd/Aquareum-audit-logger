@@ -723,6 +723,7 @@ namespace dev {
         if (_here.isEmpty() || _here.isNull())
             // not found.
             return std::string();
+
         unsigned itemCount = _here.itemCount();
         assert(_here.isList() && (itemCount == 2 || itemCount == 17));
         if (itemCount == 2) {
@@ -736,7 +737,7 @@ namespace dev {
             else
                 // not us.
                 return std::string();
-        } else {
+            } else {                 // itemCount == 17
             if (_key.size() == 0)
                 return _here[16].toString();
             auto n = _here[_key[0]];

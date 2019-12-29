@@ -19,7 +19,8 @@ namespace eevm
     /**
    * MP3 from Aleth is used as state preserving object
    */
-    class NormalGlobalState : public GlobalState {
+    class NormalGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
+
     public:
         using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
 
@@ -53,8 +54,8 @@ namespace eevm
 
         // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
 
-        AccountState get(const Address& addr) override;
-        AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
+        AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
+        AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;
 
         bool exists(const Address& addr);
         size_t num_accounts();

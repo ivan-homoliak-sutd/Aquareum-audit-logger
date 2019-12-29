@@ -132,6 +132,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
     string command_s;
 
+    this->ecl.createNRandomAccounts(30);
+
     while (true) {
         if (tokens) {
             free(tokens);
@@ -231,15 +233,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Multiple contracts found in the definition file... just is supported for now.");
                 continue;
             }
-            debug_print("2");
 
             const auto cit = all_contracts.begin();
             info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
             const auto& contract_definition = cit.value();
-            debug_print("3");
 
             // create and sign deployment TX
             eevm::PersistantTransaction* tx = this->ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, *(this->ctx));
+            debug_print("3");
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state

@@ -78,11 +78,13 @@ namespace eevm
 
     // It serializes the Account object into JSON string (further transformed to const byte vector)
     // the output is inserted as value to global account state of the ledger
-    bytesConstRef SimpleAccount::asJsonBytesRef() const
+    // !!! allocates a new string
+    bytesConstRef SimpleAccount::asJsonBytesRef()
     {
         nlohmann::json j;
         to_json(j, *this);  // populate JSON object
-        return bytesConstRef(j.dump());
+        std::cerr << "SimpleAccount::asJsonBytesRef: " << j.dump() << "\n";
+        return new std::string(j.dump());
     }
 
     void to_json(nlohmann::json& j, const SimpleAccount& a)

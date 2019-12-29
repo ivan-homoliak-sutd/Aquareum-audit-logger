@@ -78,7 +78,7 @@ namespace eevm
 
         bool operator==(const Account&) const;
 
-        virtual bytesConstRef asJsonBytesRef() const;
+        virtual bytesConstRef asJsonBytesRef() override;
 
         friend void to_json(nlohmann::json&, const SimpleAccount&);
         friend void from_json(const nlohmann::json&, SimpleAccount&);

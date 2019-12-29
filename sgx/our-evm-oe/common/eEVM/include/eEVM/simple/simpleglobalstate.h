@@ -9,49 +9,50 @@
 
 namespace eevm
 {
-  /**
+    /**
    * Simple std::map-backed implementation of GlobalState
    */
-  class SimpleGlobalState : public GlobalState
-  {
-  public:
-    using StateEntry = std::pair<SimpleAccount, SimpleStorage>; // SimpleStorage is just std:map
 
-  private:
-    Block currentBlock;
+    class SimpleGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
+    public:
+        using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std:map
 
-    std::map<Address, StateEntry> accounts;
+    private:
+        Block currentBlock;
 
-  public:
-    // SimpleGlobalState() = default;
-    SimpleGlobalState();
-    // ~SimpleGlobalState();
+        std::map<Address, StateEntry> accounts;
 
-    explicit SimpleGlobalState(Block b) : currentBlock(std::move(b)) {}
+    public:
+        // SimpleGlobalState() = default;
+        SimpleGlobalState();
+        // ~SimpleGlobalState();
 
-    virtual void remove(const Address& addr) override;
+        explicit SimpleGlobalState(Block b)
+          : currentBlock(std::move(b)) {}
 
-    AccountState get(const Address& addr) override;
-    AccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
+        virtual void remove(const Address& addr) override;
 
-    bool exists(const Address& addr);
-    size_t num_accounts();
+        SimpleAccountState get(const Address& addr) override;
+        SimpleAccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
 
-    virtual const Block& get_current_block() override;
-    virtual uint256_t get_block_hash(uint8_t offset) override;
+        bool exists(const Address& addr);
+        size_t num_accounts();
 
-    /**
+        virtual const Block& get_current_block() override;
+        virtual uint256_t get_block_hash(uint8_t offset) override;
+
+        /**
      * For tests which require some initial state, allow manual insertion of
      * pre-constructed accounts
      */
-    void insert(const StateEntry& e);
+        void insert(const StateEntry& e);
 
-    friend void to_json(nlohmann::json&, const SimpleGlobalState&);
-    friend void from_json(const nlohmann::json&, SimpleGlobalState&);
-    friend bool operator==(const SimpleGlobalState&, const SimpleGlobalState&);
-  };
+        friend void to_json(nlohmann::json&, const SimpleGlobalState&);
+        friend void from_json(const nlohmann::json&, SimpleGlobalState&);
+        friend bool operator==(const SimpleGlobalState&, const SimpleGlobalState&);
+    };
 
-  void to_json(nlohmann::json&, const SimpleGlobalState&);
-  void from_json(const nlohmann::json&, SimpleGlobalState&);
-  bool operator==(const SimpleGlobalState&, const SimpleGlobalState&);
-} // namespace eevm
+    void to_json(nlohmann::json&, const SimpleGlobalState&);
+    void from_json(const nlohmann::json&, SimpleGlobalState&);
+    bool operator==(const SimpleGlobalState&, const SimpleGlobalState&);
+}  // namespace eevm

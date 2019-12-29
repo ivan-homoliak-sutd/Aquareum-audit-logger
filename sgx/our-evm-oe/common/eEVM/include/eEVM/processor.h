@@ -13,32 +13,30 @@
 
 namespace eevm
 {
-  enum class ExitReason : uint8_t
-  {
-    returned = 0,
-    halted,
-    threw
-  };
+    enum class ExitReason : uint8_t {
+        returned = 0,
+        halted,
+        threw
+    };
 
-  struct ExecResult
-  {
-    ExitReason er = {};
-    Exception::Type ex = {};
-    std::string exmsg = {};
-    std::vector<uint8_t> output = {};
-  };
+    struct ExecResult {
+        ExitReason er = {};
+        Exception::Type ex = {};
+        std::string exmsg = {};
+        std::vector<uint8_t> output = {};
+    };
 
-  /**
+    /**
    * Ethereum bytecode processor.
    */
-  class Processor
-  {
-  private:
-    GlobalState& gs;
+    template <class _A, class _S>
+    class Processor {
+    private:
+        GlobalState<_A, _S>& gs;
 
-  public:
-    Processor(GlobalState& gs);
-    /**
+    public:
+        Processor(GlobalState<_A, _S>& gs);
+        /**
      * @brief The main entry point for the EVM.
      *
      * Runs the callee's code in the caller's context. VM exceptions (ie,
@@ -53,12 +51,12 @@ namespace eevm
      * the execution will be collected.
      * @return ExecResult the execution result
      */
-    ExecResult run(
-      Transaction& tx,
-      const Address& caller,
-      AccountState callee,
-      const std::vector<uint8_t>& input,
-      const uint256_t& call_value,
-      Trace* tr = nullptr);
-  };
-} // namespace eevm
+        ExecResult run(
+            Transaction& tx,
+            const Address& caller,
+            AccountState<_A, _S> callee,
+            const std::vector<uint8_t>& input,
+            const uint256_t& call_value,
+            Trace* tr = nullptr);
+    };
+}  // namespace eevm

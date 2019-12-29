@@ -77,6 +77,7 @@ int parseArgs(int argc, const char* argv[], uint32_t& flags) {
         fprintf(stderr, "Usage: %s enclave_image_path [ --simulate  ]\n", argv[0]);
         return ERR_WRONG_ARGS;
     }
+    // debug_print(fmt::format("OPEN ENCLAVE FLAGS = {}", flags));
     return RET_SUCCESS;
 }
 
@@ -88,7 +89,7 @@ int main(int argc, const char* argv[]) {
     int ret_e = 0;
     oe_enclave_t* enclave = NULL;
     Operator* op;
-    uint32_t flags;
+    uint32_t flags = 0;
 
     if (RET_SUCCESS != parseArgs(argc, argv, flags))
         return ret;
