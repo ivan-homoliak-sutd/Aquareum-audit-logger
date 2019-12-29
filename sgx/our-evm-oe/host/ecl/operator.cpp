@@ -238,9 +238,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
             const auto& contract_definition = cit.value();
 
+            debug_print("1");
             // create and sign deployment TX
             eevm::PersistantTransaction* tx = this->ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, *(this->ctx));
-            debug_print("3");
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state
@@ -252,6 +252,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::vector<size_t>* storages_sizes;
             size_t storages_sizes_size;
 
+            debug_print("1");
             ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
 
             std::cout << "Current ccount state tree is:"

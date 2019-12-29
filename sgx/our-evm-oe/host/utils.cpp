@@ -8,27 +8,35 @@
 
 using namespace std;
 
-void info_print(const string& str) {
+void info_print(const string& str)
+{
     std::cout << "[INFO] " << str << "\n";
 }
 
-void debug_print(const string& str) {
-    std::cout << "[DEBUG] " << str << "\n";
+void debug_print(const string& str, bool endline)
+{
+    debug_print(str.c_str(), endline);
 }
 
-void debug_print(const char * str) {
-    std::cout << "[DEBUG] " << str << "\n";
+void debug_print(const char* str, bool endline)
+{
+    string a = (endline) ? "\n" : "";
+    string b = (endline) ? "[DEBUG] " : "";
+    std::cout << b << str << a;
 }
 
-void warning_print(const string& str) {
+void warning_print(const string& str)
+{
     std::cerr << "[WARNING] " << str << "\n";
 }
 
-void error_print(const string& str) {
+void error_print(const string& str)
+{
     std::cerr << "[ERROR] " << str << "\n";
 }
 
-int is_error(int error_code) {
+int is_error(int error_code)
+{
     char err_message[100];
 
     // check error case
@@ -68,11 +76,12 @@ int is_error(int error_code) {
         sprintf(err_message, "Unknown error.");
     }
 
-    error_print(string(std::move(err_message))); // print error message
+    error_print(string(std::move(err_message)));  // print error message
     return 1;
 }
 
-string to_hex_str(const unsigned char* _bytes, size_t cnt) {
+string to_hex_str(const unsigned char* _bytes, size_t cnt)
+{
     auto hex_buf = (char*)malloc(2 * cnt + 1);
     for (size_t i = 0; i < cnt; i++) {
         std::sprintf(hex_buf + 2 * i, "%02X", _bytes[i]);

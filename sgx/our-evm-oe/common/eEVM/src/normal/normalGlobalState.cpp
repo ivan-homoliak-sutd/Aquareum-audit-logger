@@ -24,19 +24,16 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
-        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
-        // auto rlp = RLP(m_accounts.at(h256(addr)));
+        // std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
         std::string acnt_json = m_accounts.at(h256(addr));
-        std::cout << "NormalGlobalState::get  acnt_json = " << acnt_json << "\n";
+        // std::cout << "NormalGlobalState::get  acnt_json = " << acnt_json << "\n";
 
         if (acnt_json.empty()) {  // create a new account if it does not exist
             return create(addr, 0, {});
         }
-        std::cout << "NormalGlobalState::get 2 \n";
 
         // populate account object
         auto j = nlohmann::json::parse(acnt_json);
-        std::cout << "NormalGlobalState::get 3 \n";
         SimpleAccount a;
         from_json(j, a);
         assert(a.get_address() == addr);
@@ -59,17 +56,14 @@ namespace eevm
     void NormalGlobalState::insert(const StateEntry& p)
     {
         auto addr = p.first.get_address();
-        std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
+        // std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
 
         auto _p = const_cast<StateEntry&>(p);
         m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
-        std::cout << "NormalGlobalState::insert - 1 \n";
         if (m_storages.end() != m_storages.find(addr))
             throw std::logic_error(fmt::format("NormalGlobalState::insert - storage for address '{}' already exists.", to_hex_string(addr)));
 
-        std::cout << "NormalGlobalState::insert - 2 \n";
         m_storages[addr] = p.second;
-        std::cout << "NormalGlobalState::insert - 3 \n";
     }
 
     void NormalGlobalState::dump_full_db(std::string* db_keys,
@@ -92,15 +86,19 @@ namespace eevm
         storages = new std::vector<uint8_t>();
         storages_sizes = new std::vector<size_t>();
 
+        int i = 0;
         for (auto const& e : mem_db->data()) {
             RLP rlp(e.second);
+
+            std::cout << i++ << " size of str = " << e.first.size() << "\n";
+            std::cout << " item = " << h256(e.first) << "\n";
 
             // skip non-leaf nodes (extension nodes)
             if (!(rlp.isList() && isLeaf(rlp))) {
                 std::cout << "skipping extension/branch node: " << rlp.toString() << "\n";
                 continue;
             }
-            std::cout << fmt::format("\t appending DB entry {} => {} \n", e.first, e.second);
+            std::cout << fmt::format("\t dump_full_db: appending DB entry {} => {} \n", to_hex_string(h256(e.first)), e.second);
 
             db_keys->append(e.first);
             db_values->append(e.second);

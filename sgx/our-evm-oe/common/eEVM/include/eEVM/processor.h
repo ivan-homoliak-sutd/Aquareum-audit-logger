@@ -59,4 +59,10 @@ namespace eevm
             const uint256_t& call_value,
             Trace* tr = nullptr);
     };
+
+    using T_Processor = Processor<SimpleAccount, SimpleStorage>;
+
+    // IH: instantiation of template for two specific args
+    template class Processor<SimpleAccount, SimpleStorage>;
+
 }  // namespace eevm

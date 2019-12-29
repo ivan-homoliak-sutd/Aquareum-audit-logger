@@ -113,16 +113,21 @@ void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE],
 {
     auto inp4hash = tx->asDataForHash();
 
+    debug_print("sign_tx: [.", false);
+
     eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+
+    debug_print(".", false);
 
     secp256k1_ecdsa_signature tx_sig;
     int ret = secp256k1_ecdsa_sign(&ctx, &tx_sig, tx_hash.data(), SK_sender, NULL, NULL);
     if (1 != ret) {
         error_print("Error when signing hello world TX.");
     }
-    int i = 0;
+    debug_print(".", false);
 
     memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
+    debug_print("OK]\n", false);
 }
 
 /////////////////// Transaction creation ///////////////////
@@ -199,12 +204,15 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
         debug_print(fmt::format("\t parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
         if (string(ctor_param["type"]) != "uint256")
             throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
-        append_arg(contract_ctor_code, u256(ctor_param["value"]));
+        append_arg(contract_ctor_code, u256(std::stoul(string(ctor_param["value"]))));
     }
+    debug_print("--2");
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
+    debug_print("--3");
     sign_tx(tx, SK_sender, ctx);
+    debug_print("--3");
 
     return tx;
 }
@@ -236,18 +244,17 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
 void ECLedger::createNRandomAccounts(unsigned N)
 {
     for (unsigned i = 0; i < N; i++) {
-        debug_print(fmt::format("\t creating random account: {} ", i));
+        // debug_print(fmt::format("\t creating random account: {} ", i));
         std::vector<uint8_t> raw_address(20);
         std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
         const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-        debug_print("1");
         m_gs.create(addr, 1u, {});
-        debug_print("2");
         eevm::AccountState accntState = m_gs.get(addr);
         // eevm::SimpleAccount sa = (eevm::SimpleAccount) accntState.acc;
         debug_print(fmt::format("\t created account: {} ", accntState.acc.asJsonBytesRef().toString()));
     }
+    debug_print("==================================================");
 }
 
 // sha256 with openSSL library

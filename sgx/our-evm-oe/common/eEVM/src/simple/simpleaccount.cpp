@@ -83,7 +83,7 @@ namespace eevm
     {
         nlohmann::json j;
         to_json(j, *this);  // populate JSON object
-        std::cerr << "SimpleAccount::asJsonBytesRef: " << j.dump() << "\n";
+        // std::cerr << "SimpleAccount::asJsonBytesRef: " << j.dump() << "\n";
         return new std::string(j.dump());
     }
 

@@ -28,12 +28,12 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
     // Deploy contract to simple global state (internal to enclave)
-    const eevm::AccountState contract = this->simple_gs.create(etx.to, 0, c);
+    const eevm::SimpleAccountState contract = this->simple_gs.create(etx.to, 0, c);
 
     TRACE_ENCLAVE("running processor...");
 
     // Create processor
-    eevm::Processor p(this->simple_gs);
+    eevm::T_Processor p(this->simple_gs);
 
     // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
     // with empty input (and no trace collection)
@@ -73,12 +73,12 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantT
 
     // Contract should be already deployed at global state that is passed in arguments
 
-    const eevm::AccountState contract = this->simple_gs.create(etx.to, 0, c);
+    const eevm::SimpleAccountState contract = this->simple_gs.create(etx.to, 0, c);
 
     TRACE_ENCLAVE("running processor...");
 
     // Create processor
-    eevm::Processor p(*gs);
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
 
     // Execute code. All executions are associated with a TX. This TX is called by sender,
     // executing the code in contract, with empty input (and no trace collection)
@@ -146,14 +146,14 @@ int ECLedger::execute_hello_world()
     const eevm::Code code = create_bytecode(hello_world);
 
     // Deploy contract to global state
-    const eevm::AccountState contract = gs.create(to, 0, code);
+    const eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
     // Create transaction
     eevm::NullLogHandler ignore;
     eevm::Transaction tx(sender, to, ignore);
 
     // Create processor
-    eevm::Processor p(gs);
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs);
 
     // Execute code. All executions are associated with a transaction. This
     // transaction is called by sender, executing the code in contract, with empty
@@ -250,7 +250,7 @@ int ECLedger::execute_sum_a_b(int a, int b)
     eevm::SimpleGlobalState gs;
 
     // Populate the global state with the constructed contract
-    const eevm::AccountState contract = gs.create(to, 0, code);
+    const eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
     if (verbose) {
         std::cout << fmt::format(
@@ -268,7 +268,7 @@ int ECLedger::execute_sum_a_b(int a, int b)
     std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
 
     // Construct processor
-    eevm::Processor p(gs);
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs);
 
     if (verbose)
         std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender), eevm::to_checksum_address(to))
