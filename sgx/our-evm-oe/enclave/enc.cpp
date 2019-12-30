@@ -209,9 +209,9 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
     eevm::NormalGlobalState* gs;
-    // int ret = eevm::NormalGlobalState::construct_full_state(gs, db_values, values_sizes, db_values_sizes_size, storages, storages_sizes, storages_sizes_size);
-    // if (ret != RET_SUCCESS)
-    //     return ERR_EVM_WRONG_FULL_STATE;
+    int ret = eevm::NormalGlobalState::construct_full_state(gs, db_values, values_sizes, db_values_sizes_size, storages, storages_sizes, storages_sizes_size);
+    if (ret != RET_SUCCESS)
+        return ERR_EVM_WRONG_FULL_STATE;
 
     return _ecl.execute_tx_mp3state_full(gs, tx, code, code_size, db_keys, db_keys_size);
 }

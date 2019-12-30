@@ -3,8 +3,10 @@
 
 #include <cstring>
 #include <iostream>
+#include <numeric>
 #include <stdio.h>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -90,4 +92,15 @@ string to_hex_str(const unsigned char* _bytes, size_t cnt)
     string ret(hex_buf);
     free(hex_buf);
     return ret;
+}
+
+template <class T>
+T sumVect(std::vector<T>& v)
+{
+    return std::accumulate(v.begin(), v.end(), 0);
+}
+
+size_t sumVectST(std::vector<size_t>& v)
+{
+    return sumVect(v);
 }

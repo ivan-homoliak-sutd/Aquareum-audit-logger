@@ -66,60 +66,120 @@ namespace eevm
         m_storages[addr] = p.second;
     }
 
-    void NormalGlobalState::dump_full_db(std::string* db_keys,
-                                         std::string* db_values,
+    // // It iterates through low level persistant database
+    // void NormalGlobalState::dump_full_db(std::string* db_keys,
+    //                                      std::string* db_values,
+    //                                      std::vector<size_t>* values_sizes,
+    //                                      size_t& db_keys_size, size_t& values_sizes_size,
+    //                                      std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size)
+    // {
+    //     this->commitPersDB();
+    //     auto db = this->persDB();
+    //     // OverlayDB* db = this->db();
+
+
+    //     values_sizes_size = 0, storages_sizes_size = 0;
+    //     size_t summed_keys_size = 0;
+    //     unsigned cnt_entries = 0;
+
+    //     db_keys = new std::string();
+    //     db_values = new std::string();
+    //     values_sizes = new std::vector<size_t>();
+    //     storages = new std::vector<uint8_t>();
+    //     storages_sizes = new std::vector<size_t>();
+
+    //     int i = 0;
+    //     for (auto const& e : db->data()) {
+    //         RLP rlp(e.second);
+    //         auto DBkey = h256(e.first, h256::FromBinary);
+
+    //         std::cout << "dump_full_db [" << i++ << "] size of key in DB = " << e.first.size() << "\n";
+    //         std::cout << "key in DB = " << DBkey.hex() << "\n";
+    //         std::cout << "value size = " << rlp.itemCount() << "\n";
+
+
+    //         std::cout << ".\n";
+    //         // skip non-leaf nodes (extension & branch nodes)
+    //         if (!isLeaf(rlp)) {
+    //             std::cout << "skipping extension/branch node: " << rlp.toString() << "\n";
+    //             continue;
+    //         }
+    //         std::cout << "dump_full_db: appending Trie entry:\n\t";
+    //         unsigned j = 0;
+    //         for (auto r : rlp) {
+    //             if (0 == j++ && 2 == rlp.itemCount()) {
+    //                 std::cout << "'" << keyOf(r.payload()) << "' | ";
+    //             } else {
+    //                 std::cout << r.toString() << " | ";
+    //             }
+    //         }
+    //         std::cout << "\n";
+
+    //         db_keys->append(e.first);     // note that string contain binary data and need to be converted by dev::asBytes() to bytes
+    //         db_values->append(e.second);  // full RLP data (2 or 17 items)
+    //         values_sizes->push_back(e.second.size());
+
+    //         summed_keys_size += e.first.size();
+    //         values_sizes_size += e.second.size();
+
+
+    //         auto addr = h256(rlp[0].payload());
+
+    //         // dump also storage of each account
+    //         _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
+    //         std::cout << ".done\n";
+    //         cnt_entries++;
+    //     }
+    //     db_keys_size = cnt_entries * 32;
+    //     std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
+    //     assert(db_keys_size == summed_keys_size);
+    // }  // namespace eevm
+
+    // It iterates MP3 entries through MP3's iterator (thus only leaf nodes are considered)
+    void NormalGlobalState::dump_full_db(std::vector<uint8_t>* db_keys,
+                                         std::vector<uint8_t>* db_values,
                                          std::vector<size_t>* values_sizes,
                                          size_t& db_keys_size, size_t& values_sizes_size,
                                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size)
     {
-        // 1) we need to flush state cache of OverlayDB to persistant database (e.g., MemoryDB), coz later we will work with the persistant one
-        this->commitAccntDB();
-        db::MemoryDB* mem_db = this->db();
-
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
         unsigned cnt_entries = 0;
 
-        db_keys = new std::string();
-        db_values = new std::string();
+        db_keys = new std::vector<uint8_t>();
+        db_values = new std::vector<uint8_t>();
         values_sizes = new std::vector<size_t>();
         storages = new std::vector<uint8_t>();
         storages_sizes = new std::vector<size_t>();
 
         int i = 0;
-        for (auto const& e : mem_db->data()) {
-            RLP rlp(e.second);
+        for (auto const& e : m_accounts) {  // std::pair<bytesConstRef, bytesConstRef>
+            auto addr = e.first;
+            auto val = e.second;
 
-            std::cout << i++ << " size of str = " << e.first.size() << "\n";
-            std::cout << " item = " << h256(e.first) << "\n";
+            std::cout << "dump_full_db [" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
 
-            // skip non-leaf nodes (extension nodes)
-            if (!(rlp.isList() && isLeaf(rlp))) {
-                std::cout << "skipping extension/branch node: " << rlp.toString() << "\n";
-                continue;
-            }
-            std::cout << fmt::format("\t dump_full_db: appending DB entry {} => {} \n", to_hex_string(h256(e.first)), e.second);
+            db_keys->insert(db_keys->end(), addr.begin(), addr.end());    // insert the full content of value
+            db_values->insert(db_values->end(), val.begin(), val.end());  // insert the full content of key
+            values_sizes->push_back(val.size());
 
-            db_keys->append(e.first);
-            db_values->append(e.second);
-            values_sizes->push_back(e.second.size());
-
-            summed_keys_size += e.first.size();
-            values_sizes_size += e.second.size();
+            summed_keys_size += addr.size;
+            values_sizes_size += val.size();
 
             // dump also storage of each account
-            _dump_single_storage((h256(e.first)), storages, storages_sizes, storages_sizes_size);
+            _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
+            std::cout << ".done\n";
             cnt_entries++;
         }
         db_keys_size = cnt_entries * 32;
         std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
         assert(db_keys_size == summed_keys_size);
-    }
+    }  // namespace eevm
 
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const
     {
-        std::cout << "\t dumping storage of addr = " << addr << "\n";
+        std::cout << "\t dumping storage of addr = " << to_hex_string(addr) << "\n";
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector
@@ -133,24 +193,43 @@ namespace eevm
     /**
      * Constructs  NormalGlobalState object from parameters passed. (called from enclave)
      */
-    // static int construct_full_state(NormalGlobalState* gs, const uint8_t* db_keys, size_t db_keys_size,
-    //                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-    //                                 uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+    static int construct_full_state(NormalGlobalState* gs,
+                                    const uint8_t* db_keys, size_t db_keys_size,
+                                    const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                    uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+    {
+        std::cout << "Constructing full state in encalve\n";
+        assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
+
+        gs = new NormalGlobalState();
+        auto& acnts = gs->getAccounts();
+        auto& strgs = gs->getStorages();
+
+        size_t ptr_db_values = 0;  // indicates the current possition in db_values
+        size_t ptr_storages = 0;   // indicates the current possition in storages
+
+        // 1) insert account states one by one to global MP3
+        for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
+            std::cout << "\t [" << i << "]\n";
+            auto key = h256(&(db_keys[i * sizeof(size_t)]), h256::ConstructFromPointer);
+            auto val = bytesConstRef(&(db_values[ptr_db_values]), values_sizes[i]);
+
+            std::cerr << "\tinserting entry: " << key << " => " << escaped(val.toString(), false) << "\n";
+            acnts.insert(key, val);
+            ptr_db_values += values_sizes[i];
+
+            // 2) insert storage of the current account state
+            SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
+            strgs[key] = *s;
+
+            ptr_storages += storages_sizes[i];
+        }
+
+        return 0;
+    }
+
+    // void to_json(nlohmann::json& j, const NormalGlobalState& s)
     // {
-    //     assert(db_keys_size / 32 == db_values_sizes_size / sizeof(size_t));
-
-    //     // gs = new NormalGlobalState();
-
-    //     // // 1) insert account states one by one to global MP3
-    //     // for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
-    //     //     values_sizes[i];
-    //     // }
-
-    //     // gs->m_accounts.insert();
-    //     return 0;
-    // }
-
-    // void to_json(nlohmann::json& j, const NormalGlobalState& s) {
     //     j["block"] = s.currentBlock;
     //     auto o = nlohmann::json::array();
 
@@ -162,7 +241,8 @@ namespace eevm
     //     j["accounts"] = o;
     // }
 
-    // void from_json(const nlohmann::json& j, NormalGlobalState& s) {
+    // void from_json(const nlohmann::json& j, NormalGlobalState& s)
+    // {
     //     if (j.find("block") != j.end()) {
     //         s.currentBlock = j["block"];
     //     }
@@ -170,7 +250,7 @@ namespace eevm
     //     for (const auto& it : j["accounts"].items()) {
     //         const auto& v = it.value();
     //         // a.m_accounts.insert(make_pair(to_uint256(v[0]), v[1]));
-    //         s.m_accounts.insert(to_uint256(v[0]),  bytesConstRef(v[1]));
+    //         s.m_accounts.insert(to_uint256(v[0]), bytesConstRef(v[1]));
 
     //         // TODO: persist storages later
     //         // s.m_storages[to_uint256(v[0])] = v[1];

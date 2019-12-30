@@ -267,7 +267,7 @@ namespace dev {
 
         std::string node(h256 const& _h) const { return m_db->lookup(_h); } // IH: returns empty string if not found
 
-        // These are low-level node insertion functions that just go straight through into the DB.
+        // These are low-level node insertion functions that just go straight through into the DB. // IH: they allocate a memory in DB and copy.
         h256 forceInsertNode(bytesConstRef _v) {
             auto h = sha3(_v);
             forceInsertNode(h, _v);
@@ -296,9 +296,12 @@ namespace dev {
     template <class DB>
     std::ostream& operator<<(std::ostream& _out, GenericTrieDB<DB> const& _db) {
         for (auto const& i : _db)
-            _out << escaped(i.first.toString(), false) << ": " << escaped(i.second.toString(), false) << "\n";
+            _out << dev::escaped(i.first.toString(), false) << ": " << escaped(i.second.toString(), false) << "\n";
         return _out;
     }
+
+    // IH: enforce template generation for OverlayDB
+    template <> std::ostream& operator<< (std::ostream&, GenericTrieDB<OverlayDB> const&);
 
     /**
  * Different view on a GenericTrieDB that can use different key types.

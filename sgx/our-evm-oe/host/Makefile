@@ -52,8 +52,8 @@ Host_Include_Paths := \
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -g -c $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp
-	$(CC) -g -c $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
+	$(CXX) -c $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp
+	$(CC) -c $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
 	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:

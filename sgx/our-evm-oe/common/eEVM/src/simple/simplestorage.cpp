@@ -72,6 +72,17 @@ namespace eevm
     /////////////////////////////////
     // operators and static methods
     /////////////////////////////////
+
+    static SimpleStorage* SimpleStorage::fromBytes(uint8_t* const data, size_t size)
+    {
+        // TODO
+
+        auto s = new SimpleStorage();
+
+
+        return s;
+    }
+
     bool SimpleStorage::operator==(const SimpleStorage& that) const
     {
         return m_s == that.m_s;

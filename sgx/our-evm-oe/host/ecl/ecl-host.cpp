@@ -210,7 +210,6 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
-    debug_print("--3");
     sign_tx(tx, SK_sender, ctx);
     debug_print("--3");
 

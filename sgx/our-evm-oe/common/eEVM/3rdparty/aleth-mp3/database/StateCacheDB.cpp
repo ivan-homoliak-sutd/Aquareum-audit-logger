@@ -63,6 +63,7 @@ bool StateCacheDB::exists(h256 const& _h) const {
 }
 
 // Operation insert also updates the entry with a new value
+// it allocates its own memory by copying
 void StateCacheDB::insert(h256 const& _h, bytesConstRef _v) {
 #if DEV_GUARDED_DB
     WriteGuard l(x_this);

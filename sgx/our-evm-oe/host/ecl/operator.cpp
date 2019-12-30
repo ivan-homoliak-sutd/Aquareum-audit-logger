@@ -244,7 +244,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state
-            std::string *db_keys, *db_values;   // will be allocated in the DB's method - thus we need to delete them afterwards
+            std::vector<uint8_t>* db_keys;      // will be allocated in the DB's method - thus we need to delete them afterwards
+            std::vector<uint8_t>* db_values;    // will be allocated in the DB's method - thus we need to delete them afterwards
             std::vector<size_t>* values_sizes;  // will be allocated in the DB's method - thus we need to delete it afterwards
             size_t db_keys_size, values_sizes_size;
             // storages of all accounts
@@ -252,13 +253,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::vector<size_t>* storages_sizes;
             size_t storages_sizes_size;
 
-            debug_print("1");
+            debug_print("2");
+            // std::cout << "Current account state tree is:" << std::endl;
+            // std::cout << ecl.m_gs.getAccounts();
+
             ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
 
-            std::cout << "Current ccount state tree is:"
-                      << "\n";
-            // std::cout << ecl.m_gs;
-
+            info_print(fmt::format("Size of state passed to E: (storages= {}B + {}B | accounts= {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),

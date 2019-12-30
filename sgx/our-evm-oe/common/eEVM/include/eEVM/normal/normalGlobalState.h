@@ -20,7 +20,6 @@ namespace eevm
    * MP3 from Aleth is used as state preserving object
    */
     class NormalGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
-
     public:
         using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
 
@@ -47,12 +46,15 @@ namespace eevm
 
         virtual void remove(const Address& addr) override;
 
-        inline db::MemoryDB* db() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
+        // state & storage getters
+        inline SecureTrieDB<h256, OverlayDB>& getAccounts() { return m_accounts; }
+        inline std::unordered_map<Address, SimpleStorage>& getStorages() { return m_storages; }
+
+        inline db::MemoryDB* persDB() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
+        inline OverlayDB* db() { return dynamic_cast<OverlayDB*>(m_accounts.db()); }
         inline const h256& root() { return m_accounts.root(); }
 
-        inline void commitAccntDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB
-
-        // inline std::unordered_map<Address, SimpleStorage> & storages() const { return m_storages; }
+        inline void commitPersDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB
 
         AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
         AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;
@@ -63,8 +65,8 @@ namespace eevm
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
-        void dump_full_db(std::string* db_keys,
-                          std::string* db_values,
+        void dump_full_db(std::vector<uint8_t>* db_keys,
+                          std::vector<uint8_t>* db_values,
                           std::vector<size_t>* values_sizes,
                           size_t& db_keys_size, size_t& values_sizes_size,
                           std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size);
