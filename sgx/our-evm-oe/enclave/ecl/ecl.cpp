@@ -55,9 +55,9 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 }
 
 /**
- * Considers full MP3 global state transferred from the host part here.
+ * Considers the full MP3 global state transferred from the host part here.
  */
-int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
                                        const uint8_t* db_keys, size_t db_keys_size)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
@@ -73,7 +73,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantT
 
     // Contract should be already deployed at global state that is passed in arguments
 
-    const eevm::SimpleAccountState contract = this->simple_gs.create(etx.to, 0, c);
+    const eevm::SimpleAccountState contract = gs->get(etx.to);
 
     TRACE_ENCLAVE("running processor...");
 
@@ -96,7 +96,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState * gs, PersistantT
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
-    delete gs; // clear global state allocated before
+    delete gs;  // clear global state allocated before
     return RET_SUCCESS;
 }
 

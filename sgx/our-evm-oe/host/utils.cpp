@@ -6,7 +6,6 @@
 #include <numeric>
 #include <stdio.h>
 #include <string>
-#include <vector>
 
 using namespace std;
 
@@ -95,12 +94,12 @@ string to_hex_str(const unsigned char* _bytes, size_t cnt)
 }
 
 template <class T>
-T sumVect(std::vector<T>& v)
+T sumVect(std::vector<T>* v)
 {
-    return std::accumulate(v.begin(), v.end(), 0);
+    return std::accumulate(v->begin(), v->end(), 0);
 }
 
-size_t sumVectST(std::vector<size_t>& v)
+size_t sumVectST(std::vector<size_t>* v)
 {
     return sumVect(v);
 }

@@ -51,6 +51,7 @@ Host_Include_Paths := \
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
+	rm -f ../data/*
 	oeedger8r ../ecledger.edl --untrusted
 	$(CXX) -c $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp
 	$(CC) -c $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c

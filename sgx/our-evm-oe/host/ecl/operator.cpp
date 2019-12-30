@@ -258,8 +258,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // std::cout << ecl.m_gs.getAccounts();
 
             ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
+            debug_print("3");
 
-            info_print(fmt::format("Size of state passed to E: (storages= {}B + {}B | accounts= {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+            //std::cout << "sumVectST(values_sizes)" << sumVectST(values_sizes);
+
+            // info_print(fmt::format("Size of state passed to E: (storages= {}B + {}B | accounts= {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),

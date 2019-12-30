@@ -142,6 +142,7 @@ namespace eevm
                                          size_t& db_keys_size, size_t& values_sizes_size,
                                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size)
     {
+        std::cout << "Dumping full DB of global state stored at host...\n";
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
         unsigned cnt_entries = 0;
@@ -157,7 +158,7 @@ namespace eevm
             auto addr = e.first;
             auto val = e.second;
 
-            std::cout << "dump_full_db [" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
+            std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
 
             db_keys->insert(db_keys->end(), addr.begin(), addr.end());    // insert the full content of value
             db_values->insert(db_values->end(), val.begin(), val.end());  // insert the full content of key
@@ -168,7 +169,6 @@ namespace eevm
 
             // dump also storage of each account
             _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
-            std::cout << ".done\n";
             cnt_entries++;
         }
         db_keys_size = cnt_entries * 32;
@@ -179,7 +179,7 @@ namespace eevm
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const
     {
-        std::cout << "\t dumping storage of addr = " << to_hex_string(addr) << "\n";
+        std::cout << "\t => dumping storage of addr = " << to_hex_string(addr) << "\n";
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector
@@ -193,10 +193,10 @@ namespace eevm
     /**
      * Constructs  NormalGlobalState object from parameters passed. (called from enclave)
      */
-    static int construct_full_state(NormalGlobalState* gs,
-                                    const uint8_t* db_keys, size_t db_keys_size,
-                                    const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                                    uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size)
+    int NormalGlobalState::construct_full_state(NormalGlobalState* gs,
+                                                const uint8_t* db_keys, size_t db_keys_size,
+                                                const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                                const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
     {
         std::cout << "Constructing full state in encalve\n";
         assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
@@ -211,16 +211,18 @@ namespace eevm
         // 1) insert account states one by one to global MP3
         for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
             std::cout << "\t [" << i << "]\n";
-            auto key = h256(&(db_keys[i * sizeof(size_t)]), h256::ConstructFromPointer);
-            auto val = bytesConstRef(&(db_values[ptr_db_values]), values_sizes[i]);
+            auto key = h256(&(db_keys[i * sizeof(size_t)]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
+            auto val = new uint8_t[values_sizes[i]];                                      // manually allocating enclave memory since 'db_values' is in host memory
+            memcpy(val, &db_values[ptr_db_values], values_sizes[i]);
+            auto val_ref = bytesConstRef(val, values_sizes[i]);
 
-            std::cerr << "\tinserting entry: " << key << " => " << escaped(val.toString(), false) << "\n";
-            acnts.insert(key, val);
+            std::cerr << "\t inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
+            acnts.insert(key, val_ref);
             ptr_db_values += values_sizes[i];
 
             // 2) insert storage of the current account state
             SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
-            strgs[key] = *s;
+            strgs[key] = std::move(*s);
 
             ptr_storages += storages_sizes[i];
         }

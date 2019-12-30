@@ -64,7 +64,7 @@ namespace eevm
             for (size_t i = 0; i < 32; i++) {
                 toAppend->push_back(as_bytes[i]);
             }
-            size_of_storage += 64;
+            size_of_storage += 64;  // 64 accounts for uint256 key and value
         }
         return size_of_storage;
     }
@@ -73,13 +73,15 @@ namespace eevm
     // operators and static methods
     /////////////////////////////////
 
-    static SimpleStorage* SimpleStorage::fromBytes(uint8_t* const data, size_t size)
+    SimpleStorage* SimpleStorage::fromBytes(const uint8_t* data, size_t size)
     {
-        // TODO
-
         auto s = new SimpleStorage();
 
-
+        for (unsigned i = 0; i < size / 64; i++) {
+            auto key = intx::be::unsafe::load<uint256_t>(&data[i * 64]);
+            auto value = intx::be::unsafe::load<uint256_t>(&data[i * 64 + 32]);
+            s->store(key, value);
+        }
         return s;
     }
 

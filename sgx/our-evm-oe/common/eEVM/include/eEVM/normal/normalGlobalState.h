@@ -78,7 +78,7 @@ namespace eevm
 
         static int construct_full_state(NormalGlobalState* out_gs, const uint8_t* db_keys, size_t db_keys_size,
                                         const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
-                                        uint8_t* const storages, const size_t* storages_sizes, size_t storages_sizes_size);
+                                        const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size);
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);
         // friend void from_json(const nlohmann::json&, NormalGlobalState&);

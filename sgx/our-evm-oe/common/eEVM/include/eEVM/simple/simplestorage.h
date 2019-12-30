@@ -27,11 +27,11 @@ namespace eevm
         bool exists(const uint256_t& key);
         bool remove(const uint256_t& key) override;
 
-        size_t toBytes(std::vector<uint8_t>* toAppend) const;
-
         bool operator==(const SimpleStorage& that) const;
 
-        static SimpleStorage* SimpleStorage::fromBytes(uint8_t* const data, size_t size);
+        // serialization
+        size_t toBytes(std::vector<uint8_t>* toAppend) const;
+        static SimpleStorage* fromBytes(const uint8_t* data, size_t size);
 
         friend void to_json(nlohmann::json&, const SimpleStorage&);
         friend void from_json(const nlohmann::json&, SimpleStorage&);
