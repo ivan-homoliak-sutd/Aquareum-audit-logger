@@ -186,7 +186,7 @@ namespace eevm
     /**
      * Constructs  NormalGlobalState object from parameters passed. (called from enclave)
      */
-    int NormalGlobalState::construct_full_state(NormalGlobalState* gs,
+    int NormalGlobalState::construct_full_state(NormalGlobalState** gs,
                                                 const uint8_t* db_keys, size_t db_keys_size,
                                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
@@ -194,9 +194,9 @@ namespace eevm
         std::cout << "[Enclave:] Constructing full state in encalve\n";
         assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
 
-        gs = new NormalGlobalState();
-        auto& acnts = gs->getAccounts();
-        auto& strgs = gs->getStorages();
+        *gs = new NormalGlobalState();
+        auto& acnts = (*gs)->getAccounts();
+        auto& strgs = (*gs)->getStorages();
 
         size_t ptr_db_values = 0;  // indicates the current possition in db_values
         size_t ptr_storages = 0;   // indicates the current possition in storages

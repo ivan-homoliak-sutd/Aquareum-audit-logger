@@ -77,7 +77,7 @@ void ecall_enclave_ecledger()
 */
 int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
 {
-    oe_result_t ocall_status, sealing_status;
+    oe_result_t ocall_status;
     int ocall_ret, lib_ret;
 
     //check whether sealed state does not exist; if yes, then just init from it
@@ -212,20 +212,20 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                       const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
-    uint8_t gState[HASH_SIZE];
-
     // 1) reconstruct the global MP3 state from host passed data
     eevm::NormalGlobalState* gs;
-    int ret = eevm::NormalGlobalState::construct_full_state(gs,
+    int ret = eevm::NormalGlobalState::construct_full_state(&gs,
                                                             db_keys, db_keys_size,
                                                             db_values, values_sizes, db_values_sizes_size,
                                                             storages, storages_sizes, storages_sizes_size);
     if (ret != RET_SUCCESS)
         return ERR_EVM_WRONG_FULL_STATE;
 
-    // 2) verify a consistency of the reconstructed global state with the last known value in E
-    eevm::to_big_endian(gs->getAccounts().root(), gState);
-    if (0 != memcmp(gState, _evm_state.pub.globStRoot, HASH_SIZE)) {
+    // 2) verify a consistency of the reconstructed global state with the last known value stored in E
+    std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
+    std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
+
+    if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
         TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
         delete gs;
         return ERR_EVM_INCONSISTANT_STATE;
@@ -236,8 +236,7 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size, db_keys, db_keys_size);
 
     // 4) update the current root hash of the global MP3 state in E
-    eevm::to_big_endian(gs->getAccounts().root(), gState);
-    memcpy(&_evm_state.pub.globStRoot, gState, HASH_SIZE);
+    memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
 
     delete gs;  // clear global state allocated before
     return ret;

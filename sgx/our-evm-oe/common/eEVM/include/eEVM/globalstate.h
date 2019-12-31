@@ -46,6 +46,8 @@ namespace eevm
     struct GlobalState {
         virtual void remove(const Address& addr) = 0;
 
+        virtual ~GlobalState() {}
+
         /**
      * Creates a new zero-initialized account under the given address if none exists
      */

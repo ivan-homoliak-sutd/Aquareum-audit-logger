@@ -343,10 +343,15 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
                                                                   (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
                                                                   (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
 
-        if (ecall_ret != OE_OK || is_error(ret))
-            error_print("Error when deploying contract in Enclave.");
+        if (ecall_ret != OE_OK || is_error(ret)){
+            error_print("Error when executing TX in ENCLAVE.");
+            return;
+        }
 
-        this->ecl.executeTX(tx);  // this updates global account state in the host
+        if (RET_SUCCESS != this->ecl.executeTX(tx)){ // this updates global account state in the host
+            error_print("Error when executing TX in HOST.");
+            return;
+        }
 
         // Fetch the updated global state of E
         PublicSealedData_T pub_evm_state;

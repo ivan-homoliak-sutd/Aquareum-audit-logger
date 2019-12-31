@@ -89,8 +89,8 @@ std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_
 std::vector<uint8_t> create_inc_counter_bytecode()
 {
     std::vector<uint8_t> code;
-    constexpr uint8_t mdest = 0x0;   //< Memory start address for result
-    constexpr uint8_t rsize = 0x20;  //< Size of result
+    // constexpr uint8_t mdest = 0x0;   //< Memory start address for result
+    // constexpr uint8_t rsize = 0x20;  //< Size of result
 
     // TODO
 

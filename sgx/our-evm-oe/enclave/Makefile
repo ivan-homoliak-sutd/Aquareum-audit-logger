@@ -62,8 +62,8 @@ build:
 	rm -f ../data/*
 	oeedger8r ../ecledger.edl --trusted
 	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
-	$(CXX) -g -c $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths)  -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
-	$(CC) -g -c $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
+	$(CXX) -c -Wall -Werror $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths)  -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
+	$(CC) -c -Wall -Werror $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
 	$(CXX) -std=$(CXX_STANDARD) -o ecledger_enc ecledger_t.o enc.o signing.o sealing.o keys.o ecl.o $(EEVM_OBJECTS) $(Enclave_Link_Flags)
 
 sign:
