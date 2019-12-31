@@ -321,8 +321,21 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
         std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
         const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-        auto* tx = this->ecl.createNewAccountTX(addr, initBalance, this->PK_O, this->SK_O, *(this->ctx));
+        auto* tx = this->ecl.createNewAccountTX(this->PK_O, this->SK_O, *(this->ctx), addr, initBalance);
 
+        // dump global MP3 state into basic C types (to be passed into enclave)
+        std::vector<uint8_t> db_keys;  // \/== global account state
+        std::vector<uint8_t> db_values;
+        std::vector<size_t> values_sizes;
+        size_t db_keys_size, values_sizes_size;
+        std::vector<uint8_t> storages;  // \/== storages of all accounts
+        std::vector<size_t> storages_sizes;
+        size_t storages_sizes_size;
+        ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
+
+        info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+
+        // ecall
         oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                                   (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                                   (const uint8_t*)tx->code.data(), tx->code.size(),
@@ -333,7 +346,7 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
         if (ecall_ret != OE_OK || is_error(ret))
             error_print("Error when deploying contract in Enclave.");
 
-        this->ecl.executeTX(tx);  // this updates global account state in host
+        this->ecl.executeTX(tx);  // this updates global account state in the host
 
         // Fetch the updated global state of E
         PublicSealedData_T pub_evm_state;
@@ -344,7 +357,7 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
         // Compare E's state to host's state
         assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->ecl.m_gs.root());
 
-        eevm::AccountState accntState = m_gs.get(addr);
+        eevm::AccountState accntState = this->ecl.m_gs.get(addr);
         debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
     }
     eevm::print_sep();

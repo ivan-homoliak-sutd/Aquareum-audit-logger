@@ -32,10 +32,10 @@ public:
                                               uint8_t (&SK_sender)[ECC_SK_SIZE],
                                               secp256k1_context& ctx);
 
-    eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
-                                                              uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                              secp256k1_context& ctx,
-                                                              Address& newAddr, unsigned initBalance);
+    eevm::PersistantTransaction* createNewAccountTX(secp256k1_pubkey& PK_sender,
+                                                    uint8_t (&SK_sender)[ECC_SK_SIZE],
+                                                    secp256k1_context& ctx,
+                                                    const Address& newAddr, unsigned initBalance);
 
-    int ECLedger::executeTX(eevm::PersistantTransaction* tx);
+    int executeTX(eevm::PersistantTransaction* tx);
 };

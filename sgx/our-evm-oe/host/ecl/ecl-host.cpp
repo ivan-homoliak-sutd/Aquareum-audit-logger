@@ -242,7 +242,7 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
 eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t (&SK_sender)[ECC_SK_SIZE],
                                                           secp256k1_context& ctx,
-                                                          Address& newAddr, unsigned initBalance)
+                                                          const Address& newAddr, unsigned initBalance)
 {
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
