@@ -8,10 +8,10 @@
 // eEVM
 #include "eEVM/bigint.h"
 #include "eEVM/opcode.h"
+#include "eEVM/processor.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
 #include <fmt/format_header_only.h>
-// #include "eEVM/processor.h"
 // #include "eEVM/simple/simpleglobalstate.h"
 
 #include "aleth-mp3/Common.h"
@@ -192,7 +192,7 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
-    // Create RANDOM addresses for contract (TODO: later derive it from nonce of AccountState)
+    // Create RANDOM address for contract (TODO: later derive it from nonce of AccountState of sender)
     std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
     std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
     const eevm::Address contract_address = eevm::from_big_endian(raw_address.data(), raw_address.size());
@@ -206,12 +206,12 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
             throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
         append_arg(contract_ctor_code, u256(std::stoul(string(ctor_param["value"]))));
     }
-    debug_print("--2");
+    // debug_print("--2");
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
     sign_tx(tx, SK_sender, ctx);
-    debug_print("--3");
+    // debug_print("--3");
 
     return tx;
 }
@@ -239,22 +239,41 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
     return tx;
 }
 
-
-void ECLedger::createNRandomAccounts(unsigned N)
+eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
+                                                          uint8_t (&SK_sender)[ECC_SK_SIZE],
+                                                          secp256k1_context& ctx,
+                                                          Address& newAddr, unsigned initBalance)
 {
-    for (unsigned i = 0; i < N; i++) {
-        // debug_print(fmt::format("\t creating random account: {} ", i));
-        std::vector<uint8_t> raw_address(20);
-        std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-        const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
-
-        m_gs.create(addr, 1u, {});
-        eevm::AccountState accntState = m_gs.get(addr);
-        // eevm::SimpleAccount sa = (eevm::SimpleAccount) accntState.acc;
-        debug_print(fmt::format("\t created account: {} ", accntState.acc.asJsonBytesRef().toString()));
-    }
-    debug_print("==================================================");
+    const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
+    uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
+    auto tx = new eevm::PersistantTransaction(sender, newAddr, nonce, initBalance, {});
+    sign_tx(tx, SK_sender, ctx);
+    return tx;
 }
+
+int ECLedger::executeTX(eevm::PersistantTransaction* tx)
+{
+    debug_print("Executing Tx in HOST...");
+    auto lh = eevm::NullLogHandler();
+    auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(&tx->origin),
+                                 reinterpret_cast<eevm::Address*>(&tx->to),
+                                 lh, tx->code, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
+
+    // get or create the account
+    const eevm::SimpleAccountState contract = this->m_gs.get(etx.to);
+
+    // execute the TX
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(this->m_gs);
+    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
+
+    // Check the response
+    if (e.er != eevm::ExitReason::returned) {
+        std::cout << fmt::format("[HOST:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+        return ERR_EVM_WRONG_RET_CODE;
+    }
+    return RET_SUCCESS;
+}
+
 
 // sha256 with openSSL library
 // unsigned char tx_hash[HASH_SIZE];

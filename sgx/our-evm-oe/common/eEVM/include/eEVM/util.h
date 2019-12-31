@@ -15,6 +15,8 @@ extern "C" {
 #include <sstream>
 #include <vector>
 
+#define PRINT_SEP_LEN 120
+
 namespace eevm
 {
     inline auto from_big_endian(const uint8_t* begin, size_t size = 32u)
@@ -187,4 +189,11 @@ namespace eevm
     Address generate_address(const Address& sender, uint64_t nonce);
 
     uint64_t to_uint64(const std::string& s);
+
+    inline void print_sep()
+    {
+        std::cout << std::string(PRINT_SEP_LEN, '=') << "\n";
+    }
+
+
 }  // namespace eevm

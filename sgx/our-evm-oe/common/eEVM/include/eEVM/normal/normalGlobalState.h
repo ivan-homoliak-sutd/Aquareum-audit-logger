@@ -31,7 +31,7 @@ namespace eevm
 
         std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts
 
-        void _dump_single_storage(Address addr, std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size) const;
+        void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const;
 
     public:
         NormalGlobalState(bool init = true)
@@ -65,11 +65,11 @@ namespace eevm
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
-        void dump_full_db(std::vector<uint8_t>* db_keys,
-                          std::vector<uint8_t>* db_values,
-                          std::vector<size_t>* values_sizes,
+        void dump_full_db(std::vector<uint8_t>& db_keys,
+                          std::vector<uint8_t>& db_values,
+                          std::vector<size_t>& values_sizes,
                           size_t& db_keys_size, size_t& values_sizes_size,
-                          std::vector<uint8_t>* storages, std::vector<size_t>* storages_sizes, size_t& storages_sizes_size);
+                          std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
 
         /**
          * For tests which require some initial state, allow manual insertion of pre-constructed accounts

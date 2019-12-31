@@ -29,11 +29,12 @@ typedef struct {
 } ErrTxsCache_T;
 
 typedef struct {
-    unsigned char hdrLast[HASH_SIZE];    // the last header created by E
-    unsigned char logRootPB[HASH_SIZE];  // the last root of L flushed to PB
-    unsigned int idCurrent;              // the current version of L (not flushed to PB)
-    ErrTxsCache_T txsErrCache;           // the cache of erroneous Txs
-    unsigned int diskInits;              // counts the number of how many times was enclave initialized from seald state stored at disk
+    unsigned char hdrLast[HASH_SIZE];     // the last header created by E
+    unsigned char logRootPB[HASH_SIZE];   // the last root of L flushed to PB
+    unsigned char globStRoot[HASH_SIZE];  // the last MP3 root of global state
+    unsigned int idCurrent;               // the current version of L (not flushed to PB)
+    ErrTxsCache_T txsErrCache;            // the cache of erroneous Txs
+    unsigned int diskInits;               // counts the number of how many times was enclave initialized from seald state stored at disk
 } PublicSealedData_T;
 
 typedef struct {

@@ -55,7 +55,6 @@ namespace ecl
         // uint256_t SK_O; // SK of operator (under Sigma_PB)
 
     public:
-
         ECLedger ecl;
 
         uint8_t PK_E_TEE[ECC_SK_SIZE];
@@ -64,7 +63,7 @@ namespace ecl
         uint8_t SK_O[ECC_SK_SIZE];  // SK of operator (under Sigma_PB)
 
         std::vector<eevm::PersistantTransaction> txs_unprocessed;  // cache of unprocessed TXs,
-        std::vector<Block> blks_processed;                        // cache of processed blocks, not synced with PB yet
+        std::vector<Block> blks_processed;                         // cache of processed blocks, not synced with PB yet
 
         uint t_vm;  // time of the last flush to VM enclave
         uint t_pb;  // time of the last flush to PB
@@ -90,6 +89,7 @@ namespace ecl
         };
 
         void operatorLoop(oe_enclave_t* enclave);
+        void createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
 
     private:
         int persistMyKeys();

@@ -47,7 +47,7 @@ namespace eevm
         return true;
     }
 
-    size_t SimpleStorage::toBytes(std::vector<uint8_t>* toAppend) const
+    size_t SimpleStorage::toBytes(std::vector<uint8_t>& toAppend) const
     {
         size_t size_of_storage = 0;
 
@@ -56,13 +56,13 @@ namespace eevm
             uint8_t as_bytes[32];
             to_big_endian(e.first, as_bytes);
             for (size_t i = 0; i < 32; i++) {
-                toAppend->push_back(as_bytes[i]);
+                toAppend.push_back(as_bytes[i]);
             }
 
             // 1) store value
             to_big_endian(e.first, as_bytes);
             for (size_t i = 0; i < 32; i++) {
-                toAppend->push_back(as_bytes[i]);
+                toAppend.push_back(as_bytes[i]);
             }
             size_of_storage += 64;  // 64 accounts for uint256 key and value
         }

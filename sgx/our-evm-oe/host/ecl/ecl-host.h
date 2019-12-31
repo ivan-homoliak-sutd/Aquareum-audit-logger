@@ -32,5 +32,10 @@ public:
                                               uint8_t (&SK_sender)[ECC_SK_SIZE],
                                               secp256k1_context& ctx);
 
-    void createNRandomAccounts(unsigned N);
+    eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
+                                                              uint8_t (&SK_sender)[ECC_SK_SIZE],
+                                                              secp256k1_context& ctx,
+                                                              Address& newAddr, unsigned initBalance);
+
+    int ECLedger::executeTX(eevm::PersistantTransaction* tx);
 };

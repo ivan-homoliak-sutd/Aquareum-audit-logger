@@ -12,6 +12,8 @@
 #define ECC_PK_SIZE 64
 #define PB_ADDR_SIZE 20
 
+// #define PRINT_SEP_LEN 50
+
 typedef struct _sealed_data_t {
     size_t total_size;
     unsigned char signature[SIGNATURE_LEN];
@@ -77,3 +79,4 @@ typedef struct _sealed_data_t {
 #define ERR_EVM_EXEC 201
 #define ERR_EVM_WRONG_RET_CODE 202
 #define ERR_EVM_WRONG_FULL_STATE 203
+#define ERR_EVM_INCONSISTANT_STATE 204

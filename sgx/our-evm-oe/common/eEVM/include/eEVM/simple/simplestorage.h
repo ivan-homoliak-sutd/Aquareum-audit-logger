@@ -30,7 +30,7 @@ namespace eevm
         bool operator==(const SimpleStorage& that) const;
 
         // serialization
-        size_t toBytes(std::vector<uint8_t>* toAppend) const;
+        size_t toBytes(std::vector<uint8_t>& toAppend) const;
         static SimpleStorage* fromBytes(const uint8_t* data, size_t size);
 
         friend void to_json(nlohmann::json&, const SimpleStorage&);

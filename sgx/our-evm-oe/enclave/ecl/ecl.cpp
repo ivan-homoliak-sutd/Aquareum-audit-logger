@@ -66,13 +66,14 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
     auto lh = eevm::NullLogHandler();
 
+    TRACE_ENCLAVE("1");
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-
+    TRACE_ENCLAVE("2");
     // Contract should be already deployed at global state that is passed in arguments
-
+    std::cout << "execute_tx_mp3state_full addr = " << eevm::to_hex_string(etx.to) << "\n";
     const eevm::SimpleAccountState contract = gs->get(etx.to);
 
     TRACE_ENCLAVE("running processor...");
@@ -96,7 +97,6 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
-    delete gs;  // clear global state allocated before
     return RET_SUCCESS;
 }
 

@@ -2,6 +2,7 @@
 #include "common.h"
 
 #include <cstring>
+#include <fmt/format_header_only.h>
 #include <iostream>
 #include <numeric>
 #include <stdio.h>
@@ -94,12 +95,17 @@ string to_hex_str(const unsigned char* _bytes, size_t cnt)
 }
 
 template <class T>
-T sumVect(std::vector<T>* v)
+T sumVect(std::vector<T>& v)
 {
-    return std::accumulate(v->begin(), v->end(), 0);
+    T sum = 0;
+    for (auto item : v) {
+        sum += item;
+    }
+    return sum;
+    // return std::accumulate(v->begin(), v->end(), 0);
 }
 
-size_t sumVectST(std::vector<size_t>* v)
+size_t sumVectST(std::vector<size_t>& v)
 {
     return sumVect(v);
 }

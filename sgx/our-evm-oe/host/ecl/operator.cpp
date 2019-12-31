@@ -104,7 +104,6 @@ bool correct_token_cnt(std::string& command, uint N, boost::tokenizer<separator>
         return false;
     }
 
-
     return true;
 }
 
@@ -116,8 +115,11 @@ void Operator::print_evm_state(PublicSealedData_T& es)
 
     cout << fmt::format("\t hdrLast[{}] = ", es.idCurrent) << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
          << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"
+         << "\t globStRoot = " << to_hex_str(es.globStRoot, HASH_SIZE) << "\t(the actual global state root in E; not flushed to PB)\n"
          << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
          << "\t diskInits = " << es.diskInits << "\n";
+
+    eevm::print_sep();
 }
 
 ////////////////////////////////////////
@@ -132,7 +134,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
     string command_s;
 
-    this->ecl.createNRandomAccounts(30);
+    this->createNRandomAccounts(30, 1, enclave);
 
     while (true) {
         if (tokens) {
@@ -163,7 +165,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             PublicSealedData_T pub_evm_state;
             ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
             if (ecall_ret != OE_OK && is_error(ret)) {
-                error_print("Failed to initialize EVM enclave.");
+                error_print("Failed to read the state of enclave.");
             }
             this->print_evm_state(pub_evm_state);
         } else if (0 == strcmp(command, "test")) {
@@ -244,31 +246,30 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state
-            std::vector<uint8_t>* db_keys;      // will be allocated in the DB's method - thus we need to delete them afterwards
-            std::vector<uint8_t>* db_values;    // will be allocated in the DB's method - thus we need to delete them afterwards
-            std::vector<size_t>* values_sizes;  // will be allocated in the DB's method - thus we need to delete it afterwards
+            std::vector<uint8_t> db_keys;
+            std::vector<uint8_t> db_values;
+            std::vector<size_t> values_sizes;
             size_t db_keys_size, values_sizes_size;
             // storages of all accounts
-            std::vector<uint8_t>* storages;
-            std::vector<size_t>* storages_sizes;
+            std::vector<uint8_t> storages;
+            std::vector<size_t> storages_sizes;
             size_t storages_sizes_size;
 
             debug_print("2");
-            // std::cout << "Current account state tree is:" << std::endl;
-            // std::cout << ecl.m_gs.getAccounts();
+            // std::cout << "Current account state tree is:\n" <<  ecl.m_gs.getAccounts();
+            // print_sep()
 
             ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
-            debug_print("3");
 
-            //std::cout << "sumVectST(values_sizes)" << sumVectST(values_sizes);
+            info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+            debug_print(fmt::format("values_sizes_size = {}", values_sizes_size));
 
-            // info_print(fmt::format("Size of state passed to E: (storages= {}B + {}B | accounts= {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
             ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                           (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                           (const uint8_t*)tx->code.data(), tx->code.size(),
-                                                          (const uint8_t*)db_keys->data(), db_keys_size,
-                                                          (const uint8_t*)db_values->data(), values_sizes->data(), values_sizes_size,
-                                                          (const uint8_t*)storages->data(), storages_sizes->data(), storages_sizes_size);
+                                                          (const uint8_t*)db_keys.data(), db_keys_size,
+                                                          (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
+                                                          (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
 
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when deploying contract in Enclave.");
@@ -280,8 +281,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             debug_print(std::string("host->state_root after TX = ") + ecl.m_gs.root().hex());
             // TODO: ...
             // assert(ecl.m_gs.root() == ...);
-
-            delete db_keys, db_values, values_sizes, storages, storages_sizes;
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
@@ -307,4 +306,46 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::cout << "Unknown command\n";
         }
     }
+}
+
+/**
+ * Create N simple accounts with initial balance set to 'initBalance'
+ * For each account creation, do ecall into E.
+ */
+void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
+{
+    int ret;
+    for (unsigned i = 0; i < N; i++) {
+        // debug_print(fmt::format("\t creating random account: {} ", i));
+        std::vector<uint8_t> raw_address(20);
+        std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+        const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
+
+        auto* tx = this->ecl.createNewAccountTX(addr, initBalance, this->PK_O, this->SK_O, *(this->ctx));
+
+        oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
+                                                                  (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                                  (const uint8_t*)tx->code.data(), tx->code.size(),
+                                                                  (const uint8_t*)db_keys.data(), db_keys_size,
+                                                                  (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
+                                                                  (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+
+        if (ecall_ret != OE_OK || is_error(ret))
+            error_print("Error when deploying contract in Enclave.");
+
+        this->ecl.executeTX(tx);  // this updates global account state in host
+
+        // Fetch the updated global state of E
+        PublicSealedData_T pub_evm_state;
+        ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+        if (ecall_ret != OE_OK && is_error(ret))
+            error_print("Failed to read the state of enclace.");
+
+        // Compare E's state to host's state
+        assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->ecl.m_gs.root());
+
+        eevm::AccountState accntState = m_gs.get(addr);
+        debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
+    }
+    eevm::print_sep();
 }
