@@ -24,8 +24,7 @@ namespace eevm
         if (size == 32) {
             return intx::be::unsafe::load<uint256_t>(begin);
         } else if (size < 32) {
-            // TODO: Find out how common this path is, make it the caller's
-            // responsibility
+            // TODO: Find out how common this path is, make it the caller's  responsibility
             uint8_t tmp[32] = {};
             const auto offset = 32 - size;
             memcpy(tmp + offset, begin, size);

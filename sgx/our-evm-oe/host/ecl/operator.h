@@ -11,6 +11,8 @@
 #include "ecl-host.h"
 #include "ecledger_u.h"
 
+#include "signing.h"
+
 #define FILE_OPERATOR_KEYS "./data/operator-keys.txt"
 #define MAX_CMD_LEN 256
 
@@ -55,7 +57,8 @@ namespace ecl
         // uint256_t SK_O; // SK of operator (under Sigma_PB)
 
     public:
-        ECLedger ecl;
+        ECLedger m_ecl;  // ECL ledger instance
+        ECC m_ecc;       // ECC signing wrapper
 
         uint8_t PK_E_TEE[ECC_SK_SIZE];
         secp256k1_pubkey PK_E_PB;   // public key (i.e., unsigned char [64])
@@ -79,15 +82,11 @@ namespace ecl
 
         FlushingLimits flush_lims;  // the flushing limits
 
-        secp256k1_context* ctx;
 
         Operator(secp256k1_pubkey* _enc_PK);
-        ~Operator()
-        {
-            if (this->ctx)
-                free(this->ctx);
-        };
+        ~Operator(){};
 
+        void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);
         void createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
 

@@ -18,8 +18,6 @@
 
 #include <openssl/sha.h>
 
-ECLedger::ECLedger(){};
-
 /////////////////// bytecode generation ///////////////////
 
 std::vector<uint8_t> create_printStr_bytecode(const std::string& s)
@@ -106,35 +104,10 @@ void append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
     eevm::to_big_endian(arg, code.data() + pre_size);
 }
 
-
-/////////////////// AUX ///////////////////
-
-void sign_tx(eevm::PersistantTransaction* tx, uint8_t (&SK_sender)[ECC_SK_SIZE], secp256k1_context& ctx)
-{
-    auto inp4hash = tx->asDataForHash();
-
-    debug_print("sign_tx: [.", false);
-
-    eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
-
-    debug_print(".", false);
-
-    secp256k1_ecdsa_signature tx_sig;
-    int ret = secp256k1_ecdsa_sign(&ctx, &tx_sig, tx_hash.data(), SK_sender, NULL, NULL);
-    if (1 != ret) {
-        error_print("Error when signing hello world TX.");
-    }
-    debug_print(".", false);
-
-    memcpy(tx->signature, tx_sig.data, SIG_SIZE_PB);
-    debug_print("OK]\n", false);
-}
-
 /////////////////// Transaction creation ///////////////////
 
 eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_sender,
-                                                          uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx)
+                                                          uint8_t* SK_sender)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
@@ -150,15 +123,13 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
-    sign_tx(tx, SK_sender, ctx);
-
+    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     return tx;
 }
 
 eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
                                                    secp256k1_pubkey& PK_sender,
-                                                   uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                   secp256k1_context& ctx)
+                                                   uint8_t* SK_sender)
 {
     // Parse args
     const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
@@ -178,7 +149,7 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
     // Construct a transaction object
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
-    sign_tx(tx, SK_sender, ctx);
+    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
 
     return tx;
 }
@@ -186,8 +157,7 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 // NOTE: it supports only 32B uint arguments of a constructor
 eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& contract_definition,
                                                           secp256k1_pubkey& PK_sender,
-                                                          uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx)
+                                                          uint8_t* SK_sender)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
@@ -210,15 +180,14 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
 
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
-    sign_tx(tx, SK_sender, ctx);
+    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     // debug_print("--3");
 
     return tx;
 }
 
 eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_sender,
-                                                          uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx)
+                                                          uint8_t* SK_sender)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
@@ -234,20 +203,19 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
     // Construct a transaction object
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
-    sign_tx(tx, SK_sender, ctx);
+    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
 
     return tx;
 }
 
 eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
-                                                          uint8_t (&SK_sender)[ECC_SK_SIZE],
-                                                          secp256k1_context& ctx,
+                                                          uint8_t* SK_sender,
                                                           const Address& newAddr, unsigned initBalance)
 {
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
     uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, newAddr, nonce, initBalance, {});
-    sign_tx(tx, SK_sender, ctx);
+    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     return tx;
 }
 
@@ -273,15 +241,3 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     }
     return RET_SUCCESS;
 }
-
-
-// sha256 with openSSL library
-// unsigned char tx_hash[HASH_SIZE];
-// SHA256_CTX ctx_sha256;
-// SHA256_Init(&ctx_sha256);
-// SHA256_Update(&ctx_sha256, tx->origin, sizeof(uint256_t)); // NOTE: hopefully it reads internal data of Address class
-// SHA256_Update(&ctx_sha256, tx->value, sizeof(uint64_t));
-// SHA256_Update(&ctx_sha256, tx->code, sizeof(tx->code.value_type) * tx->code.size);
-// SHA256_Update(&ctx_sha256, tx->gas_price, sizeof(uint64_t));
-// SHA256_Update(&ctx_sha256, tx->gas_limit, sizeof(uint64_t));
-// SHA256_Final(tx_hash, &ctx_sha256);

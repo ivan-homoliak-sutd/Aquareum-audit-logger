@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "data_types.h"
-#include "signing-PB/signing.h"
+#include "signing.h"
 
 // eEVM
 #include "eEVM/bigint.h"
@@ -57,8 +57,7 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 /**
  * Considers the full MP3 global state transferred from the host part here.
  */
-int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
-                                       const uint8_t* db_keys, size_t db_keys_size)
+int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -70,6 +69,11 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
+
+    // if no code is present in TX, execute just simple transfer
+    if (0 == code_size) {
+        return this->_execute_transfer_tx(gs, etx);
+    }
 
     TRACE_ENCLAVE("2");
     // Contract should be already deployed at global state that is passed in arguments
@@ -83,11 +87,13 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // Execute code. All executions are associated with a TX. This TX is called by sender,
     // executing the code in contract, with empty input (and no trace collection)
-    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
+    eevm::Trace tr;
+    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, &tr);
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+        tr.print_last_n(std::cout, 100);
         return ERR_EVM_WRONG_RET_CODE;
     }
 
@@ -100,6 +106,34 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     return RET_SUCCESS;
 }
 
+int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
+{
+    TRACE_ENCLAVE("doing _execute_transfer_tx...");
+
+    // 1) Verify signature of TX
+    auto inp4hash = etx.asDataForHash();
+    eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
+    bool ret = this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature,
+                                    txHash.data(),
+                                    etx.origin);
+    if (!ret) {
+        TRACE_ENCLAVE("Signature verifiation of a TX failed.");
+        return ERROR_SIGNATURE_VERIFY_FAIL;
+    }
+
+    // 2) if TX was made by the operator then do not check his balance and just create the value
+    if (etx.origin == this->operAddr) {
+        TRACE_ENCLAVE("processing TX made by operator");
+    }
+
+    // TODO
+
+    // 3) other TXs require also balance checking
+
+    return RET_SUCCESS;
+}
+
+//////////////////////////////// Hardcoded 'printing' of hello world smart contract //////////////////////////////////////
 
 std::vector<uint8_t> create_bytecode(const std::string& s)
 {
@@ -179,7 +213,7 @@ int ECLedger::execute_hello_world()
     return 0;
 }
 
-////////////////////////////////////////////////////////////
+//////////////////////////// Hardcoded summing contract execution  ////////////////////////////////
 
 void push_uint256(std::vector<uint8_t>& code, const uint256_t& n)
 {

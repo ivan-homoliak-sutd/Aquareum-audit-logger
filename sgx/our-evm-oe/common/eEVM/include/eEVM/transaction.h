@@ -10,7 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 
-#define SIG_SIZE_PB_BYTES 64
+#define SIG_SIZE_PB_BYTES 65
 #define ADDRESS_SIZE 32
 // note that only 20B of 32 are used, but the full 32B are required due to internals of eevm
 
@@ -63,7 +63,7 @@ namespace eevm
    *
    */
     struct PersistantTransaction {
-        Address origin;  // sender of the TX
+        Address origin;  // sender of the TX (IH: later can be removed to save space - we have ECC PK recovery anyway)
         Address to;      // the recepient of the TX
         uint64_t nonce;  // the number of TXs send by the sender of this TX (i.e., protection against replay attacks)
         uint64_t value;  // call_value
@@ -94,11 +94,11 @@ namespace eevm
             }
         }
 
-        std::vector<uint8_t>& asDataForHash()
+        std::vector<uint8_t> asDataForHash()
         {
             assert(sizeof(Address) == ADDRESS_SIZE);
 
-            std::vector<uint8_t>& ret = *(new std::vector<uint8_t>(2 * sizeof(Address) + sizeof(uint64_t) * 4 + code.size()));
+            std::vector<uint8_t> ret = std::vector<uint8_t>(2 * sizeof(Address) + sizeof(uint64_t) * 4 + code.size());
 
             // construct data object in the order: origin, to, value, gas_price, gas_limit, nonce, code
             uint8_t addr[ADDRESS_SIZE];
@@ -115,7 +115,7 @@ namespace eevm
             memcpy(ret.data() + 2 * sizeof(Address) + 3 * sizeof(uint64_t), &(this->nonce), sizeof(uint64_t));
             memcpy(ret.data() + 2 * sizeof(Address) + 4 * sizeof(uint64_t), this->code.data(), this->code.size());
 
-            return ret;
+            return ret; // hopes in as-if 'return value optimization'
         };
     };
 

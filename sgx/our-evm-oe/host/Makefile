@@ -40,6 +40,7 @@ Host_Include_Paths := \
 	-I. \
 	-I../include \
 	-I../common/secp256k1/include \
+	-I../common/signing-PB \
 	-I../common/eEVM/3rdparty \
 	-I../common/eEVM/3rdparty/intx/include \
 	-I../common/eEVM/include \
@@ -53,7 +54,7 @@ build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp
+	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp ../common/signing-PB/signing.cpp
 	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
 	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 

@@ -3,10 +3,11 @@
 #include "secp256k1.h"
 #include <stdint.h>
 
-#define SIG_SIZE_PB 64
+#define SIG_SIZE_PB 65
 
 // note that only lower 160 bits are used - but this enables compatibility with eEVM and Ethereum
 #define ADDRESS_SIZE_PB 32
+#define PK_SIZE_PB 64
 #define EVM_WORD_SIZE 32
 #define HASH_SIZE 32
 

@@ -12,6 +12,8 @@
 #define ECC_PK_SIZE 64
 #define PB_ADDR_SIZE 20
 
+#define VALID_ECC_SIG_RET 1
+
 // #define PRINT_SEP_LEN 50
 
 typedef struct _sealed_data_t {
@@ -61,6 +63,9 @@ typedef struct _sealed_data_t {
 #define ERROR_CIPHER_ERROR 5
 #define ERROR_UNSEALED_DATA_FAIL 6
 
+#define ERR_ECC_SIGNING 51
+
+
 // EVM enclave return codes
 #define RET_SUCCESS 0
 #define ERR_RAND_FAILED 100
@@ -70,11 +75,12 @@ typedef struct _sealed_data_t {
 #define ERR_LOAD_EVM_STATE 104
 #define RET_SUCCESS_INIT_NEW_STATE 105
 #define RET_SUCCESS_INIT_LOADED_STATE 106
-#define ERR_KEYPAIR_GEN_FAILED 107
+#define ERR_PK_GEN_FAILED 107
 #define ERR_FAIL_UNSEAL 108
 #define ERR_CANNOT_LOAD_SEALED_STATE 109
 #define ERR_SAVING_OPER_KEYS 110
 #define ERR_WRONG_ARGS 111
+#define ERR_KEYPAIR_GEN_FAILED 112
 
 #define ERR_EVM_EXEC 201
 #define ERR_EVM_WRONG_RET_CODE 202

@@ -31,7 +31,7 @@ OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}openenclave/3rdparty/libc/bits/
 
 Enclave_Cpp_Files := \
 	enc.cpp \
-	signing-PB/signing.cpp \
+	../common/signing-PB/signing.cpp \
 	sealing/sealing.cpp \
 	sealing/keys.cpp \
 	ecl/ecl.cpp
@@ -41,6 +41,7 @@ Enclave_Include_Paths := \
 	-I. \
 	-I../include \
 	-I../common/secp256k1/include \
+	-I../common/signing-PB \
 	-I../common/eEVM/3rdparty/intx/include \
 	-I../common/eEVM/3rdparty \
 	-I../common/eEVM/3rdparty/aleth-mp3 \

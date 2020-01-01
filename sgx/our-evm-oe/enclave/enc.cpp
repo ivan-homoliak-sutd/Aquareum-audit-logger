@@ -13,7 +13,7 @@
 #include "data_types.h"
 #include "ecl/ecl.h"
 #include "sealing/sealing.h"
-#include "signing-PB/signing.h"
+#include "signing.h"
 
 // eEVM imports
 #include "aleth-mp3/database/MemoryDB.h"
@@ -27,6 +27,25 @@ bool _evm_initialized = false;
 
 Sealing _sealer;
 ECLedger _ecl;
+
+
+///////////////////// AUX //////////////////
+
+int generate_keypair_PB(KeyPairPB_T* keypair)
+{
+    // 1) compute SK of PB by trusted random number generation
+    if (OE_OK != oe_random(keypair->SK_PB, ECC_SK_SIZE)) {
+        return ERR_RAND_FAILED;
+    }
+
+    // 2) compute PK of PB from SK
+    if (RET_SUCCESS != _ecl.ecc.compute_PK_from_SK(keypair)) {
+        return ERR_KEYPAIR_GEN_FAILED;
+    }
+    return RET_SUCCESS;
+}
+
+///////////////////////////////////////////
 
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger()
@@ -130,6 +149,7 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
         }
         _evm_initialized = true;  // update enclave memory
         (*enc_pk) = _evm_state.sec.keypair.PK_PB;
+
         return RET_SUCCESS_INIT_NEW_STATE;
     } else {
         // EVM state file exists, so initialize from it
@@ -200,6 +220,16 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
     return 0;
 }
 
+int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
+{
+    assert(pk_size == PK_SIZE_PB);
+    uint256_t opAddr = eevm::from_big_endian(operator_PK + PK_SIZE_PB - eevm::ADDR_ETH_SIZE_B, eevm::ADDR_ETH_SIZE_B);
+
+    _ecl.setOperAddr(opAddr);
+    return 0;
+}
+
+
 int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
 {
     return _ecl.execute_tx_simplestate_internal(tx, code, code_size);
@@ -224,7 +254,6 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     // 2) verify a consistency of the reconstructed global state with the last known value stored in E
     std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
     std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
-
     if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
         TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
         delete gs;
@@ -233,7 +262,7 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
 
     // 3) Execute TX in E (while updating the protected global state)
-    ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size, db_keys, db_keys_size);
+    ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
 
     // 4) update the current root hash of the global MP3 state in E
     memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);

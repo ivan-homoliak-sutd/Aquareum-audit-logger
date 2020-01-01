@@ -19,6 +19,11 @@ enclave {
             size_t evm_state_size_pub
         );
 
+        public int ecall_set_operator_address(
+            [in, size=pk_size] uint8_t* operator_PK,
+            size_t pk_size
+        );
+
         public int ecall_sync_evm_sealed_state_to_disk(void);
 
         public int ecall_run_single_tx_simplestate(

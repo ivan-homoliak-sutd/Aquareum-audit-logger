@@ -87,7 +87,7 @@ namespace fmt
     {
       auto s = format_to(
         ctx.out(),
-        "{} ({}): {}",
+        "PC={} depth({}): {}",
         e.pc,
         e.call_depth,
         eevm::Disassembler::getOp(e.op).mnemonic);

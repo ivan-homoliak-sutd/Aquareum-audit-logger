@@ -7,7 +7,6 @@
 #include "aleth-mp3/FixedHash.h"
 
 
-
 namespace eevm
 {
     // NOTE: Addresses will only use the low 160-bits, but it is simpler to use
@@ -16,17 +15,28 @@ namespace eevm
     using Address = uint256_t;
 
     const size_t ADDR_SIZE_B = 32;
+    const size_t ADDR_ETH_SIZE_B = 20;
 
     struct addr_as_hash {
         /// Make a hash of the object's data.
-        size_t operator()(Address const& _value) const {
+        size_t operator()(Address const& _value) const
+        {
             return dev::h256::hash()(dev::h256(_value));
         }
     };
+
+    inline void addr_u256_to_eth160b(const Address& addr, uint8_t* out)
+    {
+        uint8_t tmp[ADDR_SIZE_B];
+        intx::be::unsafe::store(out, addr);
+        memcpy(out, tmp + (ADDR_SIZE_B - ADDR_ETH_SIZE_B), ADDR_ETH_SIZE_B);
+    }
+
 }  // namespace eevm
 
 namespace std
 {
     template <>
-    struct hash<eevm::Address> : eevm::addr_as_hash {};
+    struct hash<eevm::Address> : eevm::addr_as_hash {
+    };
 }  // namespace std
