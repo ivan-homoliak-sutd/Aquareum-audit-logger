@@ -32,6 +32,8 @@ namespace eevm
         AccountState(std::pair<T, U>& p)
           : acc(p.first), st(p.second) {}
 
+        AccountState() {}
+
         AccountState(_Account& acc, _Storage& st)
           : acc(acc), st(st) {}
     };

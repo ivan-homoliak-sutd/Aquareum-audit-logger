@@ -33,12 +33,14 @@ public:
 
     PersistantTransaction* createDeploymentTX(const nlohmann::json& cdef,
                                               secp256k1_pubkey& PK_sender,
-                                              uint8_t* SK_sender);
+                                              uint8_t* SK_sender,
+                                              size_t nonce);
 
     eevm::PersistantTransaction* createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                     uint8_t* SK_sender,
                                                     const Address& newAddr,
-                                                    unsigned initBalance);
+                                                    unsigned initBalance,
+                                                    size_t nonce);
 
     int executeTX(eevm::PersistantTransaction* tx);
 

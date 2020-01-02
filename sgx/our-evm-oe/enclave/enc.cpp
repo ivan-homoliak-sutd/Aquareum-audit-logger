@@ -253,8 +253,8 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
         return ERR_EVM_WRONG_FULL_STATE;
 
     // 2) verify a consistency of the reconstructed global state with the last known value stored in E
-    std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
-    std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
+    // std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
+    // std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
     if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
         TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
         delete gs;

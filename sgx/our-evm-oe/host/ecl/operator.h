@@ -79,6 +79,7 @@ namespace ecl
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);
         void createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
+        void createMyAccntState(oe_enclave_t* enclave);
 
     private:
         int persistMyKeys();

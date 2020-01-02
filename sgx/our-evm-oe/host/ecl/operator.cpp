@@ -144,6 +144,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     string command_s;
 
     this->sendMyPKtoEnclave(enclave);
+    this->createMyAccntState(enclave);
     this->createNRandomAccounts(30, 1, enclave);
 
     while (true) {
@@ -252,7 +253,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             debug_print("1");
             // create and sign deployment TX
-            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O);
+            auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, operAccnt.get_nonce());
 
             // dump DB into basic C types (to be passed into enclave)
             // global account state
@@ -318,20 +320,73 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     }
 }
 
+
+void Operator::createMyAccntState(oe_enclave_t* enclave)
+{
+    int ret;
+    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 0, 0);
+
+    // dump global MP3 state into basic C types (to be passed into enclave)
+    std::vector<uint8_t> db_keys;  // \/== global account state
+    std::vector<uint8_t> db_values;
+    std::vector<size_t> values_sizes;
+    size_t db_keys_size, values_sizes_size;
+    std::vector<uint8_t> storages;  // \/== storages of all accounts
+    std::vector<size_t> storages_sizes;
+    size_t storages_sizes_size;
+    m_ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
+
+    info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+
+    // 1) Execute TX in Enclave
+    oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
+                                                              (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                              (const uint8_t*)tx->code.data(), tx->code.size(),
+                                                              (const uint8_t*)db_keys.data(), db_keys_size,
+                                                              (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
+                                                              (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when executing TX in ENCLAVE.");
+        return;
+    }
+
+    // 2) Execute TX in Host
+    if (RET_SUCCESS != this->m_ecl.executeTX(tx)) {  // this updates global account state in the host
+        error_print("Error when executing TX in HOST.");
+        return;
+    }
+
+    // Fetch the updated global state of E
+    PublicSealedData_T pub_evm_state;
+    ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+    if (ecall_ret != OE_OK && is_error(ret))
+        error_print("Failed to read the state of enclace.");
+
+    // Compare E's state to host's state
+    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
+    info_print("State in Host and Enclave match!");
+
+    auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr);  // get the updated account state of O
+    debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.asJsonBytesRef().toString()));
+
+    eevm::print_sep();
+}
+
 /**
  * Create N simple accounts with initial balance set to 'initBalance'
  * For each account creation, do ecall into E.
  */
 void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
+    auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // already deployed  O's account state
+
     int ret;
     for (unsigned i = 0; i < N; i++) {
-        // debug_print(fmt::format("\t creating random account: {} ", i));
         std::vector<uint8_t> raw_address(20);
         std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
         const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-        auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, addr, initBalance);
+        auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, addr, initBalance, operAccnt.get_nonce());
 
         // dump global MP3 state into basic C types (to be passed into enclave)
         std::vector<uint8_t> db_keys;  // \/== global account state
@@ -375,6 +430,8 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
 
         eevm::AccountState accntState = this->m_ecl.m_gs.get(addr);
         debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
+
+        operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get the updated account state of O
     }
     eevm::print_sep();
 }

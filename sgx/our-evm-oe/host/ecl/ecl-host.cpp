@@ -157,15 +157,15 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 // NOTE: it supports only 32B uint arguments of a constructor
 eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& contract_definition,
                                                           secp256k1_pubkey& PK_sender,
-                                                          uint8_t* SK_sender)
+                                                          uint8_t* SK_sender,
+                                                          size_t nonce)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
-    // Create RANDOM address for contract (TODO: later derive it from nonce of AccountState of sender)
-    std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
-    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-    const eevm::Address contract_address = eevm::from_big_endian(raw_address.data(), raw_address.size());
+    // Deterministically compute address for contract from nonce and address of sender
+    std::vector<uint8_t> raw_address(20);
+    const eevm::Address contract_address(operAddr + nonce);
 
     // Get the binary constructor of the contract and its parameters
     auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);
@@ -174,11 +174,10 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
         debug_print(fmt::format("\t parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
         if (string(ctor_param["type"]) != "uint256")
             throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
+
         append_arg(contract_ctor_code, u256(std::stoul(string(ctor_param["value"]))));
     }
     // debug_print("--2");
-
-    uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
     this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     // debug_print("--3");
@@ -210,10 +209,10 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
 
 eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender,
-                                                          const Address& newAddr, unsigned initBalance)
+                                                          const Address& newAddr,
+                                                          unsigned initBalance, size_t nonce)
 {
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
-    uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, newAddr, nonce, initBalance, {});
     this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     return tx;
@@ -270,7 +269,7 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
 
     // 2) increment the nonce and the balance of the sender
     auto accnState = m_gs.get(etx.origin);
-    if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
+    if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
     auto storage = m_gs.getStorages().at(etx.origin);  // just copy the old storage

@@ -61,7 +61,14 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
-    // create eevm::Tx object from the proxy and code
+    // 0) Check whether sender exists (Operator is an exception)
+    auto sender = reinterpret_cast<eevm::Address*>(tx->origin);
+    if (*sender != this->operAddr && !gs->exists(*sender)) {
+        TRACE_ENCLAVE("Sender of TX does not exist.");
+        return ERR_EVM_SENDER_DOES_NOT_EXIST;
+    }
+
+    // 1) Create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
     auto lh = eevm::NullLogHandler();
 
@@ -70,25 +77,32 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    // if no code is present in TX, execute just simple transfer
+    // 2a) If no code is present in TX, execute just simple transfer
     if (0 == code_size) {
         return this->_execute_transfer_tx(gs, etx);
     }
 
-    TRACE_ENCLAVE("2");
-    // Contract should be already deployed at global state that is passed in arguments
-    std::cout << "execute_tx_mp3state_full addr = " << eevm::to_hex_string(etx.to) << "\n";
-    const eevm::SimpleAccountState contract = gs->get(etx.to);
+    // 2b) If code is present, then (deploy contract if does not exist) and ececute TX with the code
+    TRACE_ENCLAVE("contract addr = %s ", eevm::to_hex_string(etx.to).c_str());
+    auto senderAccnt = gs->get(etx.origin);
+    eevm::SimpleAccountState contrState;
+    if (!gs->exists(etx.to)) {
+        if (h256(etx.to) != eevm::Address(etx.origin + senderAccnt.acc.get_nonce())) {  // check correct address derivation from sender's addr and nonce
+            TRACE_ENCLAVE("Contract address does not match the sender's address and his nonce");
+            return ERR_EVM_WRONG_CONTR_ADDR;
+        }
+        contrState = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
+    } else {
+        contrState = gs->get(etx.to);
+    }
 
+    // 3) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor...");
-
-    // Create processor
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
-
-    // Execute code. All executions are associated with a TX. This TX is called by sender,
-    // executing the code in contract, with empty input (and no trace collection)
     eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, &tr);
+    const eevm::ExecResult e = p.run(etx, etx.origin, contrState, {}, etx.value, &tr);
+
+    // TODO: if some contract is created by this the contract, then increment nonce of this contract (check whether eevm is doing it) !!!
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
@@ -127,7 +141,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
         TRACE_ENCLAVE("processing simple transfer TX made by some account.");
     }
 
-    // 2) increment the nonce and the balance of the sender
+    // 2) Increment the nonce and the balance of the sender
     auto accnState = gs->get(etx.origin);
     if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
