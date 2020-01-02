@@ -26,9 +26,6 @@
 
 namespace ecl
 {
-    struct MP_tree {
-    };
-
     struct Header {
         uint256_t id;         // increment-only counter
         uint256_t txs_root;   // Merkle root
@@ -51,14 +48,9 @@ namespace ecl
     };
 
     class Operator {
-        // uint256_t PK_E_TEE;
-        // uint256_t PK_E_PB;
-        // uint256_t PK_O; // PK of operator (under Sigma_PB)
-        // uint256_t SK_O; // SK of operator (under Sigma_PB)
-
     public:
-        ECLedger m_ecl;  // ECL ledger instance
         ECC m_ecc;       // ECC signing wrapper
+        ECLedger m_ecl;  // ECL ledger instance
 
         uint8_t PK_E_TEE[ECC_SK_SIZE];
         secp256k1_pubkey PK_E_PB;   // public key (i.e., unsigned char [64])
@@ -68,23 +60,21 @@ namespace ecl
         std::vector<eevm::PersistantTransaction> txs_unprocessed;  // cache of unprocessed TXs,
         std::vector<Block> blks_processed;                         // cache of processed blocks, not synced with PB yet
 
-        uint t_vm;  // time of the last flush to VM enclave
-        uint t_pb;  // time of the last flush to PB
-
-        MP_tree state_cur;  // current state of VM (Merkle Patricia tree)
-
         std::vector<eevm::PersistantTransaction> cens_txs;  // cache of posted cens. TXs to smart contract
 
-        std::vector<Block> ledger;  // data of Ledger that were synced with PB,
+        std::vector<Block> ledger_stable;  // data of Ledger that were synced with PB,
 
         uint256_t LRoot_PB;   // the last root of Ledger flushed to PB,
         uint256_t LRoot_cur;  // the current root of (L U blks_processed) not flushed to PB
 
+        uint t_vm;                  // time of the last flush to VM enclave
+        uint t_pb;                  // time of the last flush to PB
         FlushingLimits flush_lims;  // the flushing limits
 
 
         Operator(secp256k1_pubkey* _enc_PK);
-        ~Operator(){};
+        ~Operator() {}
+
 
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);
@@ -94,7 +84,7 @@ namespace ecl
         int persistMyKeys();
         bool existsMyKeyFile();
         int loadMyKeysFromFile();
-        void print_evm_state(PublicSealedData_T& es);
+        void printEvmState(PublicSealedData_T& es);
     };
 
 }  // namespace ecl

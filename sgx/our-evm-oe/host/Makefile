@@ -23,7 +23,6 @@ CXX_LDFLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --libs)
 CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 CXX_STANDARD := c++1z
 CXX_LIB_DIR := /usr/lib/x86_64-linux-gnu/
-# CXX_LIB_DIR := /usr/lib/gcc/x86_64-linux-gnu/7/
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
@@ -32,9 +31,16 @@ EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
 EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
-	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1 \
+	-L$(SECP256_LIB_DIR) -lsecp256k1 \
 	-L$(CXX_LIB_DIR) -lstdc++ -lc
 	# -L$(INTX_LIB_DIR) -lintx
+
+Host_Cpp_Files := \
+	host.cpp \
+	utils.cpp \
+	./ecl/operator.cpp \
+	./ecl/ecl-host.cpp \
+	../common/signing-PB/signing.cpp
 
 Host_Include_Paths := \
 	-I. \
@@ -54,9 +60,9 @@ build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) host.cpp utils.cpp ./ecl/operator.cpp ./ecl/ecl-host.cpp ../common/signing-PB/signing.cpp
+	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
 	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
-	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
 	rm -f ecledger_host host.o ecledger_u.o ecledger_u.c ecledger_u.h ecledger_args.h

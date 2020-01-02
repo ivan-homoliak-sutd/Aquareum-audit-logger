@@ -38,7 +38,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
         }
 
         // 2) compute PK of operator (under PB)
-        if (1 != secp256k1_ec_pubkey_create(this->ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
+        if (1 != secp256k1_ec_pubkey_create(this->m_ecc.m_ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
             error_print(string("secp256k1_ec_pubkey_create failed"));
             return;
         }
@@ -54,7 +54,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
 void Operator::sendMyPKtoEnclave(oe_enclave_t* enclave)
 {
     int ret;
-    oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, );
+    oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, this->PK_O.data, PK_SIZE_PB);
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when passing operator's PK to Enclave.");
@@ -115,7 +115,7 @@ bool correct_token_cnt(std::string& command, uint N, boost::tokenizer<separator>
     return true;
 }
 
-void Operator::print_evm_state(PublicSealedData_T& es)
+void Operator::printEvmState(PublicSealedData_T& es)
 {
     cout << "\t PK_E_PB = " << to_hex_str(this->PK_E_PB.data, ECC_PK_SIZE) << "\n"
          << "\t PK_O = " << to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE) << "\n"
@@ -175,7 +175,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK && is_error(ret)) {
                 error_print("Failed to read the state of enclave.");
             }
-            this->print_evm_state(pub_evm_state);
+            this->printEvmState(pub_evm_state);
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
