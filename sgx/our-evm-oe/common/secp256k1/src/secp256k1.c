@@ -34,16 +34,29 @@
 } while(0)
 
 #ifndef USE_EXTERNAL_DEFAULT_CALLBACKS
-#include <stdlib.h>
-#include <stdio.h>
+ /* #include <stdlib.h>
+    #include <stdio.h> */
+
+uint8_t tmp_callback[10];
+
 static void secp256k1_default_illegal_callback_fn(const char* str, void* data) {
     (void)data;
-    fprintf(stderr, "[libsecp256k1] illegal argument: %s\n", str);
+
+    /* IH: this just to avoid warinings as errors */
+    memcpy(tmp_callback, data, 1);
+    memcpy(tmp_callback + 1, str, 1);
+
+    /* fprintf(stderr, "[libsecp256k1] illegal argument: %s\n", str); */
     abort();
 }
 static void secp256k1_default_error_callback_fn(const char* str, void* data) {
     (void)data;
-    fprintf(stderr, "[libsecp256k1] internal consistency check failed: %s\n", str);
+
+    /* IH: this just to avoid warinings as errors */
+    memcpy(tmp_callback, data, 1);
+    memcpy(tmp_callback + 1, str, 1);
+
+    /* fprintf(stderr, "[libsecp256k1] internal consistency check failed: %s\n", str); */
     abort();
 }
 #else

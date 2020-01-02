@@ -31,8 +31,8 @@ namespace eevm
         intx::be::unsafe::store(out, addr);
         memcpy(out, tmp + (ADDR_SIZE_B - ADDR_ETH_SIZE_B), ADDR_ETH_SIZE_B);
     }
-
 }  // namespace eevm
+
 
 namespace std
 {

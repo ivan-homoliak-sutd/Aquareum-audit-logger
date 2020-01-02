@@ -51,7 +51,8 @@ Enclave_Include_Paths := \
 EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Enclave_Link_Flags := $(LDFLAGS) \
-	-L$(SECP256_LIB_DIR) -lgmp -lsecp256k1
+	-L$(SECP256_LIB_DIR) -lsecp256k1
+	# -lgmp # IH: if secp256k1 will be compiled with gmp support, enable also this
 
 all:
 	$(MAKE) build

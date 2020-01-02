@@ -1,10 +1,10 @@
 #include "signing.h"
 #include "common.h"
-// #include "ecledger_t.h"
 #include "eEVM/util.h"
 // #include "utils.h"
-// #include <openenclave/enclave.h>
 
+// definition of static context
+secp256k1_context* ECC::s_ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
 int ECC::compute_PK_from_SK(KeyPairPB_T* keypair)  // assumption is that keypair contains already generated SK
 {

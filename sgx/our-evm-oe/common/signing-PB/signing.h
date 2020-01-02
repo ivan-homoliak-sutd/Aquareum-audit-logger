@@ -5,22 +5,22 @@
 #include "eEVM/address.h"
 #include "secp256k1_recovery.h"
 
-
 class ECC {
-    static secp256k1_context* m_ctx;
-
 public:
+    static secp256k1_context* s_ctx;
+
+    secp256k1_context* m_ctx;
+
     inline ECC()
     {
-        if (NULL == m_ctx)
-            m_ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+        m_ctx = ECC::s_ctx;
     }
 
-    inline ~ECC()
-    {
-        if (NULL != m_ctx)
-            free(m_ctx);
-    }
+    // inline ~ECC() // IH: this should be equipped with shared_pointer
+    // {
+    //     if (NULL != m_ctx)
+    //         free(m_ctx);
+    // }
 
     int compute_PK_from_SK(KeyPairPB_T* keypair);
 
