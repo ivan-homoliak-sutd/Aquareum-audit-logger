@@ -196,7 +196,7 @@ namespace eevm
                                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
     {
-        std::cout << "[Enclave:] Constructing full state in encalve\n";
+        std::cout << "[Enclave:] Constructing full state in enclave\n";
         assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
 
         *gs = new NormalGlobalState();

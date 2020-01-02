@@ -33,6 +33,11 @@ namespace eevm
           : acc(p.first), st(p.second) {}
 
         AccountState() {}
+        // AccountState(AccountState& other)
+        // {
+        //     this->acc = other.acc;
+        //     this->st = other.st;
+        // }
 
         AccountState(_Account& acc, _Storage& st)
           : acc(acc), st(st) {}

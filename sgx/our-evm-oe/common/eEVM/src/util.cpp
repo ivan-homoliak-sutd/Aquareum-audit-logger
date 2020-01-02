@@ -51,6 +51,7 @@ namespace eevm
                    static_cast<unsigned int>(rlp_encoding.size()),
                    buffer);
 
-        return from_big_endian(buffer + 12u, 20u);
+        return from_big_endian(buffer, 20u);
+        // return from_big_endian(buffer + 12u, 20u);
     }
 }  // namespace eevm

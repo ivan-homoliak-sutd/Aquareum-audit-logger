@@ -165,7 +165,7 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
 
     // Deterministically compute address for contract from nonce and address of sender
     std::vector<uint8_t> raw_address(20);
-    const eevm::Address contract_address(operAddr + nonce);
+    const eevm::Address contract_address = eevm::generate_address(operAddr, nonce);
 
     // Get the binary constructor of the contract and its parameters
     auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);

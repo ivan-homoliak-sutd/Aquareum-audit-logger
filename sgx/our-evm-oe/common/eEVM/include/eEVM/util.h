@@ -86,6 +86,13 @@ namespace eevm
         return keccak_256((const uint8_t*)s.data(), s.size());
     }
 
+    inline KeccakHash keccak_256(const Address& addr)
+    {
+        uint8_t asBytes[ADDR_SIZE_B];
+        to_big_endian(addr, asBytes);
+        return keccak_256((const uint8_t*)asBytes, ADDR_SIZE_B);
+    }
+
     inline KeccakHash keccak_256(const std::vector<uint8_t>& v)
     {
         return keccak_256(v.data(), v.size());

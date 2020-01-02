@@ -16,16 +16,22 @@ namespace eevm
    * IH: it is a per account storage that support only uint256_t to uint256_t mapping
    */
     class SimpleStorage : public Storage {
+    public:
         std::map<uint256_t, uint256_t> m_s;
 
-    public:
         SimpleStorage() = default;
         SimpleStorage(const nlohmann::json& j);
+        // SimpleStorage(SimpleStorage& other)
+        // {
+        //     this->m_s = other.data();
+        // };
 
         void store(const uint256_t& key, const uint256_t& value) override;
         uint256_t load(const uint256_t& key) override;
         bool exists(const uint256_t& key);
         bool remove(const uint256_t& key) override;
+
+        inline std::map<uint256_t, uint256_t>& data() { return m_s; }
 
         bool operator==(const SimpleStorage& that) const;
 

@@ -85,22 +85,27 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // 2b) If code is present, then (deploy contract if does not exist) and ececute TX with the code
     TRACE_ENCLAVE("contract addr = %s ", eevm::to_hex_string(etx.to).c_str());
     auto senderAccnt = gs->get(etx.origin);
-    eevm::SimpleAccountState contrState;
+    eevm::SimpleAccountState *contrState;
     if (!gs->exists(etx.to)) {
-        if (h256(etx.to) != eevm::Address(etx.origin + senderAccnt.acc.get_nonce())) {  // check correct address derivation from sender's addr and nonce
+        auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
+        if (etx.to != expectedAddr) {  // check correct address derivation from sender's addr and nonce
             TRACE_ENCLAVE("Contract address does not match the sender's address and his nonce");
             return ERR_EVM_WRONG_CONTR_ADDR;
         }
-        contrState = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
+        TRACE_ENCLAVE("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
+        auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
+        contrState = &cs;
     } else {
-        contrState = gs->get(etx.to);
+        TRACE_ENCLAVE("Contract already exists => fetching its state.");
+        auto cs = gs->get(etx.to);
+        contrState = &cs;
     }
 
     // 3) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, contrState, {}, etx.value, &tr);
+    const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
     // TODO: if some contract is created by this the contract, then increment nonce of this contract (check whether eevm is doing it) !!!
 
