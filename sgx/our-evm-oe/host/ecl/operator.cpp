@@ -38,13 +38,14 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
         }
 
         // 2) compute PK of operator (under PB)
-        if (1 != secp256k1_ec_pubkey_create(this->m_ecc.m_ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
+        if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
             error_print(string("secp256k1_ec_pubkey_create failed"));
             return;
         }
         this->persistMyKeys();
     }
     memcpy(this->PK_E_PB.data, _enc_PK->data, ECC_PK_SIZE);
+    this->m_ecl.operAddr = eevm::from_big_endian(this->PK_O.data, eevm::ADDR_ETH_SIZE_B);  // forward the address of O to the ECL object
 
     info_print(string("PK_E_PB = ") + to_hex_str(_enc_PK->data, ECC_PK_SIZE));
     info_print(string("SK_O = ") + to_hex_str(this->SK_O, ECC_SK_SIZE));
@@ -142,6 +143,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
     string command_s;
 
+    this->sendMyPKtoEnclave(enclave);
     this->createNRandomAccounts(30, 1, enclave);
 
     while (true) {
@@ -343,19 +345,19 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
 
         info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
 
-        // ecall
+        // 1) Execute TX in Enclave
         oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                                   (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                                   (const uint8_t*)tx->code.data(), tx->code.size(),
                                                                   (const uint8_t*)db_keys.data(), db_keys_size,
                                                                   (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
                                                                   (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
-
         if (ecall_ret != OE_OK || is_error(ret)) {
             error_print("Error when executing TX in ENCLAVE.");
             return;
         }
 
+        // 2) Execute TX in Host
         if (RET_SUCCESS != this->m_ecl.executeTX(tx)) {  // this updates global account state in the host
             error_print("Error when executing TX in HOST.");
             return;
@@ -369,6 +371,7 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
 
         // Compare E's state to host's state
         assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
+        info_print("State in Host and Enclave match!");
 
         eevm::AccountState accntState = this->m_ecl.m_gs.get(addr);
         debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));

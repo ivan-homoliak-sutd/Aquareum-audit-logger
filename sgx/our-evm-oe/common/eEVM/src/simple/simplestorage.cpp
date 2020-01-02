@@ -47,6 +47,15 @@ namespace eevm
         return true;
     }
 
+    uint256_t SimpleStorage::hash() const
+    {
+        auto asBytes = std::vector<uint8_t>();
+        this->toBytes(asBytes);
+
+        auto h = keccak_256(asBytes);
+        return from_big_endian(h.data());
+    }
+
     size_t SimpleStorage::toBytes(std::vector<uint8_t>& toAppend) const
     {
         size_t size_of_storage = 0;

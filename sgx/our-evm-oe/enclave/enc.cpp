@@ -33,15 +33,17 @@ ECLedger _ecl;
 
 int generate_keypair_PB(KeyPairPB_T* keypair)
 {
+    TRACE_ENCLAVE("1");
     // 1) compute SK of PB by trusted random number generation
-    if (OE_OK != oe_random(keypair->SK_PB, ECC_SK_SIZE)) {
+    if (OE_OK != oe_random(&(keypair->SK_PB), ECC_SK_SIZE)) {
         return ERR_RAND_FAILED;
     }
-
+    TRACE_ENCLAVE("2");
     // 2) compute PK of PB from SK
     if (RET_SUCCESS != _ecl.ecc.compute_PK_from_SK(keypair)) {
         return ERR_KEYPAIR_GEN_FAILED;
     }
+    TRACE_ENCLAVE("3");
     return RET_SUCCESS;
 }
 
@@ -223,9 +225,8 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
 int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
 {
     assert(pk_size == PK_SIZE_PB);
-    uint256_t opAddr = eevm::from_big_endian(operator_PK + PK_SIZE_PB - eevm::ADDR_ETH_SIZE_B, eevm::ADDR_ETH_SIZE_B);
-
-    _ecl.setOperAddr(opAddr);
+    uint256_t opAddr = eevm::from_big_endian(operator_PK, eevm::ADDR_ETH_SIZE_B);
+    _ecl.operAddr = opAddr;
     return 0;
 }
 

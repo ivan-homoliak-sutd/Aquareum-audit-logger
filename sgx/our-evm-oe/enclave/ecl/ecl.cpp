@@ -113,22 +113,40 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     // 1) Verify signature of TX
     auto inp4hash = etx.asDataForHash();
     eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
-    bool ret = this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature,
-                                    txHash.data(),
-                                    etx.origin);
-    if (!ret) {
+    bool correct = this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature,
+                                        txHash.data(),
+                                        etx.origin);
+    if (!correct) {
         TRACE_ENCLAVE("Signature verifiation of a TX failed.");
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
 
-    // 2) if TX was made by the operator then do not check his balance and just create the value
     if (etx.origin == this->operAddr) {
-        TRACE_ENCLAVE("processing TX made by operator");
+        TRACE_ENCLAVE("processing simple transfer TX made by operator.");
+    } else {
+        TRACE_ENCLAVE("processing simple transfer TX made by some account.");
     }
 
-    // TODO
+    // 2) increment the nonce and the balance of the sender
+    auto accnState = gs->get(etx.origin);
+    if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
+        accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
+    }
+    auto storage = gs->getStorages().at(etx.origin);  // just copy the old storage
+    auto code = accnState.acc.get_code();             // IH: TODO: optimization avoiding copying here
+    if (etx.origin != this->operAddr && (etx.value > accnState.acc.get_balance())) {
+        TRACE_ENCLAVE("The account %s does not have enough balance.", eevm::address_to_hex_string(etx.origin).c_str());
+        return ERR_EVM_LOW_BALANCE;
+    }
+    // if TX was made by the operator then do not check his balance and just add the value to the sender
+    auto senderBalance = accnState.acc.get_balance() - (etx.origin == this->operAddr) ? 0 : etx.value;
+    gs->insert({eevm::SimpleAccount(etx.origin, senderBalance, code), storage});
 
-    // 3) other TXs require also balance checking
+    // 3) add value to the target account
+    accnState = gs->get(etx.to);
+    storage = gs->getStorages().at(etx.to);  // just copy the old storage
+    code = accnState.acc.get_code();         // IH: TODO: optimization avoiding copying here
+    gs->insert({eevm::SimpleAccount(etx.to, accnState.acc.get_balance() + etx.value, code), storage});
 
     return RET_SUCCESS;
 }

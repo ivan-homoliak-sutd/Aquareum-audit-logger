@@ -51,16 +51,21 @@ namespace eevm
     size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
     const Block& NormalGlobalState::get_current_block() { return currentBlock; }
     uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
+
+    /** This function should update the old entry in MP3 if it already exists.
+     *
+     */
     void NormalGlobalState::insert(const StateEntry& p)
     {
         auto addr = p.first.get_address();
         // std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
 
         auto _p = const_cast<StateEntry&>(p);
-        m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
-        if (m_storages.end() != m_storages.find(addr))
-            throw std::logic_error(fmt::format("NormalGlobalState::insert - storage for address '{}' already exists.", to_hex_string(addr)));
 
+        // compute and update storage hash
+        _p.first.set_stHash(_p.second.hash());
+
+        m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
         m_storages[addr] = p.second;
     }
 

@@ -28,7 +28,7 @@ namespace eevm
     inline void addr_u256_to_eth160b(const Address& addr, uint8_t* out)
     {
         uint8_t tmp[ADDR_SIZE_B];
-        intx::be::unsafe::store(out, addr);
+        intx::be::unsafe::store(tmp, addr);
         memcpy(out, tmp + (ADDR_SIZE_B - ADDR_ETH_SIZE_B), ADDR_ETH_SIZE_B);
     }
 }  // namespace eevm

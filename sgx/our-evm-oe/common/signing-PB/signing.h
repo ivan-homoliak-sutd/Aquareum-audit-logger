@@ -9,12 +9,7 @@ class ECC {
 public:
     static secp256k1_context* s_ctx;
 
-    secp256k1_context* m_ctx;
-
-    inline ECC()
-    {
-        m_ctx = ECC::s_ctx;
-    }
+    inline ECC(){};
 
     // inline ~ECC() // IH: this should be equipped with shared_pointer
     // {

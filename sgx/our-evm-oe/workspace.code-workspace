@@ -98,7 +98,8 @@
 			"*.ipp": "cpp",
 			"codecvt": "cpp",
 			"regex": "cpp",
-			"future": "cpp"
+			"future": "cpp",
+			"secp256k1.h": "c"
 		}
 	}
 }

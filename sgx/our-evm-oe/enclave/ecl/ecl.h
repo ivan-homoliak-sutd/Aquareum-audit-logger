@@ -1,9 +1,9 @@
 #pragma once
 
 #include "data_types.h"
-#include "eEVM/transaction.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/simple/simpleglobalstate.h"
+#include "eEVM/transaction.h"
 #include "signing.h"
 
 
@@ -16,11 +16,6 @@ public:
     inline ECLedger()
     {
         ecc = ECC();
-    }
-
-    inline void setOperAddr(eevm::Address a)
-    {
-        operAddr = a;
     }
 
     // TODO: drop later

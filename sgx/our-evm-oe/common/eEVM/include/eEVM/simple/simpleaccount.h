@@ -74,7 +74,7 @@ namespace eevm
         virtual bool has_code() override;
 
         inline uint256_t& get_stHash() { return storage_hash; };
-        inline void set_stHash(uint256_t& h) { storage_hash = h; };
+        inline void set_stHash(uint256_t h) { storage_hash = h; };
 
         bool operator==(const Account&) const;
 

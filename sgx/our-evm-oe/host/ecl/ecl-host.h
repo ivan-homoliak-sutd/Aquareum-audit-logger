@@ -13,6 +13,8 @@ class ECLedger {
 public:
     ECC* m_ecc;  // ECC signing wrapper
 
+    eevm::Address operAddr;
+
     inline ECLedger(ECC* e)
       : m_ecc(e){};
 
@@ -39,4 +41,7 @@ public:
                                                     unsigned initBalance);
 
     int executeTX(eevm::PersistantTransaction* tx);
+
+private:
+    int _execute_transfer_tx(eevm::Transaction& etx);
 };

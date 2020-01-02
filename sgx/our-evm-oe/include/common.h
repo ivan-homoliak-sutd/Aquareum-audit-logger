@@ -86,3 +86,4 @@ typedef struct _sealed_data_t {
 #define ERR_EVM_WRONG_RET_CODE 202
 #define ERR_EVM_WRONG_FULL_STATE 203
 #define ERR_EVM_INCONSISTANT_STATE 204
+#define ERR_EVM_LOW_BALANCE 205
