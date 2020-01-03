@@ -107,22 +107,21 @@ void append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
 /////////////////// Transaction creation ///////////////////
 
 eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_sender,
-                                                          uint8_t* SK_sender)
+                                                          uint8_t* SK_sender,
+                                                          size_t nonce)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
-    // Create random addresses for contract
-    std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
-    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-    const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
+    // Deterministically compute address for contract from nonce and address of sender
+    std::vector<uint8_t> raw_address(20);
+    const eevm::Address contract_address = eevm::generate_address(operAddr, nonce);
 
     // Create code
     std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
     const eevm::Code code = create_printStr_bytecode(hello_world);
 
-    uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
-    auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
+    auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, code);
     this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
     return tx;
 }
@@ -240,9 +239,10 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
-        std::cout << fmt::format("[HOST:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+        std::cout << fmt::format("[HOST:] Execution of TX failed with unexpected return code: {}", (size_t)e.er) << std::endl;
         return ERR_EVM_WRONG_RET_CODE;
     }
+
     return RET_SUCCESS;
 }
 
@@ -267,26 +267,27 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
         info_print("processing simple transfer TX made by some account.");
     }
 
-    // 2) increment the nonce and the balance of the sender
+    // 2) increment the nonce and adjust the balance of the sender
     auto accnState = m_gs.get(etx.origin);
-    if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
+    if (0 == accnState.acc.get_code_ref().size()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
-    auto storage = m_gs.getStorages().at(etx.origin);  // just copy the old storage
-    auto code = accnState.acc.get_code();              // IH: TODO: optimization avoiding copying here
+    auto& storage = m_gs.getStorages().at(etx.origin);  // just copy the old storage
+    auto& code = accnState.acc.get_code_ref();
     if (etx.origin != this->operAddr && (etx.value > accnState.acc.get_balance())) {
         error_print(fmt::format("The account {} does not have enough balance.", address_to_hex_string(etx.origin)));
         return ERR_EVM_LOW_BALANCE;
     }
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalance = accnState.acc.get_balance() - (etx.origin == this->operAddr) ? 0 : etx.value;
-    m_gs.insert({eevm::SimpleAccount(etx.origin, senderBalance, code), storage});
+    m_gs.insert({eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), storage), storage});
 
     // 3) add value to the target account
     accnState = m_gs.get(etx.to);
     storage = m_gs.getStorages().at(etx.to);  // just copy the old storage
-    code = accnState.acc.get_code();          // IH: TODO: optimization avoiding copying here
-    m_gs.insert({eevm::SimpleAccount(etx.to, accnState.acc.get_balance() + etx.value, code), storage});
+    code = accnState.acc.get_code_ref();
+    auto recvBalance = accnState.acc.get_balance() + etx.value;
+    m_gs.insert({eevm::SimpleAccount(etx.to, recvBalance, code, accnState.acc.get_nonce(), storage), storage});
 
     return RET_SUCCESS;
 }

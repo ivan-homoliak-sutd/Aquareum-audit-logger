@@ -47,9 +47,9 @@ namespace eevm
         return true;
     }
 
-    uint256_t SimpleStorage::hash() const
+    uint256_t SimpleStorage::hash()
     {
-        auto asBytes = std::vector<uint8_t>();
+        std::vector<uint8_t> asBytes = {0u};  // empty storage will also have some hash associated
         this->toBytes(asBytes);
 
         auto h = keccak_256(asBytes);
@@ -121,5 +121,11 @@ namespace eevm
         return os;
     }
 
+    uint256_t SimpleStorage::hashOfEmptyStorage()
+    {
+        std::vector<uint8_t> asBytes = {0u};  // empty storage will also have some hash associated
+        auto h = keccak_256(asBytes);
+        return from_big_endian(h.data());
+    }
 
 }  // namespace eevm

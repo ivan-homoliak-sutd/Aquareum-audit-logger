@@ -52,6 +52,7 @@ int generate_keypair_PB(KeyPairPB_T* keypair)
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger()
 {
+    print_enc_sep(EncExec::START);
     // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
     std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
 
@@ -89,6 +90,8 @@ void ecall_enclave_ecledger()
     t->remove(hash);
     TRACE_ENCLAVE("5");
     assert(t->isEmpty());
+
+    print_enc_sep(EncExec::END);
 }
 
 /*
@@ -98,6 +101,9 @@ void ecall_enclave_ecledger()
 */
 int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
 {
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("Initializing EVM enclave.");
+
     oe_result_t ocall_status;
     int ocall_ret, lib_ret;
 
@@ -152,6 +158,7 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
         _evm_initialized = true;  // update enclave memory
         (*enc_pk) = _evm_state.sec.keypair.PK_PB;
 
+        print_enc_sep(EncExec::END);
         return RET_SUCCESS_INIT_NEW_STATE;
     } else {
         // EVM state file exists, so initialize from it
@@ -186,12 +193,16 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
         free(data);
 
         (*enc_pk) = _evm_state.sec.keypair.PK_PB;
+        print_enc_sep(EncExec::END);
         return RET_SUCCESS_INIT_LOADED_STATE;
     }
 }
 
 int ecall_sync_evm_sealed_state_to_disk(void)
 {
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("syncing sealed state to disk.");
+
     int ocall_ret;
 
     // seal internal EVM state object which is held in memory
@@ -213,27 +224,38 @@ int ecall_sync_evm_sealed_state_to_disk(void)
         TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
         return ERR_CANNOT_SAVE_EVM_STATE;
     }
+    print_enc_sep(EncExec::END);
     return 0;
 }
 
 int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size)
 {
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("reading public state.");
     (*pub_evm_state) = _evm_state.pub;
+    print_enc_sep(EncExec::END);
     return 0;
 }
 
 int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
 {
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("setting operator's address.");
     assert(pk_size == PK_SIZE_PB);
     uint256_t opAddr = eevm::from_big_endian(operator_PK, eevm::ADDR_ETH_SIZE_B);
     _ecl.operAddr = opAddr;
+    print_enc_sep(EncExec::END);
     return 0;
 }
 
 
 int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
 {
-    return _ecl.execute_tx_simplestate_internal(tx, code, code_size);
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("running TX with internal simplestate.");
+    int ret = _ecl.execute_tx_simplestate_internal(tx, code, code_size);
+    print_enc_sep(EncExec::END);
+    return ret;
 }
 
 
@@ -243,6 +265,9 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                       const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("running TX with full MP3 copied.");
+
     // 1) reconstruct the global MP3 state from host passed data
     eevm::NormalGlobalState* gs;
     int ret = eevm::NormalGlobalState::construct_full_state(&gs,
@@ -269,5 +294,6 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
 
     delete gs;  // clear global state allocated before
+    print_enc_sep(EncExec::END);
     return ret;
 }

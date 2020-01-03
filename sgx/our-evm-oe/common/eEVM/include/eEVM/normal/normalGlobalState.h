@@ -44,7 +44,10 @@ namespace eevm
                 m_accounts.init();  // create empty node into MP3
         };
 
-        ~NormalGlobalState() {}
+        // constexpr NormalGlobalState(const NormalGlobalState & other){ // copy ctor
+        //     m_accounts =
+        // }
+        ~NormalGlobalState() = default;
 
         virtual void remove(const Address& addr) override;
 

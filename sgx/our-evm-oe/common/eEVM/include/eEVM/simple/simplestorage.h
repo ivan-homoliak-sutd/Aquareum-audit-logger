@@ -42,7 +42,9 @@ namespace eevm
         // serialization
         size_t toBytes(std::vector<uint8_t>& toAppend) const;
         static SimpleStorage* fromBytes(const uint8_t* data, size_t size);
-        uint256_t hash() const;
+
+        uint256_t hash() override;
+        static uint256_t hashOfEmptyStorage();
 
         friend void to_json(nlohmann::json&, const SimpleStorage&);
         friend void from_json(const nlohmann::json&, SimpleStorage&);

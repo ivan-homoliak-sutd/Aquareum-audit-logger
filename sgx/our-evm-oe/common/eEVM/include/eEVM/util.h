@@ -71,16 +71,16 @@ namespace eevm
     /**
      * Might be expensive if map is too big.
      */
-    inline KeccakHash keccak_256(const std::map<uint256_t, uint256_t> m)
-    {
-        std::vector<uint256_t> input = {0u};  // this ensures that even empty storage has some hash associated
+    // inline KeccakHash keccak_256(const std::map<uint256_t, uint256_t> m)
+    // {
+    //     std::vector<uint256_t> input = {0u};  // this ensures that even empty storage has some hash associated
 
-        for (auto const e : m) {
-            input.push_back(e.first);
-            input.push_back(e.second);
-        }
-        return keccak_256((const uint8_t*)input.data(), input.size() * 32);
-    }
+    //     for (auto const e : m) {
+    //         input.push_back(e.first);
+    //         input.push_back(e.second);
+    //     }
+    //     return keccak_256((const uint8_t*)input.data(), input.size() * 32);
+    // }
 
     inline KeccakHash keccak_256(const std::string& s)
     {

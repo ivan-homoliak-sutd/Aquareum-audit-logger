@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stddef.h>
+#include <string>
+#include <iostream>
 
 #define POLICY_UNIQUE 1
 #define POLICY_PRODUCT 2
@@ -14,7 +16,7 @@
 
 #define VALID_ECC_SIG_RET 1
 
-// #define PRINT_SEP_LEN 50
+#define PRINT_SEP_LEN 120
 
 typedef struct _sealed_data_t {
     size_t total_size;
@@ -24,35 +26,44 @@ typedef struct _sealed_data_t {
     size_t key_info_size;
     size_t original_data_size;
     size_t encrypted_data_len;
-    unsigned char encrypted_data[]; // note that key_info is at the end of encrypted_data, while it is unencrypted (based on it, E can reproduce a sealing key)
+    unsigned char encrypted_data[];  // note that key_info is at the end of encrypted_data, while it is unencrypted (based on it, E can reproduce a sealing key)
 } sealed_data_t;
+
+enum class EncExec { START,
+                     END };
+
+inline void print_enc_sep(EncExec e)
+{
+    std::string tag = (e == EncExec::START) ? " START " : " END ";
+    std::cout << std::string(PRINT_SEP_LEN / 2, '>') << tag << std::string(PRINT_SEP_LEN / 2, '<') << "\n";
+}
+
 
 // switch on or off tracing logs
 #define TRACING_LOG_ENABLED 1
 
 #ifdef TRACING_LOG_ENABLED
-    #define TRACE_ENCLAVE(fmt, ...)             \
-        printf(                                 \
-            "\t[TRACE_ENC]: %s(%d): " fmt "\n", \
-            __FILE__,                           \
-            __LINE__,                           \
-            ##__VA_ARGS__)
+#define TRACE_ENCLAVE(fmt, ...)             \
+    printf(                                 \
+        "\t[TRACE_ENC]: %s(%d): " fmt "\n", \
+        __FILE__,                           \
+        __LINE__,                           \
+        ##__VA_ARGS__)
 
 #else
-    #define TRACE_ENCLAVE(fmt, ...)  (void)
+#define TRACE_ENCLAVE(fmt, ...) (void)
 
 #endif
 
-#define ERROR_PRINT(fmt, ...)             \
-        fprintf(stderr,                                 \
+#define ERROR_PRINT(fmt, ...)       \
+    fprintf(stderr,                 \
             "\t[ERROR]: " fmt "\n", \
             ##__VA_ARGS__)
 
-#define INFO_PRINT(fmt, ...)             \
-        fprintf(stdout,                                 \
+#define INFO_PRINT(fmt, ...)       \
+    fprintf(stdout,                \
             "\t[INFO]: " fmt "\n", \
             ##__VA_ARGS__)
-
 
 
 // errors shared by host and enclaves

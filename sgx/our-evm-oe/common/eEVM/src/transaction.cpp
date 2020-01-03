@@ -7,40 +7,56 @@
 
 namespace eevm
 {
-  bool LogEntry::operator==(const LogEntry& that) const
-  {
-    return address == that.address && data == that.data &&
-      topics == that.topics;
-  }
-
-  void to_json(nlohmann::json& j, const LogEntry& log)
-  {
-    j["address"] = to_checksum_address(log.address);
-    j["data"] = to_hex_string(log.data);
-
-    auto topics_array = nlohmann::json::array();
-    for (const auto& topic : log.topics)
+    bool LogEntry::operator==(const LogEntry& that) const
     {
-      topics_array.push_back(to_hex_string_fixed(topic));
+        return address == that.address && data == that.data && topics == that.topics;
     }
-    j["topics"] = topics_array;
 
-    // Fill in all specified fields for compliance, so this can be parsed by
-    // standard tools
-    j["logIndex"] = "0x0";
-    j["blockNumber"] = "0x0";
-    j["blockHash"] = "0x0";
-    j["transactionHash"] = "0x0";
-    j["transactionIndex"] = "0x0";
-  }
-
-  void from_json(const nlohmann::json& j, LogEntry& log)
-  {
-    log.address = to_uint256(j["address"]);
-    log.data = to_bytes(j["data"]);
-    for (const auto& topic : j["topics"])
+    void to_json(nlohmann::json& j, const LogEntry& log)
     {
-      log.topics.push_back(to_uint256(topic));
+        j["address"] = to_checksum_address(log.address);
+        j["data"] = to_hex_string(log.data);
+
+        auto topics_array = nlohmann::json::array();
+        for (const auto& topic : log.topics) {
+            topics_array.push_back(to_hex_string_fixed(topic));
+        }
+        j["topics"] = topics_array;
+
+        // Fill in all specified fields for compliance, so this can be parsed by
+        // standard tools
+        j["logIndex"] = "0x0";
+        j["blockNumber"] = "0x0";
+        j["blockHash"] = "0x0";
+        j["transactionHash"] = "0x0";
+        j["transactionIndex"] = "0x0";
     }
-  }
-} // namespace eevm
+
+    void from_json(const nlohmann::json& j, LogEntry& log)
+    {
+        log.address = to_uint256(j["address"]);
+        log.data = to_bytes(j["data"]);
+        for (const auto& topic : j["topics"]) {
+            log.topics.push_back(to_uint256(topic));
+        }
+    }
+
+    void to_json(nlohmann::json& j, const VectorLogHandler& lh)
+    {
+        auto lst = nlohmann::json::array();
+        for (auto l : lh.logs) {
+            nlohmann::json jitem;
+            to_json(jitem, l);
+            j.push_back(jitem);
+        }
+    }
+
+    std::string txlog_to_json_str(const LogHandler& lh)
+    {
+        nlohmann::json j;
+        auto vlh = dynamic_cast<const VectorLogHandler&>(lh);  // will throw exception if cannot be casted
+        to_json(j, vlh);
+        return j.dump();
+    }
+
+}  // namespace eevm

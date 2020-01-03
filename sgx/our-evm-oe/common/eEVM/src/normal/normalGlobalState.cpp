@@ -65,7 +65,7 @@ namespace eevm
         _p.first.set_stHash(_p.second.hash());
 
         m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
-        m_storages[addr] = _p.second;
+        m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
     }
 
     // // It iterates through low level persistant database
@@ -144,17 +144,17 @@ namespace eevm
                                          size_t& db_keys_size, size_t& values_sizes_size,
                                          std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size)
     {
-        std::cout << "Dumping full DB of global state stored at host...\n";
+        std::cout << "[Host] Dumping full DB of global state stored at host...\n";
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
         unsigned cnt_entries = 0;
 
-        int i = 0;
+        // int i = 0;
         for (auto const& e : m_accounts) {  // std::pair<bytesConstRef, bytesConstRef>
             auto addr = e.first;
             auto val = e.second;
 
-            std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
+            // std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
 
             db_keys.insert(db_keys.end(), addr.begin(), addr.end());    // insert the full content of value
             db_values.insert(db_values.end(), val.begin(), val.end());  // insert the full content of key
@@ -168,15 +168,15 @@ namespace eevm
             cnt_entries++;
         }
         db_keys_size = cnt_entries * 32;
-        std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
+        // std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
         assert(db_keys_size == summed_keys_size);
-        print_sep();
+        // print_sep();
     }  // namespace eevm
 
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const
     {
-        std::cout << "\t => dumping storage of addr = " << to_hex_string(addr) << "\n";
+        // std::cout << "\t => dumping storage of addr = " << to_hex_string(addr) << "\n";
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector
@@ -213,7 +213,7 @@ namespace eevm
             memcpy(val, &db_values[ptr_db_values], values_sizes[i]);
             auto val_ref = bytesConstRef(val, values_sizes[i]);
 
-            std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
+            // std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
             acnts.insert(key, val_ref);
             ptr_db_values += values_sizes[i];
 
@@ -223,7 +223,7 @@ namespace eevm
 
             ptr_storages += storages_sizes[i];
         }
-        print_sep();
+        // print_sep();
         return 0;
     }
 

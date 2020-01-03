@@ -59,6 +59,11 @@ namespace eevm
         return code;
     }
 
+    Code& SimpleAccount::get_code_ref()
+    {
+        return code;
+    }
+
     void SimpleAccount::set_code(Code&& c)
     {
         code = c;
@@ -85,6 +90,18 @@ namespace eevm
         to_json(j, *this);  // populate JSON object
         // std::cerr << "SimpleAccount::asJsonBytesRef: " << j.dump() << "\n";
         return new std::string(j.dump());
+    }
+
+    std::string SimpleAccount::toString() const
+    {
+        std::string s = fmt::format("addr={} | bal={} | n={} | storH={} | code={}",
+                                    address_to_hex_string(address),
+                                    to_hex_string(balance),
+                                    nonce,
+                                    to_hex_string(storage_hash),
+                                    to_hex_string(code))
+                            .c_str();
+        return s;
     }
 
     void to_json(nlohmann::json& j, const SimpleAccount& a)

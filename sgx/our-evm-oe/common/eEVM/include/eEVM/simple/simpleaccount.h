@@ -4,6 +4,7 @@
 #pragma once
 
 #include "eEVM/account.h"
+#include "eEVM/simple/simplestorage.h"
 
 #include "aleth-mp3/Common.h"
 #include <nlohmann/json.hpp>
@@ -24,7 +25,8 @@ namespace eevm
         uint256_t storage_hash = {};  // the integrity value of the storage related to this account (might be the root hash of MP3 or just hash of the set)
 
     public:
-        SimpleAccount() = default;
+        SimpleAccount()
+          : storage_hash(std::move(SimpleStorage::hashOfEmptyStorage())){};
 
         SimpleAccount(const SimpleAccount& other)  // copy ctor
         {
@@ -48,29 +50,33 @@ namespace eevm
             balance(b),
             code(c),
             nonce(0),
-            storage_hash(
-                from_big_endian(
-                    keccak_256(std::map<uint256_t, uint256_t>()).data()))
+            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage()))
         {}
 
-        SimpleAccount(
-            const Address& a, const uint256_t& b, const Code& c, Nonce n)
+        SimpleAccount(const Address& a, const uint256_t& b, const Code& c, Nonce n)
           : address(a),
             balance(b),
             code(c),
             nonce(n),
-            storage_hash(
-                from_big_endian(
-                    keccak_256(std::map<uint256_t, uint256_t>()).data()))
+            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage()))
         {}
 
-        SimpleAccount(
-            const Address& a, const uint256_t& b, const Code& c, Nonce n, uint256_t storage_h)
+        SimpleAccount(const Address& a, const uint256_t& b, const Code& c, Nonce n, Storage& s)
           : address(a),
             balance(b),
             code(c),
             nonce(n),
-            storage_hash(storage_h) {}
+            storage_hash(s.hash())
+        {}
+
+        // SimpleAccount(
+        //     const Address& a, const uint256_t& b, const Code& c, Nonce n, uint256_t storage_h)
+        //   : address(a),
+        //     balance(b),
+        //     code(c),
+        //     nonce(n),
+        //     storage_hash(storage_h)
+        // {}
 
         virtual Address get_address() const override;
         virtual bytesConstRef get_address_h256() const;
@@ -85,6 +91,7 @@ namespace eevm
         virtual void increment_nonce() override;
 
         virtual Code get_code() const override;
+        virtual Code& get_code_ref() override;
         virtual void set_code(Code&& c) override;
         virtual bool has_code() override;
 
@@ -95,6 +102,8 @@ namespace eevm
         SimpleAccount& operator=(const SimpleAccount&) = default;
 
         virtual bytesConstRef asJsonBytesRef() override;
+
+        std::string toString() const;
 
         friend void to_json(nlohmann::json&, const SimpleAccount&);
         friend void from_json(const nlohmann::json&, SimpleAccount&);

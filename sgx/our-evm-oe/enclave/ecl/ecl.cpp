@@ -36,14 +36,17 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
     eevm::T_Processor p(this->simple_gs);
 
     // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
-    // with empty input (and no trace collection)
-    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, nullptr);
+    // with empty input
+    eevm::Trace tr;
+    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, &tr);
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
+        tr.print_last_n(std::cout, 100);
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         return ERR_EVM_WRONG_RET_CODE;
     }
+    tr.print_last_n(std::cout, 100);
 
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
@@ -71,7 +74,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // 1) Create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
     auto lh = eevm::NullLogHandler();
-
+    // auto lh = eevm::VectorLogHandler();
     TRACE_ENCLAVE("1");
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
@@ -112,7 +115,8 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
-        tr.print_last_n(std::cout, 100);
+        tr.print_last_n(std::cout, 10);
+        // TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
         return ERR_EVM_WRONG_RET_CODE;
     }
 
@@ -151,21 +155,22 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
-    auto storage = gs->getStorages().at(etx.origin);  // just copy the old storage
-    auto code = accnState.acc.get_code();             // IH: TODO: optimization avoiding copying here
+    auto& code = accnState.acc.get_code_ref();
     if (etx.origin != this->operAddr && (etx.value > accnState.acc.get_balance())) {
         TRACE_ENCLAVE("The account %s does not have enough balance.", eevm::address_to_hex_string(etx.origin).c_str());
         return ERR_EVM_LOW_BALANCE;
     }
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalance = accnState.acc.get_balance() - (etx.origin == this->operAddr) ? 0 : etx.value;
-    gs->insert({eevm::SimpleAccount(etx.origin, senderBalance, code), storage});
+    auto& senderStorage = gs->getStorages().at(etx.origin);                                                                       // just copy the old storage
+    gs->insert({eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
 
     // 3) add value to the target account
     accnState = gs->get(etx.to);
-    storage = gs->getStorages().at(etx.to);  // just copy the old storage
-    code = accnState.acc.get_code();         // IH: TODO: optimization avoiding copying here
-    gs->insert({eevm::SimpleAccount(etx.to, accnState.acc.get_balance() + etx.value, code), storage});
+    auto& storage = gs->getStorages().at(etx.to);  // just copy the old storage
+    auto recvBalance = accnState.acc.get_balance() + etx.value;
+    code = accnState.acc.get_code_ref();
+    gs->insert({eevm::SimpleAccount(etx.to, recvBalance, code, accnState.acc.get_nonce(), storage), storage});
 
     return RET_SUCCESS;
 }
@@ -220,8 +225,9 @@ int ECLedger::execute_hello_world()
     const eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
     // Create transaction
-    eevm::NullLogHandler ignore;
-    eevm::Transaction tx(sender, to, ignore);
+    // eevm::NullLogHandler ignore;
+    auto lh = eevm::VectorLogHandler();
+    eevm::Transaction tx(sender, to, lh);
 
     // Create processor
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs);
@@ -229,13 +235,17 @@ int ECLedger::execute_hello_world()
     // Execute code. All executions are associated with a transaction. This
     // transaction is called by sender, executing the code in contract, with empty
     // input (and no trace collection)
-    const eevm::ExecResult e = p.run(tx, sender, contract, {}, 0, nullptr);
+    eevm::Trace tr;
+    const eevm::ExecResult e = p.run(tx, sender, contract, {}, 0, &tr);
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
+        tr.print_last_n(std::cout, 10);
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         return 2;
     }
+    tr.print_last_n(std::cout, 10);
+    TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(tx.log_handler).c_str());
 
     // Create string from response data, and print it
     const std::string response(reinterpret_cast<const char*>(e.output.data()));

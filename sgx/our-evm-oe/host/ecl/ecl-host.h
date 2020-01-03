@@ -11,18 +11,19 @@ using namespace eevm;
 
 class ECLedger {
 public:
+    NormalGlobalState m_gs;  // the full global state of the ECL ledger
+
     ECC* m_ecc;  // ECC signing wrapper
 
     eevm::Address operAddr;
 
+
     inline ECLedger(ECC* e)
       : m_ecc(e){};
 
-
-    NormalGlobalState m_gs;  // the full global state of the ECL ledger
-
     PersistantTransaction* createHelloWorldTX(secp256k1_pubkey& PK_sender,
-                                              uint8_t* SK_sender);
+                                              uint8_t* SK_sender,
+                                              size_t nonce);
 
     PersistantTransaction* createSumTx(int a, int b,
                                        secp256k1_pubkey& PK_sender,

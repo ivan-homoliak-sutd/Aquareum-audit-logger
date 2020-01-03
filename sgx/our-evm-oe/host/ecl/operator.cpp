@@ -55,7 +55,9 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
 void Operator::sendMyPKtoEnclave(oe_enclave_t* enclave)
 {
     int ret;
+    print_enc_sep(EncExec::START);
     oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, this->PK_O.data, PK_SIZE_PB);
+    print_enc_sep(EncExec::END);
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when passing operator's PK to Enclave.");
@@ -120,7 +122,8 @@ void Operator::printEvmState(PublicSealedData_T& es)
 {
     cout << "\t PK_E_PB = " << to_hex_str(this->PK_E_PB.data, ECC_PK_SIZE) << "\n"
          << "\t PK_O = " << to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE) << "\n"
-         << "\t SK_O = " << to_hex_str((const unsigned char*)&this->SK_O, ECC_SK_SIZE) << "\n";
+         << "\t SK_O = " << to_hex_str((const unsigned char*)&this->SK_O, ECC_SK_SIZE) << "\n"
+         << "\t ADDR of O = " << eevm::address_to_hex_string(this->m_ecl.operAddr) << "\n";
 
     cout << fmt::format("\t hdrLast[{}] = ", es.idCurrent) << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
          << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"
@@ -130,6 +133,21 @@ void Operator::printEvmState(PublicSealedData_T& es)
 
     eevm::print_sep();
 }
+
+void Operator::_printAccounts()
+{
+    info_print("All accounts in host are:");
+
+    unsigned i = 1;
+    for (const auto& a : this->m_ecl.m_gs.getAccounts()) {
+        auto j = nlohmann::json::parse(a.second);
+        SimpleAccount acc;
+        eevm::from_json(j, acc);
+        std::cout << fmt::format("[{}] {}\n", i++, acc.toString());
+    }
+    eevm::print_sep();
+}
+
 
 ////////////////////////////////////////
 // Processing commands from operator  //
@@ -145,7 +163,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
     this->sendMyPKtoEnclave(enclave);
     this->createMyAccntState(enclave);
-    this->createNRandomAccounts(30, 1, enclave);
+    this->createNRandomAccounts(3, 1, enclave);
 
     while (true) {
         if (tokens) {
@@ -179,6 +197,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Failed to read the state of enclave.");
             }
             this->printEvmState(pub_evm_state);
+        } else if (0 == strcmp(command, "accounts") || 0 == strcmp(command, "a")) {
+            this->_printAccounts();
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
@@ -243,7 +263,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             const auto contracts_definition = nlohmann::json::parse(contract_fstream);
             const auto all_contracts = contracts_definition["contracts"];
             if (1 != all_contracts.size()) {
-                error_print("Multiple contracts found in the definition file... just is supported for now.");
+                error_print("Multiple contracts found in the definition file... just one is supported for now.");
                 continue;
             }
 
@@ -259,16 +279,18 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
+            auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get O's account state
 
             // create and sign TX
-            eevm::PersistantTransaction* tx = this->m_ecl.createHelloWorldTX(this->PK_O, this->SK_O);
+            eevm::PersistantTransaction* tx = this->m_ecl.createHelloWorldTX(this->PK_O, this->SK_O, operAccnt.get_nonce());
 
-            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
-                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                                        (const uint8_t*)tx->code.data(), tx->code.size());
-            if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when processing print hello world TX in Enclave.");
-            }
+            this->_dispatchTX(enclave, tx);
+
+            // executing TX in E while using E's full state
+            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            // (const uint8_t*)tx->code.data(), tx->code.size());
+
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
             ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
@@ -288,13 +310,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
  */
 void Operator::createMyAccntState(oe_enclave_t* enclave)
 {
-    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 0, 0);
+    debug_print("Creating Account of Operator...");
+    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
     this->_dispatchTX(enclave, tx);
 
     auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr);  // get the updated account state of O
     debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.asJsonBytesRef().toString()));
 
-    eevm::print_sep();
+    // eevm::print_sep();
 }
 
 /**
@@ -317,7 +340,7 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
         debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
         operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get the updated account state of O
     }
-    eevm::print_sep();
+    // eevm::print_sep();
 }
 /**
  * The point of interaction with the Enclave.
@@ -345,6 +368,7 @@ void Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* t
                                                               (const uint8_t*)db_keys.data(), db_keys_size,
                                                               (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
                                                               (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing TX in ENCLAVE.");
         return;

@@ -35,9 +35,6 @@ namespace eevm
         friend void from_json(const nlohmann::json&, LogEntry&);
     };
 
-    void to_json(nlohmann::json&, const LogEntry&);
-    void from_json(const nlohmann::json&, LogEntry&);
-
     struct LogHandler {
         virtual ~LogHandler() = default;
         virtual void handle(LogEntry&&) = 0;
@@ -47,6 +44,10 @@ namespace eevm
         virtual void handle(LogEntry&&) override {}
     };
 
+    void to_json(nlohmann::json&, const LogEntry&);
+    void from_json(const nlohmann::json&, LogEntry&);
+    std::string txlog_to_json_str(const LogHandler& lh);
+
     struct VectorLogHandler : public LogHandler {
         std::vector<LogEntry> logs;
 
@@ -55,7 +56,9 @@ namespace eevm
         {
             logs.emplace_back(e);
         }
+        friend void to_json(nlohmann::json&, const VectorLogHandler&);
     };
+
 
     /**
    * Represents data of an Ethereum transaction that needs to be persisted to
@@ -115,7 +118,7 @@ namespace eevm
             memcpy(ret.data() + 2 * sizeof(Address) + 3 * sizeof(uint64_t), &(this->nonce), sizeof(uint64_t));
             memcpy(ret.data() + 2 * sizeof(Address) + 4 * sizeof(uint64_t), this->code.data(), this->code.size());
 
-            return ret; // hopes in as-if 'return value optimization'
+            return ret;  // hopes in as-if 'return value optimization'
         };
     };
 

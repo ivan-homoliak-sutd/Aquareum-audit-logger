@@ -32,6 +32,9 @@ namespace eevm
         virtual uint256_t get_balance() const = 0;
         virtual void set_balance(const uint256_t& b) = 0;
 
+
+        // IH: TODO - base on this, we must update the global account state !!!
+
         virtual void pay_to(Account& other, const uint256_t& amount)
         {
             const auto this_balance = get_balance();
@@ -63,6 +66,7 @@ namespace eevm
         virtual void increment_nonce() = 0;
 
         virtual Code get_code() const = 0;
+        virtual Code& get_code_ref() = 0;
         virtual void set_code(Code&& code) = 0;
 
         virtual dev::bytesConstRef asJsonBytesRef() = 0;
