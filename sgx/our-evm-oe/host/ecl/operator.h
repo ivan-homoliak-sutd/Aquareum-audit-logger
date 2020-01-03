@@ -75,6 +75,8 @@ namespace ecl
         Operator(secp256k1_pubkey* _enc_PK);
         ~Operator() {}
 
+        inline eevm::Address& getOperAddr() { return m_ecl.operAddr; }
+        inline eevm::SimpleAccountState getAccount(eevm::Address& addr) { return m_ecl.m_gs.get(addr, false); }
 
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);

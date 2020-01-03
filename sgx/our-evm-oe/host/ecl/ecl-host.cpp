@@ -209,7 +209,8 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
 eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender,
                                                           const Address& newAddr,
-                                                          unsigned initBalance, size_t nonce)
+                                                          unsigned initBalance,
+                                                          size_t nonce)
 {
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
     auto tx = new eevm::PersistantTransaction(sender, newAddr, nonce, initBalance, {});
@@ -229,6 +230,9 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     if (0 == etx.code.size()) {
         return this->_execute_transfer_tx(etx);
     }
+
+    debug_print("");
+    debug_print("Executing CONTRACT in HOST...");
 
     // get or create the account
     const eevm::SimpleAccountState contract = this->m_gs.get(etx.to);
@@ -268,7 +272,8 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     }
 
     // 2) increment the nonce and adjust the balance of the sender
-    auto accnState = m_gs.get(etx.origin);
+    auto accnState = m_gs.get(etx.origin, (etx.origin == this->operAddr) ? true : false); // allow account creation for operator
+    debug_print(fmt::format("Code size of sender account is {} ", accnState.acc.get_code_ref().size()));
     if (0 == accnState.acc.get_code_ref().size()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
@@ -280,10 +285,12 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     }
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalance = accnState.acc.get_balance() - (etx.origin == this->operAddr) ? 0 : etx.value;
+    debug_print(fmt::format("senderBalance = {}", eevm::to_hex_string(senderBalance)));
+    debug_print(fmt::format("senderNonce = {}", accnState.acc.get_nonce()));
     m_gs.insert({eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), storage), storage});
 
     // 3) add value to the target account
-    accnState = m_gs.get(etx.to);
+    accnState = m_gs.get(etx.to, false);
     storage = m_gs.getStorages().at(etx.to);  // just copy the old storage
     code = accnState.acc.get_code_ref();
     auto recvBalance = accnState.acc.get_balance() + etx.value;

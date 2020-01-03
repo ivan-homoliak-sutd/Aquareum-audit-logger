@@ -87,7 +87,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // 2b) If code is present, then (deploy contract if does not exist) and ececute TX with the code
     TRACE_ENCLAVE("contract addr = %s ", eevm::to_hex_string(etx.to).c_str());
-    auto senderAccnt = gs->get(etx.origin);
+    auto senderAccnt = gs->get(etx.origin, false);
     eevm::SimpleAccountState contrState;
     if (!gs->exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
@@ -100,7 +100,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         contrState = std::move(cs);
     } else {
         TRACE_ENCLAVE("Contract already exists => fetching its state.");
-        auto cs = gs->get(etx.to);
+        auto cs = gs->get(etx.to, false);
         contrState = std::move(cs);
     }
 
@@ -151,7 +151,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     }
 
     // 2) Increment the nonce and the balance of the sender
-    auto accnState = gs->get(etx.origin);
+    auto accnState = gs->get(etx.origin, (etx.origin == this->operAddr) ? true : false); // allow account creation for operator
     if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
@@ -166,7 +166,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     gs->insert({eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
 
     // 3) add value to the target account
-    accnState = gs->get(etx.to);
+    accnState = gs->get(etx.to, false);
     auto& storage = gs->getStorages().at(etx.to);  // just copy the old storage
     auto recvBalance = accnState.acc.get_balance() + etx.value;
     code = accnState.acc.get_code_ref();

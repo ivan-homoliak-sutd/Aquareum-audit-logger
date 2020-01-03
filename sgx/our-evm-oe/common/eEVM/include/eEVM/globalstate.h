@@ -60,7 +60,7 @@ namespace eevm
      * Creates a new zero-initialized account under the given address if none exists
      */
 
-        virtual AccountState<_A, _S> get(const Address& addr) = 0;
+        virtual AccountState<_A, _S> get(const Address& addr, bool insert = true) = 0;
 
         virtual AccountState<_A, _S> create(const Address& addr, const uint256_t& balance, const Code& code) = 0;
 

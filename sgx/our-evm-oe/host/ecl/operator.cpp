@@ -163,7 +163,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
     this->sendMyPKtoEnclave(enclave);
     this->createMyAccntState(enclave);
-    this->createNRandomAccounts(3, 1, enclave);
+    this->createNRandomAccounts(1, 1, enclave);
 
     while (true) {
         if (tokens) {
@@ -310,14 +310,15 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
  */
 void Operator::createMyAccntState(oe_enclave_t* enclave)
 {
-    debug_print("Creating Account of Operator...");
+    info_print("");
+    info_print("Creating account of Operator...");
     auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
     this->_dispatchTX(enclave, tx);
 
-    auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr);  // get the updated account state of O
+    auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
     debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.asJsonBytesRef().toString()));
 
-    // eevm::print_sep();
+    eevm::print_sep();
 }
 
 /**
@@ -326,7 +327,11 @@ void Operator::createMyAccntState(oe_enclave_t* enclave)
  */
 void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
-    auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // already deployed  O's account state
+    info_print("");
+    debug_print(fmt::format(" Creating {} random accounts with initial balance {} ...", N, initBalance));
+
+    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
+    debug_print(fmt::format(" XXX operator's account: {} ", operAccnt.toString()));
 
     for (unsigned i = 0; i < N; i++) {
         std::vector<uint8_t> raw_address(20);
@@ -338,9 +343,9 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
 
         eevm::AccountState accntState = this->m_ecl.m_gs.get(addr);
         debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
-        operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get the updated account state of O
+        operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
+        debug_print(fmt::format(" XXX operator's account: {} ", operAccnt.toString()));
     }
-    // eevm::print_sep();
 }
 /**
  * The point of interaction with the Enclave.
@@ -360,6 +365,7 @@ void Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* t
     m_ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+    debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
 
     // 2) Execute TX in Enclave
     oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,

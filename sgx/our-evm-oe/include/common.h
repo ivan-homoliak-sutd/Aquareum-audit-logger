@@ -1,8 +1,8 @@
 #pragma once
 
+#include <iostream>
 #include <stddef.h>
 #include <string>
-#include <iostream>
 
 #define POLICY_UNIQUE 1
 #define POLICY_PRODUCT 2
@@ -35,7 +35,8 @@ enum class EncExec { START,
 inline void print_enc_sep(EncExec e)
 {
     std::string tag = (e == EncExec::START) ? " START " : " END ";
-    std::cout << std::string(PRINT_SEP_LEN / 2, '>') << tag << std::string(PRINT_SEP_LEN / 2, '<') << "\n";
+    char arrow = (e == EncExec::START) ? '>' : '<';
+    std::cout << std::string(PRINT_SEP_LEN / 2, arrow) << tag << std::string(PRINT_SEP_LEN / 2, arrow) << "\n";
 }
 
 

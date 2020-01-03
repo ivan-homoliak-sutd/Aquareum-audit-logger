@@ -20,11 +20,15 @@ namespace eevm
     }
 
     // It creates a new account state if it does not exist!
-    SimpleAccountState NormalGlobalState::get(const Address& addr)
+    SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
     {
         // std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
         if (!m_accounts.contains(h256(addr))) {
-            return create(addr, 0, {});  // create a new account if it does not exist
+            if (insert) {
+                return create(addr, 0, {});  // create a new account if it does not exist
+            } else {
+                throw std::logic_error(fmt::format("Requested account {} does not exist.", to_hex_string(addr)));
+            }
         }
 
         std::string acnt_json = m_accounts.at(h256(addr));
