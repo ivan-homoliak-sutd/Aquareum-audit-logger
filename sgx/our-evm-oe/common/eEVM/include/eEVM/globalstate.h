@@ -33,11 +33,12 @@ namespace eevm
           : acc(p.first), st(p.second) {}
 
         AccountState() {}
-        // AccountState(AccountState& other)
-        // {
-        //     this->acc = other.acc;
-        //     this->st = other.st;
-        // }
+        constexpr AccountState(const AccountState& other)  // copy ctor
+          : acc(other.acc), st(other.st)
+        {}
+        constexpr explicit AccountState(AccountState&& other) = default;  // movable ctor
+        AccountState& operator=(const AccountState&) = default;
+
 
         AccountState(_Account& acc, _Storage& st)
           : acc(acc), st(st) {}

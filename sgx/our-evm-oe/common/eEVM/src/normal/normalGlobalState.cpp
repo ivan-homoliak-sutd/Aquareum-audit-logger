@@ -57,16 +57,15 @@ namespace eevm
      */
     void NormalGlobalState::insert(const StateEntry& p)
     {
-        auto addr = p.first.get_address();
-        // std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
-
         auto _p = const_cast<StateEntry&>(p);
+        auto addr = _p.first.get_address();
+        // std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
 
         // compute and update storage hash
         _p.first.set_stHash(_p.second.hash());
 
         m_accounts.insert(h256(addr), _p.first.asJsonBytesRef());
-        m_storages[addr] = p.second;
+        m_storages[addr] = _p.second;
     }
 
     // // It iterates through low level persistant database

@@ -21,10 +21,12 @@ namespace eevm
 
         SimpleStorage() = default;
         SimpleStorage(const nlohmann::json& j);
-        // SimpleStorage(SimpleStorage& other)
-        // {
-        //     this->m_s = other.data();
-        // };
+        SimpleStorage(const SimpleStorage& other)  // IH: copy ctor
+          : m_s(other.m_s)
+        {}
+        SimpleStorage(SimpleStorage&& other)  // IH: movable ctor
+          : m_s(std::move(other.m_s))
+        {}
 
         void store(const uint256_t& key, const uint256_t& value) override;
         uint256_t load(const uint256_t& key) override;
@@ -34,6 +36,8 @@ namespace eevm
         inline std::map<uint256_t, uint256_t>& data() { return m_s; }
 
         bool operator==(const SimpleStorage& that) const;
+        SimpleStorage& operator=(const SimpleStorage&) = default;
+
 
         // serialization
         size_t toBytes(std::vector<uint8_t>& toAppend) const;

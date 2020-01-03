@@ -16,6 +16,7 @@ extern "C" {
 #include <vector>
 
 #define PRINT_SEP_LEN 120
+#define INT_MOVED 9999
 
 namespace eevm
 {

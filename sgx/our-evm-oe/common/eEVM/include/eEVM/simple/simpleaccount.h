@@ -25,8 +25,23 @@ namespace eevm
 
     public:
         SimpleAccount() = default;
-        // SimpleAccount();
-        // ~SimpleAccount();
+
+        SimpleAccount(const SimpleAccount& other)  // copy ctor
+        {
+            address = other.address;
+            balance = other.balance;
+            code = other.code;
+            nonce = other.nonce;
+            storage_hash = other.storage_hash;
+        }
+        SimpleAccount(SimpleAccount&& other)  // IH: movable ctor - can be optimized by making move to intx
+        {
+            address = other.address;
+            balance = other.balance;
+            code = std::move(other.code);
+            nonce = std::exchange(other.nonce, INT_MOVED);
+            storage_hash = other.storage_hash;
+        }
 
         SimpleAccount(const Address& a, const uint256_t& b, const Code& c)
           : address(a),
@@ -77,6 +92,7 @@ namespace eevm
         inline void set_stHash(uint256_t h) { storage_hash = h; };
 
         bool operator==(const Account&) const;
+        SimpleAccount& operator=(const SimpleAccount&) = default;
 
         virtual bytesConstRef asJsonBytesRef() override;
 

@@ -24,6 +24,9 @@ namespace eevm
 
         virtual ~Account() {}
 
+        // Account(Account& other);   // copy ctor
+        // Account(Account&& other);  // move ctor
+
         virtual Address get_address() const = 0;
 
         virtual uint256_t get_balance() const = 0;
