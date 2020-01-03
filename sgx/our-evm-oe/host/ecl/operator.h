@@ -86,6 +86,7 @@ namespace ecl
         bool existsMyKeyFile();
         int loadMyKeysFromFile();
         void printEvmState(PublicSealedData_T& es);
+        void _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx);
     };
 
 }  // namespace ecl
