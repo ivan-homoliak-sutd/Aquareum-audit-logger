@@ -178,15 +178,17 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         cin.getline(command, MAX_CMD_LEN);
         command_s = string(command);
 
-        if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+        if (0 == strcmp(command, "")){
+            continue;
+        }else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
             // clang-format off
             std::cout << "Supported commands are:\n"
-                      << "\t show | s"     << "\t display info about operator and enclave.\n"
-                      << "\t gs [n]"       << "\t display global state with max n entries [default=100].\n"
-                      << "\t gen [n]"      << "\t generate n random accounts [default=5].\n"
-                      << "\t test"         << "\t create some TX in enclave and run it there.\n"
-                      << "\t tx"           << "\t create TX that returns hello word string and send it to enclave.\n"
-                      << "\t tx add a b"   << " create TX that sums {a} and {b} in host and send it to enclave.\n"
+                      << "\t show | s"     << "\t\t display info about operator and enclave.\n"
+                      << "\t gs [n]"       << "\t\t display global state with max n entries [default=100].\n"
+                      << "\t gen [n]"      << "\t\t generate n random accounts [default=5].\n"
+                      << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
+                      << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
+                      << "\t tx add a b"   << "\tcreate TX that sums {a} and {b} in host and send it to enclave.\n"
                       << "\n";
             // clang-format on
         } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
@@ -318,7 +320,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             this->_dispatchTX(enclave, tx);
 
-            // executing TX in E while using E's full state
+            // [Alternative] executing TX in E while using E's full state
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             // (const uint8_t*)tx->code.data(), tx->code.size());

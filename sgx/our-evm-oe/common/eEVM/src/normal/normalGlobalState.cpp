@@ -23,7 +23,7 @@ namespace eevm
     // It creates a new account state if it does not exist!
     SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
     {
-        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
+        // std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
         if (!m_accounts.contains(h256(addr))) {
             if (insert) {
                 return create(addr, 0, EMPTY_CODE);  // create a new account if it does not exist
@@ -33,19 +33,17 @@ namespace eevm
         }
 
         std::string acnt_json = m_accounts.at(h256(addr));
-        // std::cout << "NormalGlobalState::get  acnt_json = " << acnt_json << "\n";
 
         // populate account object
         auto j = nlohmann::json::parse(acnt_json);
         SimpleAccount a;
         from_json(j, a);
         assert(a.get_address() == addr);
-        std::cout << "\t  j[code]: " << j["code"] << "\n";
-        std::cout << "\t  to_bytes(j[code]).len: " << to_bytes(j["code"]).size() << "\n";
-        std::cout << "\t  hex(to_bytes(j[code])): " << to_hex_string(to_bytes(j["code"])) << "\n";
-
-        std::cout << "\t  str(SimpleAccount): " << a.toString() << "\n";
-        std::cout << "\t  json(SimpleAccount): " << j.dump() << "\n";
+        // std::cout << "\t  j[code]: " << j["code"] << "\n";
+        // std::cout << "\t  to_bytes(j[code]).len: " << to_bytes(j["code"]).size() << "\n";
+        // std::cout << "\t  hex(to_bytes(j[code])): " << to_hex_string(to_bytes(j["code"])) << "\n";
+        // std::cout << "\t  str(SimpleAccount): " << a.toString() << "\n";
+        // std::cout << "\t  json(SimpleAccount): " << j.dump() << "\n";
 
         // fetch account's data from storage map
         SimpleStorage s = m_storages.at(addr);  // TODO: resolve non-existing
@@ -54,7 +52,7 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
-        std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
+        // std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
         insert({SimpleAccount(addr, balance, code), {}});
         assert(m_accounts.contains(h256(addr)));
         return get(addr, false);
@@ -67,7 +65,7 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::update(const Address& addr, const StateEntry& p)
     {
-        std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
+        // std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
         m_accounts.remove(h256(addr));  // the updated entry needs to be removed first
         insert(p);
         assert(m_accounts.contains(h256(addr)));
@@ -219,7 +217,7 @@ namespace eevm
                                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
     {
-        std::cout << "[Enclave:] Constructing full state in enclave\n";
+        std::cout << "[Enclave:] Constructing full state\n";
         assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
 
         *gs = new NormalGlobalState();
@@ -231,7 +229,7 @@ namespace eevm
 
         // 1) insert account states one by one to global MP3
         for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
-            std::cout << "[" << i << "] ";
+            // std::cout << "[" << i << "] ";
             auto key = h256(&(db_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
             auto val = new uint8_t[values_sizes[i]];                                   // manually allocating enclave memory since 'db_values' is in host memory
             memcpy(val, &db_values[ptr_db_values], values_sizes[i]);

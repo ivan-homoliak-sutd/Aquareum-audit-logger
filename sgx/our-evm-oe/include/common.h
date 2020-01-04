@@ -46,10 +46,18 @@ inline void print_enc_sep(EncExec e)
 #ifdef TRACING_LOG_ENABLED
 #define TRACE_ENCLAVE(fmt, ...)             \
     printf(                                 \
-        "\t[TRACE_ENC]: %s(%d): " fmt "\n", \
+        ">\t[TRACE_ENC]: %s(%d): " fmt "\n", \
         __FILE__,                           \
         __LINE__,                           \
         ##__VA_ARGS__)
+
+#define TRACE_HOST(fmt, ...)             \
+    printf(                                 \
+        "\t[TRACE_HOST]: %s(%d): " fmt "\n", \
+        __FILE__,                           \
+        __LINE__,                           \
+        ##__VA_ARGS__)
+
 
 #else
 #define TRACE_ENCLAVE(fmt, ...) (void)
