@@ -87,7 +87,8 @@ namespace eevm
     {
         nlohmann::json j;
         to_json(j, *this);  // populate JSON object
-        // std::cerr << "SimpleAccount::asJsonBytes: " << j.dump() << "\n";
+        std::cerr << "\t SimpleAccount::toString(): " << this->toString() << "\n";
+        std::cerr << "\t SimpleAccount::asJsonBytes: " << j.dump() << "\n";
 
         auto s = std::string(std::move(j.dump()));
         output.assign(s.begin(), s.end());
@@ -101,8 +102,8 @@ namespace eevm
                                     to_hex_string(balance),
                                     nonce,
                                     to_hex_string(storage_hash),
-                                    to_hex_string(code))
-                            .c_str();
+                                    to_hex_string(code));
+
         return s;
     }
 
@@ -134,7 +135,7 @@ namespace eevm
         }
 
         if (j.find("storage_hash") != j.end()) {
-            a.code = to_bytes(j["storage_hash"]);
+            a.storage_hash = to_uint256(j["storage_hash"]);
         }
     }
 }  // namespace eevm

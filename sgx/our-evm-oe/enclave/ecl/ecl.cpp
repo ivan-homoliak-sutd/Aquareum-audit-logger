@@ -81,7 +81,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
     // 2a) If no code is present in TX, execute just simple transfer
-    if (0 == code_size) {
+    if (EMPTY_CODE_OBJ == etx.get_code_ref()) {
         return this->_execute_transfer_tx(gs, etx);
     }
 
@@ -131,15 +131,12 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
 int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
 {
-    TRACE_ENCLAVE("doing _execute_transfer_tx...");
+    TRACE_ENCLAVE("doing _execute_transfer_tx with etx.origin = %s", eevm::to_hex_string(etx.origin).c_str());
 
     // 1) Verify signature of TX
     auto inp4hash = etx.asDataForHash();
     eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
-    bool correct = this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature,
-                                        txHash.data(),
-                                        etx.origin);
-    if (!correct) {
+    if (!this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature, txHash.data(), etx.origin)) {
         TRACE_ENCLAVE("Signature verifiation of a TX failed.");
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
@@ -151,8 +148,9 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     }
 
     // 2) Increment the nonce and the balance of the sender
-    auto accnState = gs->get(etx.origin, (etx.origin == this->operAddr) ? true : false); // allow account creation for operator
-    if (0 == accnState.acc.get_code().size()) {  // according to ETH Yellow paper, increment only if code is empty
+    auto accnState = gs->get(etx.origin, (etx.origin == this->operAddr) ? true : false);  // allow account creation for operator
+    if (EMPTY_CODE_OBJ == accnState.acc.get_code_ref()) {                                 // according to ETH Yellow paper, increment only if code is empty
+        TRACE_ENCLAVE("--incrementing nonce");
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
     auto& code = accnState.acc.get_code_ref();
@@ -161,16 +159,27 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
         return ERR_EVM_LOW_BALANCE;
     }
     // if TX was made by the operator then do not check his balance and just add the value to the sender
-    auto senderBalance = accnState.acc.get_balance() - (etx.origin == this->operAddr) ? 0 : etx.value;
-    auto& senderStorage = gs->getStorages().at(etx.origin);                                                                       // just copy the old storage
-    gs->insert({eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
+    std::cerr << "old sender balance is = " << eevm::to_hex_string(accnState.acc.get_balance()) << "\n";
+    auto senderBalance = accnState.acc.get_balance() - ((etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value));
+    auto& senderStorage = gs->getStorages().at(etx.origin);
+    TRACE_ENCLAVE("CODE as Bytes is");
+    std::cout << eevm::to_hex_string(code) << "\n";
+    TRACE_ENCLAVE("A 1");
+    std::cerr << "new sender balance is = " << eevm::to_hex_string(senderBalance) << "\n";
+    accnState = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalance, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
+    TRACE_ENCLAVE("A 2");
+    // std::cerr << "fetched after update: " << accnState.acc.toString() << "\n";
 
     // 3) add value to the target account
-    accnState = gs->get(etx.to, false);
+    TRACE_ENCLAVE("A 3");
+    accnState = gs->get(etx.to, true);  // alow creation of a target account here
+    TRACE_ENCLAVE("A 4");
     auto& storage = gs->getStorages().at(etx.to);  // just copy the old storage
-    auto recvBalance = accnState.acc.get_balance() + etx.value;
+    auto recvBalance = accnState.acc.get_balance() + intx::uint256(etx.value);
     code = accnState.acc.get_code_ref();
+    TRACE_ENCLAVE("A 5");
     gs->insert({eevm::SimpleAccount(etx.to, recvBalance, code, accnState.acc.get_nonce(), storage), storage});
+    TRACE_ENCLAVE("A 6");
 
     return RET_SUCCESS;
 }

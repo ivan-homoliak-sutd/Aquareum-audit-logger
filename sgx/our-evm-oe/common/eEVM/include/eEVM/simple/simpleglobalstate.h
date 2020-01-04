@@ -34,6 +34,7 @@ namespace eevm
 
         SimpleAccountState get(const Address& addr, bool insert = true) override;
         SimpleAccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
+        SimpleAccountState update(const Address& addr, const StateEntry& p) override;
 
         bool exists(const Address& addr);
         size_t num_accounts();

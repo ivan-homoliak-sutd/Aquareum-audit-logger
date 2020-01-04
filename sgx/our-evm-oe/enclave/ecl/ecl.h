@@ -6,7 +6,6 @@
 #include "eEVM/transaction.h"
 #include "signing.h"
 
-
 class ECLedger {
 public:
     ECC ecc;  // ECC signing and verification

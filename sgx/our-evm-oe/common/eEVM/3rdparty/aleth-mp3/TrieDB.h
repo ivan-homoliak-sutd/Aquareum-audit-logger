@@ -705,6 +705,7 @@ namespace dev {
     template <class DB>
     void GenericTrieDB<DB>::insert(bytesConstRef _key, bytesConstRef _value) {
         std::string rootValue = node(m_root);
+
         assert(rootValue.size());
         bytes b = mergeAt(RLP(rootValue), m_root, NibbleSlice(_key), _value);
 

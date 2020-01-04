@@ -123,7 +123,7 @@ namespace eevm
 
     uint256_t SimpleStorage::hashOfEmptyStorage()
     {
-        std::vector<uint8_t> asBytes = {0u};  // empty storage will also have some hash associated
+        std::vector<uint8_t> asBytes = {10u};  // empty storage will also have some hash associated
         auto h = keccak_256(asBytes);
         return from_big_endian(h.data());
     }

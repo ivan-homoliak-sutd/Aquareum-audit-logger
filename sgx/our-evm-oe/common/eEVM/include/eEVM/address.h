@@ -3,6 +3,7 @@
 
 #pragma once
 #include "bigint.h"
+#include "constants.h"
 
 #include "aleth-mp3/FixedHash.h"
 

@@ -32,6 +32,23 @@ namespace eevm
         return get(addr);
     }
 
+    SimpleAccountState SimpleGlobalState::update(const Address& addr, const StateEntry& p)
+    {
+        const auto acc = accounts.find(addr);
+        if (acc != accounts.cend())
+            throw std::logic_error("Requested account does not exist.");
+
+        accounts[addr] = p;
+        return get(addr, false);
+    };
+
+
+    void SimpleGlobalState::insert(const StateEntry& p)
+    {
+        const auto ib = accounts.insert(std::make_pair(p.first.get_address(), p));
+        assert(ib.second);
+    }
+
     bool SimpleGlobalState::exists(const Address& addr)
     {
         return accounts.find(addr) != accounts.end();
@@ -50,13 +67,6 @@ namespace eevm
     uint256_t SimpleGlobalState::get_block_hash(uint8_t offset)
     {
         return 0u;  // IH: cool
-    }
-
-    void SimpleGlobalState::insert(const StateEntry& p)
-    {
-        const auto ib = accounts.insert(std::make_pair(p.first.get_address(), p));
-
-        assert(ib.second);
     }
 
     bool operator==(const SimpleGlobalState& l, const SimpleGlobalState& r)

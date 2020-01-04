@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "eEVM/normal/normalGlobalState.h"
+#include "eEVM/exception.h"
 #include "eEVM/simple/simpleglobalstate.h"
 
 #include "eEVM/bigint.h"
@@ -22,12 +23,12 @@ namespace eevm
     // It creates a new account state if it does not exist!
     SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
     {
-        // std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
+        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
         if (!m_accounts.contains(h256(addr))) {
             if (insert) {
-                return create(addr, 0, {});  // create a new account if it does not exist
+                return create(addr, 0, EMPTY_CODE);  // create a new account if it does not exist
             } else {
-                throw std::logic_error(fmt::format("Requested account {} does not exist.", to_hex_string(addr)));
+                INTERNAL_EXCEPTION(fmt::format("Requested account {} does not exist.", to_hex_string(addr).c_str()));
             }
         }
 
@@ -39,6 +40,12 @@ namespace eevm
         SimpleAccount a;
         from_json(j, a);
         assert(a.get_address() == addr);
+        std::cout << "\t  j[code]: " << j["code"] << "\n";
+        std::cout << "\t  to_bytes(j[code]).len: " << to_bytes(j["code"]).size() << "\n";
+        std::cout << "\t  hex(to_bytes(j[code])): " << to_hex_string(to_bytes(j["code"])) << "\n";
+
+        std::cout << "\t  str(SimpleAccount): " << a.toString() << "\n";
+        std::cout << "\t  json(SimpleAccount): " << j.dump() << "\n";
 
         // fetch account's data from storage map
         SimpleStorage s = m_storages.at(addr);  // TODO: resolve non-existing
@@ -47,14 +54,25 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
+        std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
         insert({SimpleAccount(addr, balance, code), {}});
-        return get(addr);
+        assert(m_accounts.contains(h256(addr)));
+        return get(addr, false);
     }
 
     bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(addr); }
     size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
     const Block& NormalGlobalState::get_current_block() { return currentBlock; }
     uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
+
+    SimpleAccountState NormalGlobalState::update(const Address& addr, const StateEntry& p)
+    {
+        std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
+        m_accounts.remove(h256(addr));  // the updated entry needs to be removed first
+        insert(p);
+        assert(m_accounts.contains(h256(addr)));
+        return get(addr, false);
+    }
 
     /** This function should update the old entry in MP3 if it already exists.
      *
@@ -63,13 +81,14 @@ namespace eevm
     {
         auto _p = const_cast<StateEntry&>(p);
         auto addr = _p.first.get_address();
-        // std::cout << "NormalGlobalState::insert: account with addr: " << to_hex_string(addr) << "\n";
 
         // compute and update storage hash
         _p.first.set_stHash(_p.second.hash());
 
         std::vector<uint8_t> value;
         m_accounts.insert(h256(addr), _p.first.asJsonBytes(value));
+        assert(m_accounts.contains(h256(addr)));
+
         m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
     }
 

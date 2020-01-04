@@ -10,8 +10,6 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 
-#define SIG_SIZE_PB_BYTES 65
-#define ADDRESS_SIZE 32
 // note that only 20B of 32 are used, but the full 32B are required due to internals of eevm
 
 namespace eevm
@@ -69,7 +67,7 @@ namespace eevm
         Address origin;  // sender of the TX (IH: later can be removed to save space - we have ECC PK recovery anyway)
         Address to;      // the recepient of the TX
         uint64_t nonce;  // the number of TXs send by the sender of this TX (i.e., protection against replay attacks)
-        uint64_t value;  // call_value
+        uint64_t value;  // amount sent in TX
         uint64_t gas_price;
         uint64_t gas_limit;
         uint8_t signature[SIG_SIZE_PB_BYTES];  // computed over: origin, to, value, code, gas_price, gas_limit, nonce
@@ -80,7 +78,7 @@ namespace eevm
             Address to,
             uint64_t nonce,
             uint64_t value = 0,
-            Code code = {},
+            Code code = {0u},
             uint64_t gas_price = 0,
             uint64_t gas_limit = 0,
             uint8_t* signature = NULL)
@@ -120,6 +118,11 @@ namespace eevm
 
             return ret;  // hopes in as-if 'return value optimization'
         };
+
+        Code& get_code_ref()
+        {
+            return code;
+        }
     };
 
     /**
@@ -133,7 +136,7 @@ namespace eevm
             Address origin,
             Address to,
             LogHandler& lh,
-            Code code = {},
+            Code code = {0u},
             uint64_t value = 0,
             uint64_t nonce = 0,
             uint64_t gas_price = 0,
@@ -148,7 +151,7 @@ namespace eevm
             Address* origin,
             Address* to,
             LogHandler& lh,
-            Code code = {},
+            Code code = {0u},
             uint64_t value = 0,
             uint64_t nonce = 0,
             uint64_t gas_price = 0,

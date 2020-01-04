@@ -19,10 +19,10 @@ namespace eevm
     class SimpleAccount : public Account {
     private:
         Address address = {};
-        uint256_t balance = {};
-        Code code = {};
-        Nonce nonce = {};             // the number of TXs send by the owner of the account
-        uint256_t storage_hash = {};  // the integrity value of the storage related to this account (might be the root hash of MP3 or just hash of the set)
+        uint256_t balance = 0u;
+        Code code = {0u};
+        Nonce nonce = 0;               // the number of TXs send by the owner of the account
+        uint256_t storage_hash = {0};  // the integrity value of the storage related to this account (might be the root hash of MP3 or just hash of the set)
 
     public:
         SimpleAccount()
