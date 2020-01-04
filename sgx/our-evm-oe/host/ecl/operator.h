@@ -80,16 +80,19 @@ namespace ecl
 
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);
-        void createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
-        void createMyAccntState(oe_enclave_t* enclave);
+        void _createMyAccntState(oe_enclave_t* enclave);
 
     private:
         int persistMyKeys();
         bool existsMyKeyFile();
         int loadMyKeysFromFile();
+
         void printEvmState(PublicSealedData_T& es);
-        void _printAccounts();
-        void _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx);
+        void _printGlobalState(unsigned max);
+
+        void _createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
+
+        int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx);
     };
 
 }  // namespace ecl

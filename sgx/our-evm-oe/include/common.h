@@ -34,7 +34,7 @@ enum class EncExec { START,
 
 inline void print_enc_sep(EncExec e)
 {
-    std::string tag = (e == EncExec::START) ? " START " : " END ";
+    std::string tag = (e == EncExec::START) ? " ECALL START " : "  ECALL END  ";
     char arrow = (e == EncExec::START) ? '>' : '<';
     std::cout << std::string(PRINT_SEP_LEN / 2, arrow) << tag << std::string(PRINT_SEP_LEN / 2, arrow) << "\n";
 }

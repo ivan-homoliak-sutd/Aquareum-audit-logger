@@ -45,7 +45,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
         this->persistMyKeys();
     }
     memcpy(this->PK_E_PB.data, _enc_PK->data, ECC_PK_SIZE);
-    this->m_ecl.operAddr = eevm::from_big_endian(this->PK_O.data, eevm::ADDR_ETH_SIZE_B);  // forward the address of O to the ECL object
+    this->m_ecl.operAddr = eevm::from_big_endian(this->PK_O.data, PB_ADDR_SIZE);  // forward the address of O to the ECL object
 
     info_print(string("PK_E_PB = ") + to_hex_str(_enc_PK->data, ECC_PK_SIZE));
     info_print(string("SK_O = ") + to_hex_str(this->SK_O, ECC_SK_SIZE));
@@ -55,9 +55,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
 void Operator::sendMyPKtoEnclave(oe_enclave_t* enclave)
 {
     int ret;
-    print_enc_sep(EncExec::START);
     oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, this->PK_O.data, PK_SIZE_PB);
-    print_enc_sep(EncExec::END);
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when passing operator's PK to Enclave.");
@@ -103,18 +101,18 @@ typedef boost::char_separator<char> separator;
 auto sep = separator{" "};
 
 
-bool correct_token_cnt(std::string& command, uint N, boost::tokenizer<separator>** tokens)
+bool correct_token_cnt(std::string& command, std::set<unsigned> allowedCnts, boost::tokenizer<separator>** tokens, uint* cnt = NULL)
 {
     *tokens = new boost::tokenizer<separator>{command, sep};
     auto _tokens = *tokens;
-    // std::cerr << "tokens = " << _tokens << "\n";
 
-    // std:cerr << "distance = " << std::distance(tokens->begin(), tokens->end()) << "\n";
-    if (std::distance(_tokens->begin(), _tokens->end()) != N) {
+    auto distance = std::distance(_tokens->begin(), _tokens->end());
+    if (allowedCnts.end() == allowedCnts.find(distance)) {
         std::cerr << "wrong token count: " << std::distance(_tokens->begin(), _tokens->end()) << "\n";
         return false;
     }
-
+    if (NULL != cnt)
+        *cnt = distance;
     return true;
 }
 
@@ -134,9 +132,9 @@ void Operator::printEvmState(PublicSealedData_T& es)
     eevm::print_sep();
 }
 
-void Operator::_printAccounts()
+void Operator::_printGlobalState(unsigned max)
 {
-    info_print("All accounts in host are:");
+    std::cout << "Global state of host contains accounts:\n";
 
     unsigned i = 1;
     for (const auto& a : this->m_ecl.m_gs.getAccounts()) {
@@ -144,6 +142,12 @@ void Operator::_printAccounts()
         SimpleAccount acc;
         eevm::from_json(j, acc);
         std::cout << fmt::format("[{}] {}\n", i++, acc.toString());
+        if (i == max) {
+            break;
+        }
+    }
+    if (i == max) {
+        std::cout << "... some accounts were omitted ... \n";
     }
     eevm::print_sep();
 }
@@ -162,8 +166,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     string command_s;
 
     this->sendMyPKtoEnclave(enclave);
-    this->createMyAccntState(enclave);
-    this->createNRandomAccounts(1, 1, enclave);
+    this->_createMyAccntState(enclave);
 
     while (true) {
         if (tokens) {
@@ -176,20 +179,16 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         command_s = string(command);
 
         if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+            // clang-format off
             std::cout << "Supported commands are:\n"
-                      << "\t show:"
-                      << "\t display info about operator and enclave."
-                      << "\n"
-                      << "\t test:"
-                      << "\t create some TX in enclave and run it there."
-                      << "\n"
-                      << "\t tx:"
-                      << "\t create TX that returns hello word string and send it to enclave."
-                      << "\n"
-                      << "\t tx add a b:"
-                      << " create TX that sums {a} and {b} in host and send it to enclave."
-                      << "\n"
+                      << "\t show | s"     << "\t display info about operator and enclave.\n"
+                      << "\t gs [n]"       << "\t display global state with max n entries [default=100].\n"
+                      << "\t gen [n]"      << "\t generate n random accounts [default=5].\n"
+                      << "\t test"         << "\t create some TX in enclave and run it there.\n"
+                      << "\t tx"           << "\t create TX that returns hello word string and send it to enclave.\n"
+                      << "\t tx add a b"   << " create TX that sums {a} and {b} in host and send it to enclave.\n"
                       << "\n";
+            // clang-format on
         } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
             PublicSealedData_T pub_evm_state;
             ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
@@ -197,8 +196,41 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Failed to read the state of enclave.");
             }
             this->printEvmState(pub_evm_state);
-        } else if (0 == strcmp(command, "accounts") || 0 == strcmp(command, "a")) {
-            this->_printAccounts();
+        } else if (0 == strncmp(command, "gs", 2)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            int n = 100;  // default max no of entries to print
+            if (2 == tokenCnt) {
+                try {
+                    auto it = tokens->begin();
+                    std::advance(it, 1);
+                    n = std::stoi(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            this->_printGlobalState(n);
+        } else if (0 == strncmp(command, "gen", 3)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            uint n = 5;  // default number of random accounts to generate
+            uint initBal = 1;
+            if (2 == tokenCnt) {
+                try {
+                    auto it = tokens->begin();
+                    std::advance(it, 1);
+                    n = std::stoi(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            this->_createNRandomAccounts(n, initBal, enclave);
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
@@ -208,7 +240,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             // info_print("...done");
         } else if (0 == strncmp(command, "tx add", 6)) {
-            if (!correct_token_cnt(command_s, 4, &tokens))
+            if (!correct_token_cnt(command_s, {4}, &tokens))
                 continue;
 
             int a, b;
@@ -246,7 +278,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
         } else if (0 == strncmp(command, "deploy ", 7)) {
             info_print("Creating contract ...");
-            if (!correct_token_cnt(command_s, 2, &tokens))
+            if (!correct_token_cnt(command_s, {2}, &tokens))
                 continue;
 
             auto it = tokens->begin();
@@ -308,15 +340,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 /**
  * It creates O's account state in E.
  */
-void Operator::createMyAccntState(oe_enclave_t* enclave)
+void Operator::_createMyAccntState(oe_enclave_t* enclave)
 {
-    info_print("");
-    info_print("Creating account of Operator...");
+    std::cout << "Creating account of Operator...\n";
     auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
     this->_dispatchTX(enclave, tx);
 
     auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
-    debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.asJsonBytesRef().toString()));
+    debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.toString()));
 
     eevm::print_sep();
 }
@@ -325,10 +356,9 @@ void Operator::createMyAccntState(oe_enclave_t* enclave)
  * Create N simple accounts with initial balance set to 'initBalance'
  * For each account creation, do ecall into E.
  */
-void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
+void Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
-    info_print("");
-    debug_print(fmt::format(" Creating {} random accounts with initial balance {} ...", N, initBalance));
+    std::cout << fmt::format("\nCreating {} random accounts with initial balance {}\n", N, initBalance);
 
     auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
     debug_print(fmt::format(" XXX operator's account: {} ", operAccnt.toString()));
@@ -339,10 +369,11 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
         const eevm::Address addr = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
         auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, addr, initBalance, operAccnt.get_nonce());
-        this->_dispatchTX(enclave, tx);
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+            break;
 
         eevm::AccountState accntState = this->m_ecl.m_gs.get(addr);
-        debug_print(fmt::format("created account: {} ", accntState.acc.asJsonBytesRef().toString()));
+        debug_print(fmt::format("created account: {} ", accntState.acc.toString()));
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
         debug_print(fmt::format(" XXX operator's account: {} ", operAccnt.toString()));
     }
@@ -350,7 +381,7 @@ void Operator::createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclav
 /**
  * The point of interaction with the Enclave.
  */
-void Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx)
+int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx)
 {
     int ret;
 
@@ -377,13 +408,13 @@ void Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* t
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing TX in ENCLAVE.");
-        return;
+        return ret;
     }
 
     // 3) Execute TX in Host
     if (RET_SUCCESS != this->m_ecl.executeTX(tx)) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");
-        return;
+        return ret;
     }
 
     // 4) Fetch the updated global state of E
@@ -395,4 +426,5 @@ void Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* t
     // 5) Compare E's state to host's state
     assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
     info_print("State in Host and Enclave match!");
+    return RET_SUCCESS;
 }

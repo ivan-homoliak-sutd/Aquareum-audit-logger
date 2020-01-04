@@ -101,7 +101,7 @@ namespace eevm
         bool operator==(const Account&) const;
         SimpleAccount& operator=(const SimpleAccount&) = default;
 
-        virtual bytesConstRef asJsonBytesRef() override;
+        virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) override;
 
         std::string toString() const;
 

@@ -68,8 +68,7 @@ namespace eevm
         virtual Code get_code() const = 0;
         virtual Code& get_code_ref() = 0;
         virtual void set_code(Code&& code) = 0;
-
-        virtual dev::bytesConstRef asJsonBytesRef() = 0;
+        virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) = 0;
 
         virtual bool has_code()
         {
