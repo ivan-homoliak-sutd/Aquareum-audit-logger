@@ -12,7 +12,7 @@ using namespace std;
 
 void info_print(const string& str)
 {
-    std::cout << "[INFO] " << str << "\n";
+    std::cout << "\t[INFO] " << str << "\n";
 }
 
 void debug_print(const string& str, bool endline)
@@ -23,18 +23,18 @@ void debug_print(const string& str, bool endline)
 void debug_print(const char* str, bool endline)
 {
     string a = (endline) ? "\n" : "";
-    string b = (endline) ? "[DEBUG] " : "";
+    string b = (endline) ? "\t[DEBUG] " : "";
     std::cout << b << str << a;
 }
 
 void warning_print(const string& str)
 {
-    std::cerr << "[WARNING] " << str << "\n";
+    std::cerr << "\t[WARNING] " << str << "\n";
 }
 
 void error_print(const string& str)
 {
-    std::cerr << "[ERROR] " << str << "\n";
+    std::cerr << "\t[ERROR] " << str << "\n";
 }
 
 int is_error(int error_code)

@@ -62,9 +62,12 @@ namespace eevm
 
     void print_last_n(std::ostream& os, size_t n) const
     {
+
+      os << "\tDumping execution trace:\n";
       auto first = n < events.size() ? events.size() - n : 0;
       for (auto i = first; i < events.size(); ++i)
       {
+
         os << fmt::format("{}", events[i]) << std::endl;
       }
     }
@@ -87,13 +90,13 @@ namespace fmt
     {
       auto s = format_to(
         ctx.out(),
-        "PC={} depth({}): {}",
+        "\t\t PC={} depth({}): {}",
         e.pc,
         e.call_depth,
         eevm::Disassembler::getOp(e.op).mnemonic);
 
       if (e.s)
-        s = format_to(ctx.out(), "\nstack before:\n{}", *e.s);
+        s = format_to(ctx.out(), "\n\t\t stack before:\n{}", *e.s);
 
       return s;
     }

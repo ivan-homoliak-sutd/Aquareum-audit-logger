@@ -142,7 +142,7 @@ void Operator::_printGlobalState(unsigned max)
         SimpleAccount acc;
         eevm::from_json(j, acc);
         std::cout << fmt::format("[{}] {}\n", i++, acc.toString());
-        if (i == max) {
+        if (i - 1 == max) {
             break;
         }
     }

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
+
+# causes EVM to print debug trace messages
+set(DEBUG ON)
+
 ###################################################
 ## configure HUNTER first
 # set(HUNTER_CONFIGURATION_TYPES Release CACHE STRING "Hunter configuration types")
@@ -65,7 +69,7 @@ SET(CXX_HOST_LINK_FLAGS
 
 # Obtanined by: $ pkg-config oeenclave-g++ --cflags
 SET(CXX_ENCLAVE_COMPILE_FLAGS
-  "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
+  "-DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
 )
 
 # Obtanined by: $ pkg-config oehost-g++ --cflags
@@ -90,6 +94,12 @@ else()
   SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
 endif()
 message(STATUS " ")
+
+if(DEBUG)
+  add_compile_definitions(TRACING_ENABLED)
+  message(STATUS ">>> TRACING LOGS ENABLED <<<")
+  message(STATUS " ")
+endif()
 
 if(MSVC)
   # Set Windows compiler options.

@@ -4,6 +4,7 @@
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/exception.h"
 #include "eEVM/simple/simpleglobalstate.h"
+#include "tracing.h"
 
 #include "eEVM/bigint.h"
 
@@ -23,7 +24,7 @@ namespace eevm
     // It creates a new account state if it does not exist!
     SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
     {
-        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << std::endl;
+        TRACE_ME("get addr: %s ", to_hex_string(addr).c_str());
         if (!m_accounts.contains(h256(addr))) {
             if (insert) {
                 return create(addr, 0, EMPTY_CODE);  // create a new account if it does not exist
@@ -39,11 +40,6 @@ namespace eevm
         SimpleAccount a;
         from_json(j, a);
         assert(a.get_address() == addr);
-        // std::cout << "\t  j[code]: " << j["code"] << "\n";
-        // std::cout << "\t  to_bytes(j[code]).len: " << to_bytes(j["code"]).size() << "\n";
-        // std::cout << "\t  hex(to_bytes(j[code])): " << to_hex_string(to_bytes(j["code"])) << "\n";
-        // std::cout << "\t  str(SimpleAccount): " << a.toString() << "\n";
-        // std::cout << "\t  json(SimpleAccount): " << j.dump() << "\n";
 
         // fetch account's data from storage map
         SimpleStorage s = m_storages.at(addr);  // TODO: resolve non-existing
@@ -52,7 +48,7 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
-        std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
+        TRACE_ME("create account: %s ", to_hex_string(addr).c_str());
         insert({SimpleAccount(addr, balance, code), {}});
         assert(m_accounts.contains(h256(addr)));
         return get(addr, false);
@@ -65,7 +61,7 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::update(const Address& addr, const StateEntry& p)
     {
-        std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
+        TRACE_ME("update account: %s ", to_hex_string(addr).c_str());
 
         // the updated entry does not need to be removed
 
@@ -175,7 +171,7 @@ namespace eevm
                                          size_t& db_keys_size, size_t& values_sizes_size,
                                          std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size)
     {
-        std::cout << "[Host] Dumping full DB of global state stored at host...\n";
+        TRACE_ME("Dumping full DB of global state");
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
         unsigned cnt_entries = 0;
@@ -186,7 +182,6 @@ namespace eevm
             auto val = e.second;
 
             // std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
-
             db_keys.insert(db_keys.end(), addr.begin(), addr.end());    // insert the full content of value
             db_values.insert(db_values.end(), val.begin(), val.end());  // insert the full content of key
             values_sizes.push_back(val.size());
@@ -199,7 +194,6 @@ namespace eevm
             cnt_entries++;
         }
         db_keys_size = cnt_entries * 32;
-        // std::cerr << fmt::format("dump_full_db: db_keys_size = {} | summed_keys_size = {} \n", db_keys_size, summed_keys_size);
         assert(db_keys_size == summed_keys_size);
         // print_sep();
     }  // namespace eevm
@@ -207,7 +201,7 @@ namespace eevm
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const
     {
-        // std::cout << "\t => dumping storage of addr = " << to_hex_string(addr) << "\n";
+        TRACE_ME("dumping storage of addr = %s", to_hex_string(addr).c_str());
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector
@@ -226,7 +220,7 @@ namespace eevm
                                                 const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
     {
-        std::cout << "[Enclave:] Constructing full state\n";
+        TRACE_ME("Constructing full state");
         assert(db_keys_size / ADDR_SIZE_B == db_values_sizes_size / sizeof(size_t));
 
         *gs = new NormalGlobalState();
@@ -238,7 +232,7 @@ namespace eevm
 
         // 1) insert account states one by one to global MP3
         for (size_t i = 0; i < db_values_sizes_size / sizeof(size_t); i++) {
-            // std::cout << "[" << i << "] ";
+            // TRACE_ME("[%ld]", i);
             auto key = h256(&(db_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
             auto val = new uint8_t[values_sizes[i]];                                   // manually allocating enclave memory since 'db_values' is in host memory
             memcpy(val, &db_values[ptr_db_values], values_sizes[i]);

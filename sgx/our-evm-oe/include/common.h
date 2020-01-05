@@ -41,9 +41,9 @@ inline void print_enc_sep(EncExec e)
 
 
 // switch on or off tracing logs
-#define TRACING_LOG_ENABLED 1
+#define TRACING_ENABLED 1
 
-#ifdef TRACING_LOG_ENABLED
+#ifdef TRACING_ENABLED
 #define TRACE_ENCLAVE(fmt, ...)             \
     printf(                                 \
         ">\t[TRACE_ENC]: %s(%d): " fmt "\n", \
@@ -61,7 +61,6 @@ inline void print_enc_sep(EncExec e)
 
 #else
 #define TRACE_ENCLAVE(fmt, ...) (void)
-
 #endif
 
 #define ERROR_PRINT(fmt, ...)       \
