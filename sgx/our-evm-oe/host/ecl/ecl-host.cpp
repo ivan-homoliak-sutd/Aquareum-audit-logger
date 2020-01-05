@@ -233,7 +233,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
                                  reinterpret_cast<eevm::Address*>(&tx->to),
                                  lh, tx->code, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    TRACE_HOST("TX with val = %ld from = %s and to = %s",
+    TRACE_HOST("TX with val = %ld from = %s to = %s",
                etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                eevm::to_hex_string(etx.to).c_str());
 

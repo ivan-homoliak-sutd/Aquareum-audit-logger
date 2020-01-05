@@ -79,7 +79,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    TRACE_ENCLAVE("TX with val = %ld from = %s and to = %s",
+    TRACE_ENCLAVE("TX with val = %ld from = %s to = %s",
                   etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                   eevm::to_hex_string(etx.to).c_str());
 

@@ -97,12 +97,18 @@ namespace eevm
 
     std::string SimpleAccount::toString() const
     {
+        std::string codeStr;
+        if (code.size() <= 10) {
+            codeStr = to_hex_string(code);
+        } else {
+            codeStr = to_hex_string(code.begin(), code.begin() + 10) + fmt::format(" (size={})", code.size());
+        }
         std::string s = fmt::format("{} | bal={} | n={} | strgH={} | c={}",
                                     address_to_hex_string(address),
                                     to_hex_string(balance),
                                     nonce,
                                     to_hex_string(storage_hash),
-                                    to_hex_string(code));
+                                    codeStr);
 
         return s;
     }
