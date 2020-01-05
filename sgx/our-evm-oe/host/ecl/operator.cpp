@@ -351,7 +351,9 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
 {
     std::cout << "Creating account of Operator...\n";
     auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
-    this->_dispatchTX(enclave, tx);
+
+    if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+        exit(1);
 
     auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
     debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.toString()));
@@ -419,7 +421,8 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
     }
 
     // 3) Execute TX in Host
-    if (RET_SUCCESS != this->m_ecl.executeTX(tx)) {  // this updates global account state in the host
+    ret = this->m_ecl.executeTX(tx);
+    if (ret != RET_SUCCESS) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");
         return ret;
     }
@@ -427,8 +430,10 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
     // 4) Fetch the updated global state of E
     PublicSealedData_T pub_evm_state;
     ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
-    if (ecall_ret != OE_OK && is_error(ret))
-        error_print("Failed to read the state of enclace.");
+    if (ecall_ret != OE_OK && is_error(ret)) {
+        error_print("Failed to read the state of enclave.");
+        return ret;
+    }
 
     // 5) Compare E's state to host's state
     assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());

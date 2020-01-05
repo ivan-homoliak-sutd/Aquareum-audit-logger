@@ -89,6 +89,7 @@ namespace dev {
         void remove(bytesConstRef _key);
         bool contains(bytes const& _key) const { return contains(&_key); }
         bool contains(bytesConstRef _key) const { return !at(_key).empty(); }
+        void killNodeWrapper(RLP const& _d) { this->killNode(_d); } // IH: public access to direct deletion in DB.
 
         class iterator {
           public:
@@ -207,6 +208,7 @@ namespace dev {
             }
         }
 
+
         /// Get the underlying database.
         /// @warning This can be used to bypass the trie code. Don't use these unless you *really*
         /// know what you're doing.
@@ -311,6 +313,7 @@ namespace dev {
       public:
         using DB = typename Generic::DB;
         using KeyType = _KeyType;
+        // using Generic::killNodeWrapper;
 
         SpecificTrieDB(DB* _db = nullptr) : Generic(_db) {}
         SpecificTrieDB(DB* _db, h256 _root, Verification _v = Verification::Normal) : Generic(_db, _root, _v) {}
@@ -322,6 +325,7 @@ namespace dev {
         void insert(KeyType _k, bytesConstRef _value) { Generic::insert(bytesConstRef((byte const*)&_k, sizeof(KeyType)), _value); }
         void insert(KeyType _k, bytes const& _value) { insert(_k, bytesConstRef(&_value)); }
         void remove(KeyType _k) { Generic::remove(bytesConstRef((byte const*)&_k, sizeof(KeyType))); }
+        void killNodeWrapper(RLP const& _d) { Generic::killNodeWrapper(_d); } // IH: public access to direct deletion in DB.
 
         class iterator : public Generic::iterator {
           public:
@@ -350,6 +354,8 @@ namespace dev {
         return _out;
     }
 
+    // IH: this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
+    // However, when 20B addresses are used as keys, I do not believe it will help. Moreover, it adds a bit extra overhead for the lenght of the key.
     template <class _DB>
     class HashedGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
         using Super = SpecificTrieDB<GenericTrieDB<_DB>, h256>;
@@ -404,6 +410,10 @@ namespace dev {
         iterator lower_bound(bytesConstRef) const { return iterator(); }
     };
 
+
+    // IH: similarly as in the previous one, this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
+    // Additionally, this class maintains mapping of hashed keys to orig keys themselves (stored at persistant DB).
+    //
     // Hashed & Hash-key mapping
     template <class _DB>
     class FatGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
@@ -424,13 +434,14 @@ namespace dev {
         using Super::open;
         using Super::root;
         using Super::setRoot;
+        using Super::killNodeWrapper;
 
         std::string at(bytesConstRef _key) const { return Super::at(sha3(_key)); }
         bool contains(bytesConstRef _key) const { return Super::contains(sha3(_key)); }
         void insert(bytesConstRef _key, bytesConstRef _value) {
-            h256 hash = sha3(_key);
+            h256 hash = sha3(_key);              // IH: I do not like that the key is not used directly in FatDB
             Super::insert(hash, _value);
-            Super::db()->insertAux(hash, _key); // IH: reverse pointers from children to parents
+            Super::db()->insertAux(hash, _key); // IH: translation from hashed key to original keys
         }
 
         void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
@@ -447,6 +458,7 @@ namespace dev {
                 auto hashed = Super::at();
                 m_key = static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
                 return std::make_pair(&m_key, std::move(hashed.second));
+
             }
 
           private:

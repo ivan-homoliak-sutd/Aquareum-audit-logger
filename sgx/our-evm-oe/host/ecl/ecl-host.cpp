@@ -245,8 +245,6 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
     auto senderAccnt = m_gs.get(etx.origin, false);
-    bool contractCreation = false;
-    auto newNonce = senderAccnt.acc.get_nonce() + 1;
     eevm::SimpleAccountState contrState;
     if (!m_gs.exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
@@ -257,7 +255,6 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         TRACE_HOST("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = m_gs.create(etx.to, etx.value, etx.code);  // insert account state of contract
         contrState = std::move(cs);
-        contractCreation = true;
     } else {
         TRACE_HOST("Contract already exists => fetching its state.");
         auto cs = m_gs.get(etx.to, false);
@@ -268,9 +265,8 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     auto senderBalBefore = senderAccnt.acc.get_balance();  // TODO: check whether EEVM is not doing it !!!
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = m_gs.getStorages().at(etx.origin);
-    if (intx::uint256(0u) == senderDeducted) {                                                                                                                                               // skip update when zero value call is present
-        senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
-    } else {
+    if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
+        senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
         assert(senderAccnt.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
@@ -287,17 +283,16 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         // TRACE_HOST("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
         return ERR_EVM_WRONG_RET_CODE;
     }
+    tr.print_last_n(std::cout, 10);
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_HOST("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_HOST("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
-    // 6) Update the nonce of the sender either it is: a) a simple account, or b) a contract that just deployed another contract
+     // 6) Update the nonce of the sender
+    auto newNonce = senderAccnt.acc.get_nonce() + 1;
     senderAccnt = m_gs.get(etx.origin, false);
-    if (EMPTY_CODE_OBJ == senderAccnt.acc.get_code_ref() || contractCreation) {
-        auto newNonce = senderAccnt.acc.get_nonce() + 1;
-        senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
-    }
+    senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 

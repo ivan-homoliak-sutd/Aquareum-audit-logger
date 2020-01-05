@@ -142,8 +142,7 @@ namespace eevm
         return fmt::format("0x{}", intx::hex(v));
     }
 
-    inline std::string to_hex_string_fixed(
-        const uint256_t& v, size_t min_hex_chars = 64)
+    inline std::string to_hex_string_fixed(const uint256_t& v, size_t min_hex_chars = 64)
     {
         return fmt::format("0x{:0>{}}", intx::hex(v), min_hex_chars);
     }

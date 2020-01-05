@@ -23,7 +23,7 @@ namespace eevm
     // It creates a new account state if it does not exist!
     SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
     {
-        // std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << "\n";
+        std::cout << "NormalGlobalState::get addr = " << to_hex_string(addr) << std::endl;
         if (!m_accounts.contains(h256(addr))) {
             if (insert) {
                 return create(addr, 0, EMPTY_CODE);  // create a new account if it does not exist
@@ -52,7 +52,7 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
-        // std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
+        std::cout << "\t --NormalGlobalState::create account: " << to_hex_string(addr) << "\n";
         insert({SimpleAccount(addr, balance, code), {}});
         assert(m_accounts.contains(h256(addr)));
         return get(addr, false);
@@ -65,8 +65,17 @@ namespace eevm
 
     SimpleAccountState NormalGlobalState::update(const Address& addr, const StateEntry& p)
     {
-        // std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
-        m_accounts.remove(h256(addr));  // the updated entry needs to be removed first
+        std::cout << "\t --NormalGlobalState::update account: " << to_hex_string(addr) << "\n";
+
+        // the updated entry does not need to be removed
+
+        // a) standard removal of node in MP3
+        // m_accounts.remove(h256(addr));  // TODO: IH replace remove for direct delecting from DB by forceKillNode. There is no need to update the MP3
+
+        // b) removal only from DB
+        // std::string rlpStrOld = m_accounts.at(h256(addr));
+        // m_accounts.killNodeWrapper(dev::RLP(rlpStrOld));
+
         insert(p);
         assert(m_accounts.contains(h256(addr)));
         return get(addr, false);
@@ -81,7 +90,7 @@ namespace eevm
         auto addr = _p.first.get_address();
 
         // compute and update storage hash
-        _p.first.set_stHash(_p.second.hash()); // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
+        _p.first.set_stHash(_p.second.hash());  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
 
         std::vector<uint8_t> value;
         m_accounts.insert(h256(addr), _p.first.asJsonBytes(value));
