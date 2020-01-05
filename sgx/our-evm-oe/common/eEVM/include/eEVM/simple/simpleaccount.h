@@ -21,52 +21,52 @@ namespace eevm
         Address address = {};
         uint256_t balance = 0u;
         Code code = {0u};
-        Nonce nonce = 0;               // the number of TXs send by the owner of the account
         uint256_t storage_hash = {0};  // the integrity value of the storage related to this account (might be the root hash of MP3 or just hash of the set)
+        Nonce nonce = 0;               // the number of TXs send by the owner of the account
 
     public:
         SimpleAccount()
           : storage_hash(std::move(SimpleStorage::hashOfEmptyStorage())){};
 
         SimpleAccount(const SimpleAccount& other)  // copy ctor
-        {
-            address = other.address;
-            balance = other.balance;
-            code = other.code;
-            nonce = other.nonce;
-            storage_hash = other.storage_hash;
-        }
+          : address(other.address),
+            balance(other.balance),
+            code(other.code),
+            storage_hash(other.storage_hash),
+            nonce(other.nonce)
+        {}
+
         SimpleAccount(SimpleAccount&& other)  // IH: movable ctor - can be optimized by making move to intx
+          : address(std::move(other.address)),
+            balance(other.balance),
+            code(std::move(other.code)),
+            storage_hash(other.storage_hash)
         {
-            address = other.address;
-            balance = other.balance;
-            code = std::move(other.code);
             nonce = std::exchange(other.nonce, INT_MOVED);
-            storage_hash = other.storage_hash;
         }
 
         SimpleAccount(const Address& a, const uint256_t& b, const Code& c)
           : address(a),
             balance(b),
             code(c),
-            nonce(0),
-            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage()))
+            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage())),
+            nonce(0)
         {}
 
         SimpleAccount(const Address& a, const uint256_t& b, const Code& c, Nonce n)
           : address(a),
             balance(b),
             code(c),
-            nonce(n),
-            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage()))
+            storage_hash(std::move(SimpleStorage::hashOfEmptyStorage())),
+            nonce(n)
         {}
 
         SimpleAccount(const Address& a, const uint256_t& b, const Code& c, Nonce n, Storage& s)
           : address(a),
             balance(b),
             code(c),
-            nonce(n),
-            storage_hash(s.hash())
+            storage_hash(s.hash()),
+            nonce(n)
         {}
 
         // SimpleAccount(
@@ -101,9 +101,10 @@ namespace eevm
         bool operator==(const Account&) const;
         SimpleAccount& operator=(const SimpleAccount&) = default;
 
-        virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) override;
+        virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) const override;
 
         std::string toString() const;
+        void to_json(nlohmann::json& j) const;
 
         friend void to_json(nlohmann::json&, const SimpleAccount&);
         friend void from_json(const nlohmann::json&, SimpleAccount&);

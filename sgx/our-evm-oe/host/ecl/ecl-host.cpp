@@ -169,7 +169,7 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
     auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);
 
     for (auto& ctor_param : contract_definition["ctor"]) {
-        debug_print(fmt::format("\t parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
+        debug_print(fmt::format("parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
         if (string(ctor_param["type"]) != "uint256")
             throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
 
@@ -245,7 +245,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
     auto senderAccnt = m_gs.get(etx.origin, false);
-    eevm::SimpleAccountState contrState;
+    eevm::SimpleAccountState* contrState;
     if (!m_gs.exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
         if (etx.to != expectedAddr) {  // check correct address derivation from sender's addr and nonce
@@ -254,11 +254,11 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         }
         TRACE_HOST("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = m_gs.create(etx.to, etx.value, etx.code);  // insert account state of contract
-        contrState = std::move(cs);
+        contrState = new eevm::SimpleAccountState(std::move(cs));
     } else {
         TRACE_HOST("Contract already exists => fetching its state.");
         auto cs = m_gs.get(etx.to, false);
-        contrState = std::move(cs);
+        contrState = new eevm::SimpleAccountState(std::move(cs));
     }
 
     // 3) update the balance before we execute the code
@@ -274,13 +274,14 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     TRACE_HOST("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(m_gs);
     eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, contrState, {}, etx.value, &tr);
+    const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
     // 5)  Check the response
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er) << std::endl;
         tr.print_last_n(std::cout, 10);
         // TRACE_HOST("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
+        delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
     tr.print_last_n(std::cout, 10);
@@ -296,6 +297,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
+    delete contrState;
     return RET_SUCCESS;
 }
 

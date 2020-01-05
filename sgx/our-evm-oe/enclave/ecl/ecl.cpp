@@ -28,7 +28,7 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
     // Deploy contract to simple global state (internal to enclave)
-    const eevm::SimpleAccountState contract = this->simple_gs.create(etx.to, 0, c);
+    auto contract = this->simple_gs.create(etx.to, 0, c);
 
     TRACE_ENCLAVE("running processor...");
 
@@ -91,8 +91,8 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // assert(etx.origin != this->operAddr);
 
     // 2b) If some code is present, then (deploy contract if does not exist and) ececute TX with the code
-    auto senderAccnt = gs->get(etx.origin, false);
-    eevm::SimpleAccountState contrState;
+    auto senderAccnt = gs->get(etx.origin);
+    eevm::SimpleAccountState* contrState;
     if (!gs->exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
         if (etx.to != expectedAddr) {  // check correct address derivation from sender's addr and nonce
@@ -101,11 +101,11 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         }
         TRACE_ENCLAVE("Creating a new state entry for a contract with addr %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
-        contrState = std::move(cs);
+        contrState = new eevm::SimpleAccountState(std::move(cs));
     } else {
         TRACE_ENCLAVE("Contract already exists => fetching its state.");
-        auto cs = gs->get(etx.to, false);
-        contrState = std::move(cs);
+        auto cs = gs->get(etx.to);
+        contrState = new eevm::SimpleAccountState(std::move(cs));
     }
 
     // 3) update the balance of sender before we execute the code (to avoid inflation bugs)
@@ -121,13 +121,14 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     TRACE_ENCLAVE("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, contrState, {}, etx.value, &tr);
+    const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
     // 5) Check the response
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         tr.print_last_n(std::cout, 10);
         // TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
+        delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
     tr.print_last_n(std::cout, 10);
@@ -138,11 +139,12 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // 6) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
-    senderAccnt = gs->get(etx.origin, false);
+    senderAccnt = gs->get(etx.origin);
     senderAccnt = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
+    delete contrState;
     return RET_SUCCESS;
 }
 
@@ -158,9 +160,11 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
 
+    // allow account creation for operator (if it does not exist)
+    auto accnState = (etx.origin == this->operAddr && !gs->exists(etx.origin)) ? gs->create(etx.origin, 0u, EMPTY_CODE_OBJ) : gs->get(etx.origin);
+
     // 2) Increment the nonce and the balance of the sender
-    auto accnState = gs->get(etx.origin, (etx.origin == this->operAddr) ? true : false);  // allow account creation for operator
-    if (EMPTY_CODE_OBJ == accnState.acc.get_code_ref()) {                                 // according to ETH Yellow paper, increment only if code is empty
+    if (EMPTY_CODE_OBJ == accnState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code is empty
         TRACE_ENCLAVE("--incrementing nonce");
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
@@ -174,12 +178,12 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     auto senderBalBefore = accnState.acc.get_balance();
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = gs->getStorages().at(etx.origin);
-    accnState = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
-    assert(accnState.acc.get_balance() == senderBalBefore + senderDeducted);
+    auto accSndUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
+    assert(accSndUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
 
     // 4) add value to the target account
-    auto recvAcState = gs->get(etx.to, true);      // alow creation of a target account here
-    auto& storage = gs->getStorages().at(etx.to);  // just copy the old storage
+    auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // cretate target account if it does not exist
+    auto& storage = gs->getStorages().at(etx.to);                                                         // just copy the old storage
     auto recvBalanceBefore = recvAcState.acc.get_balance();
     code = recvAcState.acc.get_code_ref();
     recvAcState = gs->update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});

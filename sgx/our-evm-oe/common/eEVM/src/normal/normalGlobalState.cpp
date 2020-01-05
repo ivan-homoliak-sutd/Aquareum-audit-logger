@@ -4,7 +4,7 @@
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/exception.h"
 #include "eEVM/simple/simpleglobalstate.h"
-#include "tracing.h"
+#include "eEVM/tracing.h"
 
 #include "eEVM/bigint.h"
 
@@ -22,15 +22,12 @@ namespace eevm
     }
 
     // It creates a new account state if it does not exist!
-    SimpleAccountState NormalGlobalState::get(const Address& addr, bool insert)
+    SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
         TRACE_ME("get addr: %s ", to_hex_string(addr).c_str());
+        std::cout << "\t GET GS: "<< m_accounts << "\n";
         if (!m_accounts.contains(h256(addr))) {
-            if (insert) {
-                return create(addr, 0, EMPTY_CODE);  // create a new account if it does not exist
-            } else {
                 INTERNAL_EXCEPTION(fmt::format("Requested account {} does not exist.", to_hex_string(addr).c_str()));
-            }
         }
 
         std::string acnt_json = m_accounts.at(h256(addr));
@@ -49,9 +46,11 @@ namespace eevm
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
         TRACE_ME("create account: %s ", to_hex_string(addr).c_str());
-        insert({SimpleAccount(addr, balance, code), {}});
+        std::cout << "\t INSERT GS: "<< m_accounts << "\n";
+        insert(std::make_pair(SimpleAccount(addr, balance, code), SimpleStorage()));
+        std::cout << "\t INSERT GS: "<< m_accounts << "\n";
         assert(m_accounts.contains(h256(addr)));
-        return get(addr, false);
+        return get(addr);
     }
 
     bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(addr); }
@@ -63,7 +62,7 @@ namespace eevm
     {
         TRACE_ME("update account: %s ", to_hex_string(addr).c_str());
 
-        // the updated entry does not need to be removed
+        // the updated entry does not need to be removed !!!
 
         // a) standard removal of node in MP3
         // m_accounts.remove(h256(addr));  // TODO: IH replace remove for direct delecting from DB by forceKillNode. There is no need to update the MP3
@@ -74,19 +73,16 @@ namespace eevm
 
         insert(p);
         assert(m_accounts.contains(h256(addr)));
-        return get(addr, false);
+        return get(addr);
     }
 
     /** This function should update the old entry in MP3 if it already exists.
      *
      */
-    void NormalGlobalState::insert(const StateEntry& p)
+    void NormalGlobalState::insert(const StateEntry& _p)
     {
-        auto _p = const_cast<StateEntry&>(p);
+        // auto _p = const_cast<StateEntry&>(p);
         auto addr = _p.first.get_address();
-
-        // compute and update storage hash
-        _p.first.set_stHash(_p.second.hash());  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
 
         std::vector<uint8_t> value;
         m_accounts.insert(h256(addr), _p.first.asJsonBytes(value));
@@ -201,7 +197,7 @@ namespace eevm
 
     void NormalGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const
     {
-        TRACE_ME("dumping storage of addr = %s", to_hex_string(addr).c_str());
+        // TRACE_ME("dumping storage of addr = %s", to_hex_string(addr).c_str());
         auto const& cur_storage = m_storages.at(addr);  // if 'addr' does not exists, just raise exception
 
         size_t cur_storage_size = cur_storage.toBytes(storages);  // updates 'storages' vector

@@ -21,8 +21,8 @@ namespace eevm
         using _Account = _A;
         using _Storage = _S;
 
-        _Account acc;
-        _Storage st;
+        _Account& acc;
+        _Storage& st;
 
         template <
             typename T,
@@ -32,13 +32,19 @@ namespace eevm
         AccountState(std::pair<T, U>& p)
           : acc(p.first), st(p.second) {}
 
-        AccountState() {}
         constexpr AccountState(const AccountState& other)  // copy ctor
           : acc(other.acc), st(other.st)
         {}
-        constexpr explicit AccountState(AccountState&& other) = default;  // movable ctor
-        AccountState& operator=(const AccountState&) = default;
-
+        constexpr AccountState(const AccountState&& other)  // move ctor
+          : acc(std::move(other.acc)), st(std::move(other.st))
+        {}
+        // constexpr explicit AccountState(AccountState&& other) = default;  // movable ctor
+        AccountState& operator=(const AccountState& other)
+        {
+            acc = other.acc;
+            st = other.st;
+            return *this;
+        }
 
         AccountState(_Account& acc, _Storage& st)
           : acc(acc), st(st) {}
@@ -62,7 +68,7 @@ namespace eevm
      * Creates a new zero-initialized account under the given address if none exists
      */
 
-        virtual AccountState<_A, _S> get(const Address& addr, bool insert = true) = 0;
+        virtual AccountState<_A, _S> get(const Address& addr) = 0;
 
         virtual AccountState<_A, _S> create(const Address& addr, const uint256_t& balance, const Code& code) = 0;
 

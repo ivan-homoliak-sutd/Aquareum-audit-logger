@@ -9,6 +9,8 @@
 #include "eEVM/stack.h"
 #include "eEVM/util.h"
 
+#include "eEVM/tracing.h"
+
 #include <algorithm>
 #include <exception>
 #include <functional>
@@ -175,6 +177,7 @@ namespace eevm
             vector<uint8_t> input,  // Take a copy here, then move it into context
             const uint256_t& call_value)
         {
+            TRACE_ME("started");
             // create the first context
             ExecResult result;
             auto rh = [&result](vector<uint8_t> output_) {
@@ -188,6 +191,7 @@ namespace eevm
                 result.exmsg = ex_.what();
             };
 
+            TRACE_ME("push_context");
             push_context(
                 caller,
                 callee,
@@ -380,8 +384,11 @@ namespace eevm
         void dispatch()
         {
             const auto op = get_op();
-            if (tr)  // TODO: remove if from critical path
+            TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
+            if (tr) {  // TODO: remove if from critical path
                 tr->add(ctxt->get_pc(), op, get_call_depth(), ctxt->s);
+                tr->print_last_n(std::cout, 1);
+            }
 
             switch (op) {
             case Opcode::PUSH1:
@@ -969,12 +976,17 @@ namespace eevm
 
         void sstore()
         {
+            TRACE_ME("sstore()");
             const auto k = ctxt->s.pop();
             const auto v = ctxt->s.pop();
-            if (!v)
+            if (!v){
+                TRACE_ME("removing from storage...");
                 ctxt->st.remove(k);
-            else
+            }
+            else{
+                TRACE_ME("inserting to storage...");
                 ctxt->st.store(k, v);
+            }
         }
 
         void codecopy()

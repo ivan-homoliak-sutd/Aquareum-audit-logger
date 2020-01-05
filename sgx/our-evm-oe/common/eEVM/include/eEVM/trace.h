@@ -14,107 +14,100 @@
 
 namespace eevm
 {
-  struct TraceEvent
-  {
-    const uint64_t pc;
-    const Opcode op;
-    const uint16_t call_depth;
-    std::unique_ptr<Stack> s;
+    struct TraceEvent {
+        const uint64_t pc;
+        const Opcode op;
+        const uint16_t call_depth;
+        std::unique_ptr<Stack> s;
 
-    TraceEvent(
-      const uint64_t pc,
-      const Opcode op,
-      const uint16_t call_depth,
-      const Stack s) :
-      pc(pc),
-      op(op),
-      call_depth(call_depth),
-      s(std::make_unique<Stack>(s))
-    {}
+        TraceEvent(
+            const uint64_t pc,
+            const Opcode op,
+            const uint16_t call_depth,
+            const Stack s)
+          : pc(pc),
+            op(op),
+            call_depth(call_depth),
+            s(std::make_unique<Stack>(s))
+        {}
 
-    TraceEvent(TraceEvent&& other) :
-      pc(other.pc),
-      op(other.op),
-      call_depth(other.call_depth),
-      s(std::move(other.s))
-    {}
-  };
+        TraceEvent(TraceEvent&& other)
+          : pc(other.pc),
+            op(other.op),
+            call_depth(other.call_depth),
+            s(std::move(other.s))
+        {}
+    };
 
-  /**
+    /**
    * Runtime trace of a smart contract (for debugging)
    */
-  struct Trace
-  {
-    std::vector<TraceEvent> events;
+    struct Trace {
+        std::vector<TraceEvent> events;
 
-    template <class... Args>
-    TraceEvent& add(Args&&... args)
-    {
-      events.emplace_back(std::forward<Args>(args)...);
-      auto& e = events.back();
-      return e;
-    }
+        template <class... Args>
+        TraceEvent& add(Args&&... args)
+        {
+            events.emplace_back(std::forward<Args>(args)...);
+            auto& e = events.back();
+            return e;
+        }
 
-    void reset()
-    {
-      events.clear();
-    }
+        void reset()
+        {
+            events.clear();
+        }
 
-    void print_last_n(std::ostream& os, size_t n) const
-    {
-
-      os << "\tDumping execution trace:\n";
-      auto first = n < events.size() ? events.size() - n : 0;
-      for (auto i = first; i < events.size(); ++i)
-      {
-
-        os << fmt::format("{}", events[i]) << std::endl;
-      }
-    }
-  };
-} // namespace eevm
+        void print_last_n(std::ostream& os, size_t n) const
+        {
+            os << "\tDumping execution trace:\n";
+            auto first = n < events.size() ? events.size() - n : 0;
+            for (auto i = first; i < events.size(); ++i) {
+                os << fmt::format("{}", events[i]) << std::endl;
+            }
+        }
+    };
+}  // namespace eevm
 
 namespace fmt
 {
-  template <>
-  struct formatter<eevm::TraceEvent>
-  {
-    template <typename ParseContext>
-    constexpr auto parse(ParseContext& ctx)
-    {
-      return ctx.begin();
-    }
+    template <>
+    struct formatter<eevm::TraceEvent> {
+        template <typename ParseContext>
+        constexpr auto parse(ParseContext& ctx)
+        {
+            return ctx.begin();
+        }
 
-    template <typename FormatContext>
-    auto format(const eevm::TraceEvent& e, FormatContext& ctx)
-    {
-      auto s = format_to(
-        ctx.out(),
-        "\t\t PC={} depth({}): {}",
-        e.pc,
-        e.call_depth,
-        eevm::Disassembler::getOp(e.op).mnemonic);
+        template <typename FormatContext>
+        auto format(const eevm::TraceEvent& e, FormatContext& ctx)
+        {
+            auto s = format_to(
+                ctx.out(),
+                "\t\t PC={} depth({}): {}",
+                e.pc,
+                e.call_depth,
+                eevm::Disassembler::getOp(e.op).mnemonic);
 
-      if (e.s)
-        s = format_to(ctx.out(), "\n\t\t stack before:\n{}", *e.s);
+            if (e.s)
+                s = format_to(ctx.out(), "\n\t\t stack before:\n{}", *e.s);
 
-      return s;
-    }
-  };
+            return s;
+        }
+    };
 
-  template <>
-  struct formatter<eevm::Trace>
-  {
-    template <typename ParseContext>
-    constexpr auto parse(ParseContext& ctx)
-    {
-      return ctx.begin();
-    }
+    template <>
+    struct formatter<eevm::Trace> {
+        template <typename ParseContext>
+        constexpr auto parse(ParseContext& ctx)
+        {
+            return ctx.begin();
+        }
 
-    template <typename FormatContext>
-    auto format(const eevm::Trace& t, FormatContext& ctx)
-    {
-      return format_to(ctx.out(), "{}", fmt::join(t.events, "\n"));
-    }
-  };
-} // namespace fmt
+        template <typename FormatContext>
+        auto format(const eevm::Trace& t, FormatContext& ctx)
+        {
+            return format_to(ctx.out(), "{}", fmt::join(t.events, "\n"));
+        }
+    };
+}  // namespace fmt

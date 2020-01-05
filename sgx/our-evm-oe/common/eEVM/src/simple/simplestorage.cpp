@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "eEVM/simple/simplestorage.h"
+#include "eEVM/tracing.h"
 
 #include "eEVM/util.h"
 
@@ -22,7 +23,9 @@ namespace eevm
 
     void SimpleStorage::store(const uint256_t& key, const uint256_t& value)
     {
+        TRACE_ME("Storing [%s] <= %s", to_hex_string(key).c_str(), to_hex_string(value).c_str());
         m_s[key] = value;
+        TRACE_ME("done");
     }
 
     uint256_t SimpleStorage::load(const uint256_t& key)

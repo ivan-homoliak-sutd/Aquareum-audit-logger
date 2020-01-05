@@ -12,17 +12,13 @@ namespace eevm
         accounts.erase(addr);
     }
 
-    SimpleAccountState SimpleGlobalState::get(const Address& addr, bool insert)
+    SimpleAccountState SimpleGlobalState::get(const Address& addr)
     {
         const auto acc = accounts.find(addr);
         if (acc != accounts.cend())
             return acc->second;
 
-        if (insert) {
-            return create(addr, 0, {});
-        } else {
-            throw std::logic_error("Requested account does not exist.");
-        }
+        return create(addr, 0, {});
     }
 
     SimpleAccountState SimpleGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
@@ -39,7 +35,7 @@ namespace eevm
             throw std::logic_error("Requested account does not exist.");
 
         accounts[addr] = p;
-        return get(addr, false);
+        return get(addr);
     };
 
 

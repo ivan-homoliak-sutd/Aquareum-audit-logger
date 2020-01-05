@@ -83,10 +83,11 @@ namespace eevm
 
     // It serializes the Account object into JSON string (further transformed to byte vector)
     // the output is inserted as value to global account state of the ledger
-    std::vector<uint8_t>& SimpleAccount::asJsonBytes(std::vector<uint8_t>& output)
+    std::vector<uint8_t>& SimpleAccount::asJsonBytes(std::vector<uint8_t>& output) const
     {
         nlohmann::json j;
-        to_json(j, *this);  // populate JSON object
+        to_json(j); // populate JSON object
+        // to_json(j, *this);
         // std::cerr << "\t SimpleAccount::toString(): " << this->toString() << "\n";
         // std::cerr << "\t SimpleAccount::asJsonBytes: " << j.dump() << "\n";
 
@@ -111,6 +112,15 @@ namespace eevm
                                     codeStr);
 
         return s;
+    }
+
+    void SimpleAccount::to_json(nlohmann::json& j) const
+    {
+        j["address"] = address_to_hex_string(address);
+        j["balance"] = to_hex_string(balance);
+        j["nonce"] = to_hex_string(nonce);
+        j["code"] = to_hex_string(code);
+        j["storage_hash"] = to_hex_string(storage_hash);
     }
 
     void to_json(nlohmann::json& j, const SimpleAccount& a)

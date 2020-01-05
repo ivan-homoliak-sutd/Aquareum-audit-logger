@@ -32,7 +32,7 @@ namespace eevm
 
         virtual void remove(const Address& addr) override;
 
-        SimpleAccountState get(const Address& addr, bool insert = true) override;
+        SimpleAccountState get(const Address& addr) override;
         SimpleAccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
         SimpleAccountState update(const Address& addr, const StateEntry& p) override;
 

@@ -141,7 +141,7 @@ void Operator::_printGlobalState(unsigned max)
         auto j = nlohmann::json::parse(a.second);
         SimpleAccount acc;
         eevm::from_json(j, acc);
-        std::cout << fmt::format("[{}] {}\n", i++, acc.toString());
+        std::cout << fmt::format("\t [{}] {}\n", i++, acc.toString());
         if (i - 1 == max) {
             break;
         }

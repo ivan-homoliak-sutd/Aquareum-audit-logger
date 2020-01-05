@@ -14,7 +14,7 @@
         {
           "type": "uint256",
           "name": "totalSupply",
-          "value": "1000"
+          "value": "1023"
         }
       ]
     }
