@@ -128,7 +128,8 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_s
 
 eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
                                                    secp256k1_pubkey& PK_sender,
-                                                   uint8_t* SK_sender)
+                                                   uint8_t* SK_sender,
+                                                   size_t nonce)
 {
     // Parse args
     const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
@@ -137,16 +138,14 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
     // Create addresses for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
 
-    // Create random addresses for contract
-    std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
-    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-    const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
+    // Deterministically compute address for contract from nonce and address of sender
+    std::vector<uint8_t> raw_address(20);
+    const eevm::Address to = eevm::generate_address(operAddr, nonce);
 
     // Create summing bytecode
     const eevm::Code code = create_a_plus_b_bytecode(arg_a, arg_b);
 
     // Construct a transaction object
-    uint64_t nonce = 0;  // TODO: this is temporary (it should be extracted from evm)
     auto tx = new eevm::PersistantTransaction(sender, to, nonce, 0, code);
     this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
 

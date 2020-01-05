@@ -178,9 +178,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         cin.getline(command, MAX_CMD_LEN);
         command_s = string(command);
 
-        if (0 == strcmp(command, "")){
+        if (0 == strcmp(command, "")) {
             continue;
-        }else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+        } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
             // clang-format off
             std::cout << "Supported commands are:\n"
                       << "\t show | s"     << "\t\t display info about operator and enclave.\n"
@@ -258,13 +258,18 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             INFO_PRINT("Creating TX that sums %d + %d ...", a, b);
 
             // create TX using eEVM
-            eevm::PersistantTransaction* tx = this->m_ecl.createSumTx(a, b, this->PK_O, this->SK_O);
-            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
-                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                                        (const uint8_t*)tx->code.data(), tx->code.size());
-            if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when processing sum TX in Enclave.");
-            }
+            auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createSumTx(a, b, this->PK_O, this->SK_O, operAccnt.get_nonce());
+
+            this->_dispatchTX(enclave, tx);
+
+            // [Alternative] executing TX in E while using E's full state
+            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            //                                             (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            //                                             (const uint8_t*)tx->code.data(), tx->code.size());
+            // if (ecall_ret != OE_OK || is_error(ret)) {
+            //     error_print("Error when processing sum TX in Enclave.");
+            // }
         } else if (0 == strcmp(command, "tx inc")) {
             info_print("Creating increment counter TX ...");
 

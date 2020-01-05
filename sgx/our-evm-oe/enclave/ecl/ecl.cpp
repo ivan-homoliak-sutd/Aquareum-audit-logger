@@ -99,7 +99,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
             TRACE_ENCLAVE("Contract address does not match the sender's address and his nonce");
             return ERR_EVM_WRONG_CONTR_ADDR;
         }
-        TRACE_ENCLAVE("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
+        TRACE_ENCLAVE("Creating a new state entry for a contract with addr %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
         contrState = std::move(cs);
         contractCreation = true;

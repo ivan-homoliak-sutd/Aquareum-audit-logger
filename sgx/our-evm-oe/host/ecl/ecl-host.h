@@ -27,7 +27,8 @@ public:
 
     PersistantTransaction* createSumTx(int a, int b,
                                        secp256k1_pubkey& PK_sender,
-                                       uint8_t* SK_sender);
+                                       uint8_t* SK_sender,
+                                       size_t nonce);
 
     PersistantTransaction* createIncCounterTX(secp256k1_pubkey& PK_sender,
                                               uint8_t* SK_sender);

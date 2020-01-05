@@ -1058,12 +1058,10 @@ namespace eevm
             const uint8_t bytes = get_op() - PUSH1 + 1;
             const auto end = ctxt->get_pc() + bytes;
             if (end < ctxt->get_pc())
-                throw Exception(ET::outOfBounds,
-                                "Integer overflow in push (" + to_string(end) + " < " + to_string(ctxt->get_pc()) + ")");
+                throw Exception(ET::outOfBounds, "Integer overflow in push (" + to_string(end) + " < " + to_string(ctxt->get_pc()) + ")");
 
             if (end >= ctxt->prog.code.size())
-                throw Exception(ET::outOfBounds,
-                                "Push immediate exceeds size of program (" + to_string(end) + " >= " + to_string(ctxt->prog.code.size()) + ")");
+                throw Exception(ET::outOfBounds, "Push immediate exceeds size of program (" + to_string(end) + " >= " + to_string(ctxt->prog.code.size()) + ")");
 
             // TODO: parse immediate once and not every time
             auto pc = ctxt->get_pc() + 1;

@@ -81,7 +81,7 @@ namespace eevm
         auto addr = _p.first.get_address();
 
         // compute and update storage hash
-        _p.first.set_stHash(_p.second.hash());
+        _p.first.set_stHash(_p.second.hash()); // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
 
         std::vector<uint8_t> value;
         m_accounts.insert(h256(addr), _p.first.asJsonBytes(value));
