@@ -16,7 +16,7 @@ namespace eevm
     {
         const auto acc = accounts.find(addr);
         if (acc != accounts.cend())
-            return acc->second;
+            return  SimpleAccountState(std::move(acc->second.first), acc->second.second);
 
         return create(addr, 0, {});
     }

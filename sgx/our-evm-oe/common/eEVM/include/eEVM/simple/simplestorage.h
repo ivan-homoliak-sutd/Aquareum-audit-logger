@@ -19,7 +19,10 @@ namespace eevm
     public:
         std::map<uint256_t, uint256_t> m_s;
 
-        SimpleStorage() = default;
+        SimpleStorage()
+          : m_s()
+        {}
+
         SimpleStorage(const nlohmann::json& j);
         SimpleStorage(const SimpleStorage& other)  // IH: copy ctor
           : m_s(other.m_s)
@@ -45,6 +48,9 @@ namespace eevm
 
         uint256_t hash() override;
         static uint256_t hashOfEmptyStorage();
+
+        std::string toString() const override;
+        void to_json(nlohmann::json& j) const;
 
         friend void to_json(nlohmann::json&, const SimpleStorage&);
         friend void from_json(const nlohmann::json&, SimpleStorage&);

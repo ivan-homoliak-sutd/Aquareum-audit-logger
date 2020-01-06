@@ -101,11 +101,13 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         }
         TRACE_ENCLAVE("Creating a new state entry for a contract with addr %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
-        contrState = new eevm::SimpleAccountState(cs);
+        TRACE_ENCLAVE("strg.size= %ld", cs.st.m_s.size());
+        contrState = new eevm::SimpleAccountState(std::move(cs));
+        TRACE_ENCLAVE("strg.size= %ld", contrState->st.m_s.size());
     } else {
         TRACE_ENCLAVE("Contract already exists => fetching its state.");
         auto cs = gs->get(etx.to);
-        contrState = new eevm::SimpleAccountState(cs);
+        contrState = new eevm::SimpleAccountState(std::move(cs));
     }
 
     // 3) update the balance of sender before we execute the code (to avoid inflation bugs)
@@ -113,14 +115,18 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = gs->getStorages().at(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
-        senderAccnt = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
-        assert(senderAccnt.acc.get_balance() == senderBalBefore + senderDeducted);
+        auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
+        assert(senderAccntUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
     // 4) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
+    TRACE_ENCLAVE("storage addr is... strg= %p", &contrState->st);
+    TRACE_ENCLAVE("storage addr is... strg.size= %ld", contrState->st.m_s.size());
+    TRACE_ENCLAVE("dumping storage: %s", contrState->st.toString().c_str());
+
     const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
     // 5) Check the response

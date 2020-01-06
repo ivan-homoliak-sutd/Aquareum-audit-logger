@@ -173,8 +173,8 @@ namespace eevm
 
         ExecResult run(
             const Address& caller,
-            AccountState<_A, _S> callee,
-            vector<uint8_t> input,  // Take a copy here, then move it into context
+            AccountState<_A, _S> callee,  // IH: try to use ref here
+            vector<uint8_t> input,        // Take a copy here, then move it into context
             const uint256_t& call_value)
         {
             TRACE_ME("started");
@@ -196,7 +196,7 @@ namespace eevm
                 caller,
                 callee,
                 move(input),
-                callee.acc.get_code(),
+                callee.acc.get_code(),  // IH: try to use ref here
                 call_value,
                 rh,
                 hh,
@@ -979,12 +979,13 @@ namespace eevm
             TRACE_ME("sstore()");
             const auto k = ctxt->s.pop();
             const auto v = ctxt->s.pop();
-            if (!v){
+            if (!v) {
                 TRACE_ME("removing from storage...");
                 ctxt->st.remove(k);
-            }
-            else{
-                TRACE_ME("inserting to storage...");
+            } else {
+                TRACE_ME("inserting to storage... ctx= %p", ctxt);
+                TRACE_ME("inserting to storage... strg= %p", &ctxt->st);
+                TRACE_ME("dumping storage:\n %s", ctxt->st.toString().c_str());
                 ctxt->st.store(k, v);
             }
         }

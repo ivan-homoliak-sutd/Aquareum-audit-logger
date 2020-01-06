@@ -40,8 +40,8 @@ namespace eevm
         assert(a.get_address() == addr);
 
         // fetch account's data from storage map
-        SimpleStorage s = m_storages.at(addr);  // TODO: resolve non-existing
-        return SimpleAccountState(a, s);        // IH: hope c++ RVO works here
+        SimpleStorage& s = m_storages.at(addr);      // TODO: resolve non-existing
+        return SimpleAccountState(std::move(a), s);  // IH: hope c++ RVO works here
     }
 
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)

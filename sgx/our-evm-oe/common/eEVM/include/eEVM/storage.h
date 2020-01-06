@@ -4,6 +4,7 @@
 #pragma once
 
 #include "bigint.h"
+#include "string"
 
 namespace eevm
 {
@@ -16,6 +17,7 @@ namespace eevm
         virtual uint256_t load(const uint256_t& key) = 0;
         virtual bool remove(const uint256_t& key) = 0;
         virtual uint256_t hash() = 0;
+        virtual std::string toString() const = 0;
         virtual ~Storage() {}
     };
 }  // namespace eevm

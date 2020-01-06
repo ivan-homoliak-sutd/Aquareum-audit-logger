@@ -24,30 +24,31 @@ namespace eevm
         _Account acc;  // we cannot hold reference since MP# does not contain c++ object that can be modified by reference
         _Storage& st;  // we can hols reference due to storage is c++ map object
 
-        template <
-            typename T,
-            typename U,
-            typename = std::enable_if_t<std::is_base_of<_Account, T>::value>,
-            typename = std::enable_if_t<std::is_base_of<_Storage, U>::value>>
-        AccountState(std::pair<T, U>& p)
-          : acc(p.first), st(p.second) {}
+        // template <
+        //     typename T,
+        //     typename U,
+        //     typename = std::enable_if_t<std::is_base_of<_Account, T>::value>,
+        //     typename = std::enable_if_t<std::is_base_of<_Storage, U>::value>>
+        // AccountState(std::pair<T, U>& p)
+        //   : acc(p.first), st(p.second) {}
 
-        constexpr AccountState(const AccountState& other)  // copy ctor
+        // AccountState(const _Account& a, const _Storage& s)
+        //   : acc(a), st(s)
+        // {}
+
+        AccountState(const _Account&& a, _Storage& s)  // move ctor
+          : acc(std::move(a)), st(s)
+        {}
+
+        AccountState(const AccountState& other)  // copy ctor
           : acc(other.acc), st(other.st)
         {}
-        constexpr AccountState(const AccountState&& other)  // move ctor
-          : acc(std::move(other.acc)), st(other.st)         // storage is never moved
+
+        AccountState(const AccountState&& other)     // move ctor
+          : acc(std::move(other.acc)), st(other.st)  // storage is never moved since it is just ref
         {}
-        AccountState& operator=(const AccountState& other)
-        {
-            // delete &acc;
-            acc = other.acc;
-            st = other.st;
-            return *this;
-        }
-        AccountState(_Account& acc, _Storage& st)
-          : acc(acc), st(st)
-        {}
+
+        AccountState& operator=(const AccountState& other) = delete;  // disable = operator
     };
 
     using SimpleAccountState = AccountState<SimpleAccount, SimpleStorage>;
