@@ -245,6 +245,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
     auto senderAccnt = m_gs.get(etx.origin);
+    bool contrDeployed = false;
     eevm::SimpleAccountState* contrState;
     if (!m_gs.exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
@@ -255,6 +256,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         TRACE_HOST("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = m_gs.create(etx.to, etx.value, etx.code);  // insert account state of contract
         contrState = new eevm::SimpleAccountState(cs);
+        contrDeployed = true;
     } else {
         TRACE_HOST("Contract already exists => fetching its state.");
         auto cs = m_gs.get(etx.to);
@@ -274,7 +276,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     TRACE_HOST("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(m_gs);
     eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
+    eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
     // 5)  Check the response
     if (e.er != eevm::ExitReason::returned) {
@@ -290,7 +292,17 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_HOST("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
-    // 6) Update the nonce of the sender
+    // 6) if deployment of contract was made, then update the code of the contract to contain the effect of execution
+    if (contrDeployed) {
+        contrState->acc.set_code(std::move(e.output));
+    }
+
+    // 7) update the storage hash of the account of contract called
+    contrState->acc.set_stHash(contrState->st.hash());
+    m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
+
+
+    // 8) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
     m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 

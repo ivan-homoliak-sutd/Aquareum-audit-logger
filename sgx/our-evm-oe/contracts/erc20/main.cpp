@@ -145,8 +145,7 @@ uint256_t get_balance(
     const eevm::Address& contract_address,
     const eevm::Address& target_address)
 {
-    // Anyone can call balanceOf - prove this by asking from a randomly generated
-    // address
+    // Anyone can call balanceOf - prove this by asking from a randomly generated address
     const auto caller = get_random_address();
 
     auto function_call = eevm::to_bytes(env.contract_definition["hashes"]["balanceOf(address)"]);
@@ -230,7 +229,7 @@ void print_erc20_state(
     Balances balances;
 
     for (const auto& user : users) {
-        balances.emplace_back(std::make_pair(user, get_balance(env, contract_address, user)));
+        balances.emplace_back(std::make_pair(user, get_balance(env, contract_address, user)));  // IH: drop make_pair to leverage potential of emplace?
     }
 
     std::cout << heading << std::endl;
