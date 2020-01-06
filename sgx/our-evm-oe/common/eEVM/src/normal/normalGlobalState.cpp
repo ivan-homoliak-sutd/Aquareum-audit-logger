@@ -25,8 +25,6 @@ namespace eevm
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
         TRACE_ME("get addr: %s ", to_hex_string(addr).c_str());
-        // TRACE_ME("get addr: %s ", h256(addr).hex().c_str());
-        std::cout << "\t GET GS: " << m_accounts << "\n";
         if (!m_accounts.contains(h256(addr))) {
             INTERNAL_EXCEPTION(fmt::format("Requested account {} does not exist.", to_hex_string(addr).c_str()));
         }
@@ -47,9 +45,7 @@ namespace eevm
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
         TRACE_ME("create account: %s ", to_hex_string(addr).c_str());
-        std::cout << "\t INSERT GS: " << m_accounts << "\n";
         insert(std::make_pair(SimpleAccount(addr, balance, code), SimpleStorage()));
-        std::cout << "\t INSERT GS: " << m_accounts << "\n";
         assert(m_accounts.contains(h256(addr)));
         return get(addr);
     }

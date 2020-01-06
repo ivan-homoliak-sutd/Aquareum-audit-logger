@@ -284,7 +284,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    tr.print_last_n(std::cout, 10);
+    // tr.print_last_n(std::cout, 10);
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_HOST("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);

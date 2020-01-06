@@ -42,11 +42,11 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 
     // Check the response
     if (e.er != eevm::ExitReason::returned) {
-        tr.print_last_n(std::cout, 100);
+        tr.print_last_n(std::cout, 10);
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    tr.print_last_n(std::cout, 100);
+    // tr.print_last_n(std::cout, 10);
 
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
@@ -101,9 +101,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         }
         TRACE_ENCLAVE("Creating a new state entry for a contract with addr %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
-        TRACE_ENCLAVE("strg.size= %ld", cs.st.m_s.size());
         contrState = new eevm::SimpleAccountState(std::move(cs));
-        TRACE_ENCLAVE("strg.size= %ld", contrState->st.m_s.size());
     } else {
         TRACE_ENCLAVE("Contract already exists => fetching its state.");
         auto cs = gs->get(etx.to);
@@ -123,9 +121,6 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     TRACE_ENCLAVE("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
-    TRACE_ENCLAVE("storage addr is... strg= %p", &contrState->st);
-    TRACE_ENCLAVE("storage addr is... strg.size= %ld", contrState->st.m_s.size());
-    TRACE_ENCLAVE("dumping storage: %s", contrState->st.toString().c_str());
 
     const eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
 
@@ -137,7 +132,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    tr.print_last_n(std::cout, 10);
+    // tr.print_last_n(std::cout, 10);
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
@@ -266,7 +261,7 @@ int ECLedger::execute_hello_world()
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         return 2;
     }
-    tr.print_last_n(std::cout, 10);
+    // tr.print_last_n(std::cout, 10);
     TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(tx.log_handler).c_str());
 
     // Create string from response data, and print it

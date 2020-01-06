@@ -384,10 +384,10 @@ namespace eevm
         void dispatch()
         {
             const auto op = get_op();
-            TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
+            // TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
             if (tr) {  // TODO: remove if from critical path
                 tr->add(ctxt->get_pc(), op, get_call_depth(), ctxt->s);
-                tr->print_last_n(std::cout, 1);
+                // tr->print_last_n(std::cout, 1);
             }
 
             switch (op) {
@@ -983,8 +983,6 @@ namespace eevm
                 TRACE_ME("removing from storage...");
                 ctxt->st.remove(k);
             } else {
-                TRACE_ME("inserting to storage... ctx= %p", ctxt);
-                TRACE_ME("inserting to storage... strg= %p", &ctxt->st);
                 TRACE_ME("dumping storage:\n %s", ctxt->st.toString().c_str());
                 ctxt->st.store(k, v);
             }
