@@ -244,7 +244,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     debug_print("Executing CONTRACT in HOST...");
 
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
-    auto senderAccnt = m_gs.get(etx.origin, false);
+    auto senderAccnt = m_gs.get(etx.origin);
     eevm::SimpleAccountState* contrState;
     if (!m_gs.exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
@@ -254,11 +254,11 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
         }
         TRACE_HOST("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = m_gs.create(etx.to, etx.value, etx.code);  // insert account state of contract
-        contrState = new eevm::SimpleAccountState(std::move(cs));
+        contrState = new eevm::SimpleAccountState(cs);
     } else {
         TRACE_HOST("Contract already exists => fetching its state.");
-        auto cs = m_gs.get(etx.to, false);
-        contrState = new eevm::SimpleAccountState(std::move(cs));
+        auto cs = m_gs.get(etx.to);
+        contrState = new eevm::SimpleAccountState(cs);
     }
 
     // 3) update the balance before we execute the code
@@ -266,8 +266,8 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = m_gs.getStorages().at(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
-        senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
-        assert(senderAccnt.acc.get_balance() == senderBalBefore + senderDeducted);
+        auto senderAccntAfter = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
+        assert(senderAccntAfter.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
     // 4) Create processor & Run code of TX
@@ -290,10 +290,9 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_HOST("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
-     // 6) Update the nonce of the sender
+    // 6) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
-    senderAccnt = m_gs.get(etx.origin, false);
-    senderAccnt = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
@@ -316,8 +315,10 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
 
+    // allow account creation for operator (if it does not exist)
+    auto snderAcState = (etx.origin == this->operAddr && !m_gs.exists(etx.origin)) ? m_gs.create(etx.origin, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.origin);
+
     // 2) increment the nonce and adjust the balance of the sender
-    auto snderAcState = m_gs.get(etx.origin, (etx.origin == this->operAddr) ? true : false);  // allow account creation for operator
     debug_print(fmt::format("Code size of sender account is {} ", snderAcState.acc.get_code_ref().size()));
     if (EMPTY_CODE_OBJ == snderAcState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         snderAcState.acc.set_nonce(snderAcState.acc.get_nonce() + 1);
@@ -331,16 +332,16 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalBefore = snderAcState.acc.get_balance();
     auto senderDeducted = ((etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value));
-    m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, snderAcState.acc.get_nonce(), storage), storage});
-    assert(snderAcState.acc.get_balance() == senderBalBefore + senderDeducted);
+    auto accSndUpdated = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, snderAcState.acc.get_nonce(), storage), storage});
+    assert(accSndUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
 
     // 3) add value to the target account
-    auto recvAcState = m_gs.get(etx.to, true);  // alow creation of a target account here
-    storage = m_gs.getStorages().at(etx.to);    // just copy the old storage
+    auto recvAcState = (!m_gs.exists(etx.to)) ? m_gs.create(etx.to, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.to);  // cretate target account if it does not exist
+    storage = m_gs.getStorages().at(etx.to);                                                                 // just copy the old storage
     code = recvAcState.acc.get_code_ref();
     auto recvBalanceBefore = recvAcState.acc.get_balance();
-    recvAcState = m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});
-    assert(recvAcState.acc.get_balance() == recvBalanceBefore + intx::uint256(etx.value));
+    auto recvAcStateAfter = m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});
+    assert(recvAcStateAfter.acc.get_balance() == recvBalanceBefore + intx::uint256(etx.value));
 
     return RET_SUCCESS;
 }

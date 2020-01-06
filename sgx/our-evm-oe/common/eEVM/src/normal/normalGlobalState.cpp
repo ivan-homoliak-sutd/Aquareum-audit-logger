@@ -25,9 +25,10 @@ namespace eevm
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
         TRACE_ME("get addr: %s ", to_hex_string(addr).c_str());
-        std::cout << "\t GET GS: "<< m_accounts << "\n";
+        // TRACE_ME("get addr: %s ", h256(addr).hex().c_str());
+        std::cout << "\t GET GS: " << m_accounts << "\n";
         if (!m_accounts.contains(h256(addr))) {
-                INTERNAL_EXCEPTION(fmt::format("Requested account {} does not exist.", to_hex_string(addr).c_str()));
+            INTERNAL_EXCEPTION(fmt::format("Requested account {} does not exist.", to_hex_string(addr).c_str()));
         }
 
         std::string acnt_json = m_accounts.at(h256(addr));
@@ -46,14 +47,14 @@ namespace eevm
     SimpleAccountState NormalGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
         TRACE_ME("create account: %s ", to_hex_string(addr).c_str());
-        std::cout << "\t INSERT GS: "<< m_accounts << "\n";
+        std::cout << "\t INSERT GS: " << m_accounts << "\n";
         insert(std::make_pair(SimpleAccount(addr, balance, code), SimpleStorage()));
-        std::cout << "\t INSERT GS: "<< m_accounts << "\n";
+        std::cout << "\t INSERT GS: " << m_accounts << "\n";
         assert(m_accounts.contains(h256(addr)));
         return get(addr);
     }
 
-    bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(addr); }
+    bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(h256(addr)); }
     size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
     const Block& NormalGlobalState::get_current_block() { return currentBlock; }
     uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
@@ -76,9 +77,6 @@ namespace eevm
         return get(addr);
     }
 
-    /** This function should update the old entry in MP3 if it already exists.
-     *
-     */
     void NormalGlobalState::insert(const StateEntry& _p)
     {
         // auto _p = const_cast<StateEntry&>(p);

@@ -21,8 +21,8 @@ namespace eevm
         using _Account = _A;
         using _Storage = _S;
 
-        _Account& acc;
-        _Storage& st;
+        _Account acc;  // we cannot hold reference since MP# does not contain c++ object that can be modified by reference
+        _Storage& st;  // we can hols reference due to storage is c++ map object
 
         template <
             typename T,
@@ -36,18 +36,18 @@ namespace eevm
           : acc(other.acc), st(other.st)
         {}
         constexpr AccountState(const AccountState&& other)  // move ctor
-          : acc(std::move(other.acc)), st(std::move(other.st))
+          : acc(std::move(other.acc)), st(other.st)         // storage is never moved
         {}
-        // constexpr explicit AccountState(AccountState&& other) = default;  // movable ctor
         AccountState& operator=(const AccountState& other)
         {
+            // delete &acc;
             acc = other.acc;
             st = other.st;
             return *this;
         }
-
         AccountState(_Account& acc, _Storage& st)
-          : acc(acc), st(st) {}
+          : acc(acc), st(st)
+        {}
     };
 
     using SimpleAccountState = AccountState<SimpleAccount, SimpleStorage>;

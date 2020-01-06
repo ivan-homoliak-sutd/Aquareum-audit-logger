@@ -23,7 +23,7 @@ namespace eevm
 
     SimpleAccountState SimpleGlobalState::create(const Address& addr, const uint256_t& balance, const Code& code)
     {
-        insert({SimpleAccount(addr, balance, code), {}});
+        insert(std::make_pair(SimpleAccount(addr, balance, code), SimpleStorage()));
 
         return get(addr);
     }

@@ -76,7 +76,7 @@ namespace ecl
         ~Operator() {}
 
         inline eevm::Address& getOperAddr() { return m_ecl.operAddr; }
-        inline eevm::SimpleAccountState getAccount(eevm::Address& addr) { return m_ecl.m_gs.get(addr, false); }
+        inline eevm::SimpleAccountState getAccount(eevm::Address& addr) { return m_ecl.m_gs.get(addr); }
 
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);

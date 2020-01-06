@@ -101,11 +101,11 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         }
         TRACE_ENCLAVE("Creating a new state entry for a contract with addr %s", eevm::to_hex_string(etx.to).c_str());
         auto cs = gs->create(etx.to, etx.value, etx.code);  // insert account state of contract
-        contrState = new eevm::SimpleAccountState(std::move(cs));
+        contrState = new eevm::SimpleAccountState(cs);
     } else {
         TRACE_ENCLAVE("Contract already exists => fetching its state.");
         auto cs = gs->get(etx.to);
-        contrState = new eevm::SimpleAccountState(std::move(cs));
+        contrState = new eevm::SimpleAccountState(cs);
     }
 
     // 3) update the balance of sender before we execute the code (to avoid inflation bugs)
@@ -139,8 +139,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // 6) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
-    senderAccnt = gs->get(etx.origin);
-    senderAccnt = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
@@ -186,8 +185,8 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     auto& storage = gs->getStorages().at(etx.to);                                                         // just copy the old storage
     auto recvBalanceBefore = recvAcState.acc.get_balance();
     code = recvAcState.acc.get_code_ref();
-    recvAcState = gs->update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});
-    assert(recvAcState.acc.get_balance() == recvBalanceBefore + intx::uint256(etx.value));
+    auto recvAcStateAfter = gs->update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});
+    assert(recvAcStateAfter.acc.get_balance() == recvBalanceBefore + intx::uint256(etx.value));
 
     return RET_SUCCESS;
 }
