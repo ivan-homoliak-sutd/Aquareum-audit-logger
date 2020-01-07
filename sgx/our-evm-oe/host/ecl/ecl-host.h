@@ -9,7 +9,6 @@
 
 using namespace eevm;
 
-
 using Bytes = std::vector<uint8_t>;
 
 struct CtorPar {
@@ -28,6 +27,21 @@ struct ContrDefinition {
     std::vector<CtorPar> ctor_params;                      // parameters of ctors (with defaut values)
 };
 
+
+struct OperAccount {
+    eevm::Address addr;
+    uint8_t SK[ECC_SK_SIZE];
+    secp256k1_pubkey PK;
+
+    OperAccount() = default;
+    OperAccount(const uint8_t* sk, const secp256k1_pubkey* pk, eevm::Address a)
+      : addr(a)
+    {
+        memcpy(SK, sk, ECC_SK_SIZE);
+        memcpy(&PK, pk, sizeof(secp256k1_pubkey));
+    }
+};
+
 class ECLedger {
 public:
     NormalGlobalState m_gs;  // the full global state of the ECL ledger
@@ -40,8 +54,7 @@ public:
     inline ECLedger(ECC* e)
       : m_ecc(e){};
 
-    PersistantTransaction* createHelloWorldTX(secp256k1_pubkey& PK_sender,
-                                              uint8_t* SK_sender,
+    PersistantTransaction* createHelloWorldTX(OperAccount& sender,
                                               size_t nonce);
 
     PersistantTransaction* createSumTx(int a, int b,
@@ -53,8 +66,7 @@ public:
                                               uint8_t* SK_sender);
 
     PersistantTransaction* createDeploymentTX(const ContrDefinition& cdef,
-                                              secp256k1_pubkey& PK_sender,
-                                              uint8_t* SK_sender,
+                                              OperAccount& sender,
                                               size_t nonce,
                                               uint64_t value);
 

@@ -106,23 +106,18 @@ void append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
 
 /////////////////// Transaction creation ///////////////////
 
-eevm::PersistantTransaction* ECLedger::createHelloWorldTX(secp256k1_pubkey& PK_sender,
-                                                          uint8_t* SK_sender,
-                                                          size_t nonce)
+eevm::PersistantTransaction* ECLedger::createHelloWorldTX(OperAccount& sender, size_t nonce)
 {
-    // Construct address for sender using his PK
-    const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
-
     // Deterministically compute address for contract from nonce and address of sender
     std::vector<uint8_t> raw_address(20);
-    const eevm::Address contract_address = eevm::generate_address(operAddr, nonce);
+    const eevm::Address contract_address = eevm::generate_address(sender.addr, nonce);
 
     // Create code
     std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
     const eevm::Code code = create_printStr_bytecode(hello_world);
 
-    auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, code);
-    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
+    auto tx = new eevm::PersistantTransaction(sender.addr, contract_address, nonce, 0, code);
+    this->m_ecc->sign_data(tx->asDataForHash(), sender.SK, tx->signature);
     return tx;
 }
 
@@ -154,17 +149,13 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 
 // NOTE: it supports only 32B uint arguments of a constructor
 eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition& contract_definition,
-                                                          secp256k1_pubkey& PK_sender,
-                                                          uint8_t* SK_sender,
+                                                          OperAccount& sender,
                                                           size_t nonce,
                                                           uint64_t value)
 {
-    // Construct address for sender using his PK
-    const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
-
     // Deterministically compute address for contract from nonce and address of sender
     std::vector<uint8_t> raw_address(20);
-    const eevm::Address contract_address = eevm::generate_address(operAddr, nonce);
+    const eevm::Address contract_address = eevm::generate_address(sender.addr, nonce);
 
     // Get the binary constructor of the contract and its parameters
     auto contract_ctor_code = contract_definition.bin;  // copy here
@@ -176,8 +167,8 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition&
             throw std::logic_error(fmt::format("Unsupported type of parameter in passed: '{}'", par.type));
     }
 
-    auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, value, contract_ctor_code);
-    this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
+    auto tx = new eevm::PersistantTransaction(sender.addr, contract_address, nonce, value, contract_ctor_code);
+    this->m_ecc->sign_data(tx->asDataForHash(), sender.SK, tx->signature);
 
     return tx;
 }

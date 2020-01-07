@@ -165,6 +165,11 @@ namespace eevm
         return intx::from_string<uint256_t>(s);
     }
 
+    inline uint256_t string_to_uint256(const std::string& s)
+    {
+        return intx::from_string<uint256_t>(s);
+    }
+
     inline std::string to_checksum_address(const Address& a)
     {
         auto s = address_to_hex_string(a);
