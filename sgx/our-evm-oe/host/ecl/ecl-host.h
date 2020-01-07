@@ -22,6 +22,7 @@ struct CtorPar {
 };
 
 struct ContrDefinition {
+    std::string name;
     std::vector<byte> bin;                                 // code of the contract
     std::vector<std::pair<std::string, Bytes>> endpoints;  // functions available
     std::vector<CtorPar> ctor_params;                      // parameters of ctors (with defaut values)

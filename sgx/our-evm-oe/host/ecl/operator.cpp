@@ -141,7 +141,13 @@ void Operator::_printGlobalState(unsigned max)
         auto j = nlohmann::json::parse(a.second);
         SimpleAccount acc;
         eevm::from_json(j, acc);
-        std::cout << fmt::format("\t [{}] {}\n", i++, acc.toString());
+        std::string superTag = (this->m_ecl.operAddr == acc.get_address()) ? "*" : " ";  // mark SUPER account of O
+
+        std::string contrTag = "";
+        if (acc.get_code_ref() != EMPTY_CODE_OBJ)
+            contrTag = (m_contracts.end() != m_contracts.find(acc.get_address())) ? fmt::format(" [{}]", m_contracts[acc.get_address()]->name) : "";  // show name of contract if any
+
+        std::cout << fmt::format("\t{}[{}] {}{}\n", superTag, i++, acc.toString(), contrTag);
         if (i - 1 == max) {
             break;
         }
@@ -152,7 +158,7 @@ void Operator::_printGlobalState(unsigned max)
     eevm::print_sep();
 }
 
-ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
+ContrDefinition* Operator::_parseDefinitionFile(const std::string& contract_path)
 {
     std::ifstream contract_fstream(contract_path);
     if (!contract_fstream) {
@@ -172,6 +178,7 @@ ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
 
     const auto cit = all_contracts.begin();
     info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
+    conDef.name = cit.key().substr(0, cit.key().find("."));
     const auto& contract_definition = cit.value();
 
     conDef.bin = std::move(eevm::to_bytes(contract_definition["bin"]));
@@ -192,7 +199,7 @@ ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
     }
 
     m_definitions.push_back(std::move(conDef));
-    return m_definitions.back();
+    return &m_definitions.back();
 }
 
 
@@ -213,7 +220,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
     // origin and to selected in operator's shell
     eevm::Address sh_origin = this->m_ecl.operAddr;
-    eevm::Address shell_to = 0;
+    eevm::Address sh_to(0u);
 
     while (true) {
         if (tokens) {
@@ -221,8 +228,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             tokens = NULL;
         }
 
-        std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? " (OPER)" : "";
-        cout << fmt::format("$[o={}..{} | t={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(shell_to).substr(0, 8));
+        std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? " (SUPER)" : "";
+        cout << fmt::format("$[o={}..{} | t={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(sh_to).substr(0, 8));
         cin.getline(command, MAX_CMD_LEN);
         command_s = string(command);
 
@@ -232,13 +239,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // clang-format off
             std::cout << "Supported commands are:\n"
                       << "\t show | s"     << "\t display info about operator and enclave.\n"
-                      << "\t gs [n]"       << "\t\t display global state with max n entries [default=100].\n"
-                      << "\t gen [n]"      << "\t generate n random accounts [default=5].\n"
-                      << "\t origin a"     << "\t change the active address of origin [default=operator's].\n"
-                      << "\t deploy f"     << "\t deploy a contract using definition file f.\n"
+                      << "\t gs [n]"       << "\t\t display global state with max 'n' entries [default=100].\n"
+                      << "\t gen [n]"      << "\t generate 'n' random accounts [default=5].\n"
+                      << "\t origin a"     << "\t change the active address of origin to 'a' [default=operator's SUPER].\n"
+                      << "\t to a"         << "\t\t change the active address of contract destination to 'a'.\n"
+                      << "\t deploy f"     << "\t deploy a contract using definition file 'f'.\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
-                      << "\t tx add a b"   << "\t create TX that sums {a} and {b} in host and send it to enclave.\n"
+                      << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\n";
             // clang-format on
         } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
@@ -278,13 +286,33 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto it = tokens->begin();
             std::advance(it, 1);
 
-            eevm::Address addr = to_uint256(*it);
+            eevm::Address addr = string_to_uint256(*it);
             if (m_accounts.end() == m_accounts.find(addr)) {
                 error_print(fmt::format("Requested address {} was not found in local cache... (maybe contract?)", address_to_hex_string(addr)));
                 continue;
             }
-            info_print(fmt::format("\t The active account of shell changed to: {}", address_to_hex_string(addr)));
+            info_print(fmt::format("\t The active origin account of shell changed to: {}", address_to_hex_string(addr)));
             sh_origin = addr;
+        } else if (0 == strncmp(command, "to", 2)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            if (1 == tokenCnt) {
+                std::cout << "\t The active address of destination for contract calls is: " << address_to_hex_string(sh_to) << "\n";
+                continue;
+            }
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            eevm::Address addr = string_to_uint256(*it);
+            if (m_contracts.end() == m_contracts.find(addr)) {
+                error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
+                continue;
+            }
+            info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}", address_to_hex_string(addr)));
+            sh_to = addr;
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -363,7 +391,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             const auto contract_path = *it;
 
             // Parse the contract definition from file
-            ContrDefinition def;
+            ContrDefinition* def;
             try {
                 def = this->_parseDefinitionFile(contract_path);
             } catch (const std::exception& e) {
@@ -372,9 +400,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // create and sign deployment TX
             auto selAccnt = getAccount(sh_origin).acc;  // get account state of active account
-            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
+            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(*def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
             this->_dispatchTX(enclave, tx);
-            info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx.to)));
+            info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
+            m_contracts[tx->to] = def;  // store binding of contract address to its definition
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
