@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "ecledger_u.h"
+
 // includes from eEVM
 #include "eEVM/address.h"
 #include "eEVM/bigint.h"
@@ -9,7 +11,6 @@
 
 #include "data_types.h"
 #include "ecl-host.h"
-#include "ecledger_u.h"
 
 #include "signing.h"
 

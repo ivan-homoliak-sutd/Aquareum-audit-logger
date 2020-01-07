@@ -36,11 +36,11 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 	# -L$(INTX_LIB_DIR) -lintx
 
 Host_Cpp_Files := \
-	host.cpp \
 	utils.cpp \
 	./ecl/operator.cpp \
 	./ecl/ecl-host.cpp \
-	../common/signing-PB/signing.cpp
+	../common/signing-PB/signing.cpp \
+	host.cpp
 
 Host_Include_Paths := \
 	-I. \

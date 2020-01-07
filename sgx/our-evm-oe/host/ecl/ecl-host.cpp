@@ -6,7 +6,7 @@
 #include "utils.h"
 
 // eEVM
-#include "eEVM/bigint.h"
+// #include "eEVM/bigint.h"
 #include "eEVM/opcode.h"
 #include "eEVM/processor.h"
 #include "eEVM/transaction.h"
@@ -15,8 +15,6 @@
 // #include "eEVM/simple/simpleglobalstate.h"
 
 #include "aleth-mp3/Common.h"
-
-#include <openssl/sha.h>
 
 /////////////////// bytecode generation ///////////////////
 
@@ -175,18 +173,18 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition&
     return tx;
 }
 
-eevn::PersistantTransaction* createCallFunctionTX(const OperAccount& sender,
-                                                  const eevm::Address to,
-                                                  const std::vector<uint256> params,
-                                                  const Bytes& function_hex_ptr,
-                                                  const size_t nonce,
-                                                  const uint64_t value)
+eevm::PersistantTransaction* ECLedger::createCallFunctionTX(const OperAccount& sender,
+                                                            const eevm::Address to,
+                                                            const std::vector<u256> params,
+                                                            const Bytes& function_hex_ptr,
+                                                            const size_t nonce,
+                                                            const uint64_t value)
 {
     auto function_call = function_hex_ptr;  // copy vector
 
     // append all passed arguments to function call pointer
     for (auto& p : params) {
-        append_argument(function_call, p);
+        append_arg(function_call, p);
     }
 
     auto tx = new eevm::PersistantTransaction(sender.addr, to, nonce, value, function_call);

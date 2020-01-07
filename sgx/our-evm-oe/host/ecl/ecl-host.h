@@ -1,8 +1,11 @@
 #pragma once
 
 #include "common.h"
+#include "eEVM/bigint.h"
+// #include "eEVM/bigint.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/transaction.h"
+
 #include "secp256k1.h"
 #include "signing.h"
 #include <boost/tokenizer.hpp>
@@ -60,66 +63,67 @@ struct ContrDefinition {
             }
         }
         return ret;
-    };
+    }
+};
 
 
-    struct OperAccount {
-        eevm::Address addr;
-        uint8_t SK[ECC_SK_SIZE];
-        secp256k1_pubkey PK;
+struct OperAccount {
+    eevm::Address addr;
+    uint8_t SK[ECC_SK_SIZE];
+    secp256k1_pubkey PK;
 
-        OperAccount() = default;
-        OperAccount(const uint8_t* sk, const secp256k1_pubkey* pk, eevm::Address a)
-          : addr(a)
-        {
-            memcpy(SK, sk, ECC_SK_SIZE);
-            memcpy(&PK, pk, sizeof(secp256k1_pubkey));
-        }
-    };
+    OperAccount() = default;
+    OperAccount(const uint8_t* sk, const secp256k1_pubkey* pk, eevm::Address a)
+      : addr(a)
+    {
+        memcpy(SK, sk, ECC_SK_SIZE);
+        memcpy(&PK, pk, sizeof(secp256k1_pubkey));
+    }
+};
 
-    class ECLedger {
-    public:
-        NormalGlobalState m_gs;  // the full global state of the ECL ledger
+class ECLedger {
+public:
+    NormalGlobalState m_gs;  // the full global state of the ECL ledger
 
-        ECC* m_ecc;  // ECC signing wrapper
+    ECC* m_ecc;  // ECC signing wrapper
 
-        eevm::Address operAddr;
+    eevm::Address operAddr;
 
 
-        inline ECLedger(ECC* e)
-          : m_ecc(e){};
+    inline ECLedger(ECC* e)
+      : m_ecc(e){};
 
-        PersistantTransaction* createHelloWorldTX(OperAccount& sender,
-                                                  size_t nonce);
+    PersistantTransaction* createHelloWorldTX(OperAccount& sender,
+                                              size_t nonce);
 
-        PersistantTransaction* createSumTx(int a, int b,
-                                           secp256k1_pubkey& PK_sender,
-                                           uint8_t* SK_sender,
-                                           size_t nonce);
+    PersistantTransaction* createSumTx(int a, int b,
+                                       secp256k1_pubkey& PK_sender,
+                                       uint8_t* SK_sender,
+                                       size_t nonce);
 
-        PersistantTransaction* createIncCounterTX(secp256k1_pubkey& PK_sender,
-                                                  uint8_t* SK_sender);
+    PersistantTransaction* createIncCounterTX(secp256k1_pubkey& PK_sender,
+                                              uint8_t* SK_sender);
 
-        PersistantTransaction* createDeploymentTX(const ContrDefinition& cdef,
-                                                  OperAccount& sender,
-                                                  size_t nonce,
-                                                  uint64_t value);
+    PersistantTransaction* createDeploymentTX(const ContrDefinition& cdef,
+                                              OperAccount& sender,
+                                              size_t nonce,
+                                              uint64_t value);
 
-        PersistantTransaction* createCallFunctionTX(const OperAccount& sender,
-                                                    const eevm::Address to,
-                                                    const std::vector<uint256> params,
-                                                    const Bytes& function_hex_ptr,
-                                                    const size_t nonce,
-                                                    const uint64_t value)
+    PersistantTransaction* createCallFunctionTX(const OperAccount& sender,
+                                                const eevm::Address to,
+                                                const std::vector<u256> params,
+                                                const Bytes& function_hex_ptr,
+                                                const size_t nonce,
+                                                const uint64_t value);
 
-            PersistantTransaction* createNewAccountTX(secp256k1_pubkey& PK_sender,
-                                                      uint8_t* SK_sender,
-                                                      const Address& newAddr,
-                                                      unsigned initBalance,
-                                                      size_t nonce);
+    PersistantTransaction* createNewAccountTX(secp256k1_pubkey& PK_sender,
+                                              uint8_t* SK_sender,
+                                              const Address& newAddr,
+                                              unsigned initBalance,
+                                              size_t nonce);
 
-        int executeTX(PersistantTransaction* tx);
+    int executeTX(PersistantTransaction* tx);
 
-    private:
-        int _execute_transfer_tx(Transaction& etx);
-    };
+private:
+    int _execute_transfer_tx(Transaction& etx);
+};

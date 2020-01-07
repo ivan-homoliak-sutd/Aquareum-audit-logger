@@ -352,7 +352,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
         } else if (0 == strncmp(command, "call ", 5)) {
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
+            if (!correct_token_cnt(command_s, {2, 3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
                 continue;
 
             auto it = tokens->begin();
@@ -370,7 +370,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // Check the number of endpoint's argument passed
             auto& cdef = *m_contracts[sh_to];
             auto& ep = cdef.endpoints[endpointID];
-            auto requiredParTypes = cdef.getParamTypesOfEP(endpointID);
+            vector<ParamTypes> requiredParTypes;
+            try {
+                requiredParTypes = cdef.getParamTypesOfEP(endpointID);
+            } catch (const std::exception& e) {
+                std::cerr << e.what() << '\n';
+                continue;
+            }
             if (tokenCnt - 2 != requiredParTypes.size()) {
                 std::cerr << fmt::format("Invalid number of arguments ({}) passed for endpoint #{} (required {}).\n", tokenCnt - 2, endpointID, requiredParTypes.size());
                 continue;
@@ -378,22 +384,22 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // Process parameters for endpoint
             std::advance(it, 1);
-            std::vector<uint256> parsedParams;
+            std::vector<u256> parsedParams;
             uint j = 0;
-            for (; it != tokens.end(); ++it, j++) {
+            for (; it != tokens->end(); ++it, j++) {
                 if (ParamTypes::address == requiredParTypes[j]) {
                     parsedParams.push_back(string_to_uint256(*it));  // this might later change
                 } else if (ParamTypes::uint256 == requiredParTypes[j]) {
                     parsedParams.push_back(string_to_uint256(*it));
                 } else {
-                    std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", requiredParTypes[j], j);
+                    std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", (uint)requiredParTypes[j], j);
                     continue;
                 }
             }
 
-            INFO_PRINT("Creating TX that calls contract function {} ...", ep.first);
+            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
-            eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], m_contracts[sh_to], parsedParams, ep.second, selAccnt.get_nonce(), 0);
+            eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
             this->_dispatchTX(enclave, tx);
 
