@@ -153,10 +153,11 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 }
 
 // NOTE: it supports only 32B uint arguments of a constructor
-eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& contract_definition,
+eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition& contract_definition,
                                                           secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender,
-                                                          size_t nonce)
+                                                          size_t nonce,
+                                                          uint64_t value)
 {
     // Construct address for sender using his PK
     const eevm::Address sender = eevm::from_big_endian(PK_sender.data, PB_ADDR_SIZE);
@@ -166,19 +167,17 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const nlohmann::json& 
     const eevm::Address contract_address = eevm::generate_address(operAddr, nonce);
 
     // Get the binary constructor of the contract and its parameters
-    auto contract_ctor_code = eevm::to_bytes(contract_definition["bin"]);
+    auto contract_ctor_code = contract_definition.bin;  // copy here
 
-    for (auto& ctor_param : contract_definition["ctor"]) {
-        debug_print(fmt::format("parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
-        if (string(ctor_param["type"]) != "uint256")
-            throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
-
-        append_arg(contract_ctor_code, u256(std::stoul(string(ctor_param["value"]))));
+    for (auto&& par : contract_definition.ctor_params) {
+        if ("uint256" == par.type) {
+            append_arg(contract_ctor_code, u256(par.value));
+        } else
+            throw std::logic_error(fmt::format("Unsupported type of parameter in passed: '{}'", par.type));
     }
-    // debug_print("--2");
-    auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, 0, contract_ctor_code);
+
+    auto tx = new eevm::PersistantTransaction(sender, contract_address, nonce, value, contract_ctor_code);
     this->m_ecc->sign_data(tx->asDataForHash(), SK_sender, tx->signature);
-    // debug_print("--3");
 
     return tx;
 }

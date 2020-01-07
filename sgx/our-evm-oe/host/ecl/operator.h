@@ -49,8 +49,9 @@ namespace ecl
 
     class Operator {
     public:
-        ECC m_ecc;       // ECC signing wrapper
-        ECLedger m_ecl;  // ECL ledger instance
+        ECC m_ecc;                                   // ECC signing wrapper
+        ECLedger m_ecl;                              // ECL ledger instance
+        std::vector<ContrDefinition> m_definitions;  // Cache of parsed contract definition files
 
         uint8_t PK_E_TEE[ECC_SK_SIZE];
         secp256k1_pubkey PK_E_PB;   // public key (i.e., unsigned char [64])
@@ -81,6 +82,7 @@ namespace ecl
         void sendMyPKtoEnclave(oe_enclave_t* enclave);
         void operatorLoop(oe_enclave_t* enclave);
         void _createMyAccntState(oe_enclave_t* enclave);
+        ContrDefinition _parseDefinitionFile(const std::string& contract_path);
 
     private:
         int persistMyKeys();

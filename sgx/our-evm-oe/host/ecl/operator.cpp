@@ -152,6 +152,49 @@ void Operator::_printGlobalState(unsigned max)
     eevm::print_sep();
 }
 
+ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
+{
+    std::ifstream contract_fstream(contract_path);
+    if (!contract_fstream) {
+        error_print(fmt::format("Unable to open contract definition file: \"{}\"", contract_path));
+        throw std::logic_error("Unable to open contract definition file");
+    }
+
+    // parsing JSON
+    const auto contracts_definition = nlohmann::json::parse(contract_fstream);
+    const auto all_contracts = contracts_definition["contracts"];
+    if (1 != all_contracts.size()) {
+        error_print("Multiple contracts found in the definition file... just one is supported for now.");
+        throw std::logic_error("Multiple contracts found in the definition file");
+    }
+
+    ContrDefinition conDef;
+
+    const auto cit = all_contracts.begin();
+    info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
+    const auto& contract_definition = cit.value();
+
+    conDef.bin = std::move(eevm::to_bytes(contract_definition["bin"]));
+
+    auto endpoints = contract_definition["hashes"];
+    for (auto&& e : endpoints.items()) {
+        conDef.endpoints.push_back(
+            std::make_pair(
+                e.key(), std::move(eevm::to_bytes(e.value()))));
+    }
+
+    for (auto& ctor_param : contract_definition["ctor"]) {
+        debug_print(fmt::format("parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
+        if (string(ctor_param["type"]) != "uint256")
+            throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
+
+        conDef.ctor_params.emplace_back(string(ctor_param["name"]), string(ctor_param["type"]), std::stoul(string(ctor_param["value"])));
+    }
+
+    m_definitions.push_back(std::move(conDef));
+    return m_definitions.back();
+}
+
 
 ////////////////////////////////////////
 // Processing commands from operator  //
@@ -183,12 +226,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
             // clang-format off
             std::cout << "Supported commands are:\n"
-                      << "\t show | s"     << "\t\t display info about operator and enclave.\n"
+                      << "\t show | s"     << "\t display info about operator and enclave.\n"
                       << "\t gs [n]"       << "\t\t display global state with max n entries [default=100].\n"
-                      << "\t gen [n]"      << "\t\t generate n random accounts [default=5].\n"
+                      << "\t gen [n]"      << "\t generate n random accounts [default=5].\n"
+                      << "\t deploy f"     << "\t deploy a contract using definition file f.\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
-                      << "\t tx add a b"   << "\tcreate TX that sums {a} and {b} in host and send it to enclave.\n"
+                      << "\t tx add a b"   << "\t create TX that sums {a} and {b} in host and send it to enclave.\n"
                       << "\n";
             // clang-format on
         } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
@@ -292,28 +336,18 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::advance(it, 1);
 
             const auto contract_path = *it;
-            std::ifstream contract_fstream(contract_path);
-            if (!contract_fstream) {
-                error_print(fmt::format("Unable to open contract definition file: \"{}\"", contract_path));
-                continue;
-            }
 
             // Parse the contract definition from file
-            const auto contracts_definition = nlohmann::json::parse(contract_fstream);
-            const auto all_contracts = contracts_definition["contracts"];
-            if (1 != all_contracts.size()) {
-                error_print("Multiple contracts found in the definition file... just one is supported for now.");
+            ContrDefinition def;
+            try {
+                def = this->_parseDefinitionFile(contract_path);
+            } catch (const std::exception& e) {
                 continue;
             }
 
-            const auto cit = all_contracts.begin();
-            info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
-            const auto& contract_definition = cit.value();
-
-            debug_print("1");
             // create and sign deployment TX
-            auto operAccnt = m_ecl.m_gs.get(this->m_ecl.operAddr).acc;  // get O's account state
-            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(contract_definition, this->PK_O, this->SK_O, operAccnt.get_nonce());
+            auto operAccnt = getAccount(this->m_ecl.operAddr).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(def, this->PK_O, this->SK_O, operAccnt.get_nonce(), 0);
             this->_dispatchTX(enclave, tx);
 
         } else if (0 == strcmp(command, "tx")) {

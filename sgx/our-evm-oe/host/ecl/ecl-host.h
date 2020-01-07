@@ -9,6 +9,25 @@
 
 using namespace eevm;
 
+
+using Bytes = std::vector<uint8_t>;
+
+struct CtorPar {
+    std::string name;
+    std::string type;
+    u256 value;
+
+    CtorPar(const std::string& name, const std::string& type, const u256& value)
+      : name(name), type(type), value(value)
+    {}
+};
+
+struct ContrDefinition {
+    std::vector<byte> bin;                                 // code of the contract
+    std::vector<std::pair<std::string, Bytes>> endpoints;  // functions available
+    std::vector<CtorPar> ctor_params;                      // parameters of ctors (with defaut values)
+};
+
 class ECLedger {
 public:
     NormalGlobalState m_gs;  // the full global state of the ECL ledger
@@ -33,10 +52,11 @@ public:
     PersistantTransaction* createIncCounterTX(secp256k1_pubkey& PK_sender,
                                               uint8_t* SK_sender);
 
-    PersistantTransaction* createDeploymentTX(const nlohmann::json& cdef,
+    PersistantTransaction* createDeploymentTX(const ContrDefinition& cdef,
                                               secp256k1_pubkey& PK_sender,
                                               uint8_t* SK_sender,
-                                              size_t nonce);
+                                              size_t nonce,
+                                              uint64_t value);
 
     eevm::PersistantTransaction* createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                     uint8_t* SK_sender,

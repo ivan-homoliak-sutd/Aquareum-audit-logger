@@ -12,8 +12,8 @@
       },
       "ctor": [
         {
-          "type": "uint256",
           "name": "totalSupply",
+          "type": "uint256",
           "value": "1023"
         }
       ]
