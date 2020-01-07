@@ -229,12 +229,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         }
 
         std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? " (SUPER)" : "";
-        cout << fmt::format("$[o={}..{} | t={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(sh_to).substr(0, 8));
+        cout << fmt::format("$[or={}..{} | to={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(sh_to).substr(0, 8));
         cin.getline(command, MAX_CMD_LEN);
         command_s = string(command);
 
         if (0 == strcmp(command, "")) {
             continue;
+
         } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
             // clang-format off
             std::cout << "Supported commands are:\n"
@@ -244,11 +245,16 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t origin a"     << "\t change the active address of origin to 'a' [default=operator's SUPER].\n"
                       << "\t to a"         << "\t\t change the active address of contract destination to 'a'.\n"
                       << "\t deploy f"     << "\t deploy a contract using definition file 'f'.\n"
+                      << "\t call"         << "\t\t display # of endpoints for selected destination contract.\n"
+                      << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
+                      << "\n"
+                      << "Hardcoded testing:\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\n";
             // clang-format on
+
         } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
             PublicSealedData_T pub_evm_state;
             ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
@@ -256,6 +262,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Failed to read the state of enclave.");
             }
             this->printEvmState(pub_evm_state);
+
         } else if (0 == strncmp(command, "gs", 2)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -273,6 +280,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 }
             }
             this->_printGlobalState(n);
+
         } else if (0 == strncmp(command, "origin", 6)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -293,6 +301,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             info_print(fmt::format("\t The active origin account of shell changed to: {}", address_to_hex_string(addr)));
             sh_origin = addr;
+
         } else if (0 == strncmp(command, "to", 2)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -313,6 +322,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}", address_to_hex_string(addr)));
             sh_to = addr;
+
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -324,13 +334,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 try {
                     auto it = tokens->begin();
                     std::advance(it, 1);
-                    n = std::stoi(*it);
+                    n = std::stoul(*it);
                 } catch (const std::invalid_argument& ia) {
                     std::cerr << "Invalid argument\n";
                     continue;
                 }
             }
             this->_createNRandomAccounts(n, initBal, enclave);
+
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
@@ -338,7 +349,73 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when invoking internal TX generation.");
             }
-            // info_print("...done");
+
+        } else if (0 == strncmp(command, "call ", 5)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
+                continue;
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            // Scan endpoint ID
+            uint endpointID;
+            try {
+                endpointID = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << fmt::format("Invalid argument for endpoint ID. The range for the current contract is: <0-{}>\n", m_contracts[sh_to]->endpoints.size() - 1);
+                continue;
+            }
+
+            // Check the number of endpoint's argument passed
+            auto& cdef = *m_contracts[sh_to];
+            auto& ep = cdef.endpoints[endpointID];
+            auto requiredParTypes = cdef.getParamTypesOfEP(endpointID);
+            if (tokenCnt - 2 != requiredParTypes.size()) {
+                std::cerr << fmt::format("Invalid number of arguments ({}) passed for endpoint #{} (required {}).\n", tokenCnt - 2, endpointID, requiredParTypes.size());
+                continue;
+            }
+
+            // Process parameters for endpoint
+            std::advance(it, 1);
+            std::vector<uint256> parsedParams;
+            uint j = 0;
+            for (; it != tokens.end(); ++it, j++) {
+                if (ParamTypes::address == requiredParTypes[j]) {
+                    parsedParams.push_back(string_to_uint256(*it));  // this might later change
+                } else if (ParamTypes::uint256 == requiredParTypes[j]) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                } else {
+                    std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", requiredParTypes[j], j);
+                    continue;
+                }
+            }
+
+            INFO_PRINT("Creating TX that calls contract function {} ...", ep.first);
+            auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], m_contracts[sh_to], parsedParams, ep.second, selAccnt.get_nonce(), 0);
+
+            this->_dispatchTX(enclave, tx);
+
+        } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
+            if (!correct_token_cnt(command_s, {1}, &tokens))
+                continue;
+
+            if (sh_to == u256(0u)) {
+                error_print("No destination contract selected.");
+                continue;
+            } else if (m_contracts.end() == m_contracts.find(sh_to)) {
+                error_print(fmt::format("Destination address {} was not found in local cache of contracts... (maybe already deleted?)", address_to_hex_string(sh_to)));
+                continue;
+            }
+
+            std::cout << fmt::format("\n\t Displaying endpoints of '{}' contract.\n", m_contracts[sh_to]->name);
+            unsigned ep_id = 0;
+            for (auto& ep : m_contracts[sh_to]->endpoints) {
+                std::cout << fmt::format("\t [#{}] => {} \n", ep_id++, ep.first);
+            }
+            print_sep();
+
         } else if (0 == strncmp(command, "tx add", 6)) {
             if (!correct_token_cnt(command_s, {4}, &tokens))
                 continue;
@@ -368,6 +445,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // if (ecall_ret != OE_OK || is_error(ret)) {
             //     error_print("Error when processing sum TX in Enclave.");
             // }
+
         } else if (0 == strcmp(command, "tx inc")) {
             info_print("Creating increment counter TX ...");
 
@@ -380,6 +458,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing increment counter TX in Enclave.");
             }
+
         } else if (0 == strncmp(command, "deploy ", 7)) {
             info_print("Creating contract ...");
             if (!correct_token_cnt(command_s, {2}, &tokens))

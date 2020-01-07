@@ -162,7 +162,9 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition&
 
     for (auto&& par : contract_definition.ctor_params) {
         if ("uint256" == par.type) {
-            append_arg(contract_ctor_code, u256(par.value));
+            append_arg(contract_ctor_code, par.value);
+        } else if ("address" == par.type) {
+            append_arg(contract_ctor_code, par.value);
         } else
             throw std::logic_error(fmt::format("Unsupported type of parameter in passed: '{}'", par.type));
     }
@@ -172,6 +174,27 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition&
 
     return tx;
 }
+
+eevn::PersistantTransaction* createCallFunctionTX(const OperAccount& sender,
+                                                  const eevm::Address to,
+                                                  const std::vector<uint256> params,
+                                                  const Bytes& function_hex_ptr,
+                                                  const size_t nonce,
+                                                  const uint64_t value)
+{
+    auto function_call = function_hex_ptr;  // copy vector
+
+    // append all passed arguments to function call pointer
+    for (auto& p : params) {
+        append_argument(function_call, p);
+    }
+
+    auto tx = new eevm::PersistantTransaction(sender.addr, to, nonce, value, function_call);
+    this->m_ecc->sign_data(tx->asDataForHash(), sender.SK, tx->signature);
+
+    return tx;
+}
+
 
 eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender)
