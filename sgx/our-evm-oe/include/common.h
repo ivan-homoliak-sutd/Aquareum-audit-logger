@@ -16,7 +16,7 @@
 #define VALID_ECC_SIG_RET 1
 #define PRINT_SEP_LEN 120
 
-#define EMPTY_CODE_OBJ eevm::Code(EMPTY_CODE)
+// #define EMPTY_CODE_OBJ eevm::Code(EMPTY_CODE)
 
 typedef struct _sealed_data_t {
     size_t total_size;

@@ -125,7 +125,8 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
 
-    eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
+    // Use empty input for contract deployment
+    eevm::ExecResult e = p.run(etx, etx.origin, *contrState, (contrDeployed) ? EMPTY_CODE_OBJ : etx.code, etx.value, &tr);
 
     // 5) Check the response
     if (e.er != eevm::ExitReason::returned) {

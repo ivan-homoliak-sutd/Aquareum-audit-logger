@@ -235,6 +235,9 @@ void print_erc20_state(
 
     std::cout << heading << std::endl;
     std::cout << fmt::format("Total supply of tokens is: {}", eevm::to_lower_hex_string(total_supply)) << std::endl;
+
+    exit(1);
+
     std::cout << "User balances: " << std::endl;
     for (const auto& pair : balances) {
         std::cout << fmt::format(

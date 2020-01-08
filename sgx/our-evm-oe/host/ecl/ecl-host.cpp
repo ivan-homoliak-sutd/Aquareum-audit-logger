@@ -287,7 +287,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     TRACE_HOST("running processor...");
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(m_gs);
     eevm::Trace tr;
-    eevm::ExecResult e = p.run(etx, etx.origin, *contrState, {}, etx.value, &tr);
+    eevm::ExecResult e = p.run(etx, etx.origin, *contrState, (contrDeployed) ? EMPTY_CODE_OBJ : etx.code, etx.value, &tr);
 
     // 5)  Check the response
     if (e.er != eevm::ExitReason::returned) {

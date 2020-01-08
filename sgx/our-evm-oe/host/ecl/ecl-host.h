@@ -54,6 +54,7 @@ struct ContrDefinition {
 
         // iterate over all parameters of the requested endpoint
         for (; it != tokens.end(); ++it) {
+            TRACE_HOST("param type: %s", (*it).c_str());
             if (*it == "uint256") {
                 ret.emplace_back(ParamTypes::uint256);
             } else if (*it == "address") {

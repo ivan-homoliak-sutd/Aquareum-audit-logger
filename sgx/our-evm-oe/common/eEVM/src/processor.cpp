@@ -384,7 +384,7 @@ namespace eevm
         void dispatch()
         {
             const auto op = get_op();
-            // TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
+            TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
             if (tr) {  // TODO: remove if from critical path
                 tr->add(ctxt->get_pc(), op, get_call_depth(), ctxt->s);
                 // tr->print_last_n(std::cout, 1);
@@ -1202,7 +1202,7 @@ namespace eevm
             // TODO: Work out why this fails the test cases
             // ctxt->acc.increment_nonce();
 
-            decltype(auto) newAcc = gs.create(newAddress, contractValue, {});
+            decltype(auto) newAcc = gs.create(newAddress, contractValue, EMPTY_CODE_OBJ);
 
             // In contract creation, the transaction value is an endowment for the
             // newly created account
@@ -1210,7 +1210,7 @@ namespace eevm
 
             auto parentContext = ctxt;
             auto rh = [&newAcc, parentContext](vector<uint8_t> output) {
-                newAcc.acc.set_code(move(output));
+                newAcc.acc.set_code(std::move(output));
                 parentContext->s.push(newAcc.acc.get_address());
             };
             auto hh = [parentContext]() { parentContext->s.push(0); };

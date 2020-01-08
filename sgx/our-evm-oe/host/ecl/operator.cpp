@@ -367,7 +367,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
             }
 
-            // Check the number of endpoint's argument passed
+            // Check the number of endpoint's parameters passed
             auto& cdef = *m_contracts[sh_to];
             auto& ep = cdef.endpoints[endpointID];
             vector<ParamTypes> requiredParTypes;

@@ -25,7 +25,6 @@ namespace eevm
     {
         TRACE_ME("Storing [%s] <= %s", to_hex_string(key).c_str(), to_hex_string(value).c_str());
         m_s[key] = value;
-        TRACE_ME("done");
     }
 
     uint256_t SimpleStorage::load(const uint256_t& key)
@@ -72,7 +71,7 @@ namespace eevm
             }
 
             // 1) store value
-            to_big_endian(e.first, as_bytes);
+            to_big_endian(e.second, as_bytes);
             for (size_t i = 0; i < 32; i++) {
                 toAppend.push_back(as_bytes[i]);
             }
