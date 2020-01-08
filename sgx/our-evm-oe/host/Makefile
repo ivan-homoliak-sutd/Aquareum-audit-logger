@@ -60,8 +60,8 @@ build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
 	oeedger8r ../ecledger.edl --untrusted
-	$(CXX) -c -g -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
-	$(CC) -c -g -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
+	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
+	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
 	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:

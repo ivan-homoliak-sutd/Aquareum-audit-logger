@@ -101,13 +101,28 @@ typedef boost::char_separator<char> separator;
 auto sep = separator{" "};
 
 
-const std::string& expand_var(const std::string& variable_text, const std::string& sh_recent_out)
+const std::string& expand_var(const std::string& token_text, std::unordered_map<std::string, std::string>& sh_vars)
 {
-    if (variable_text == "$?") {
-        return sh_recent_out;
+    if (token_text.substr(0, 1) == "$" && sh_vars.end() != sh_vars.find(token_text)) {
+        return sh_vars[token_text];
     } else {
-        return variable_text;
+        return token_text;
     }
+}
+
+std::string expand_vars(const char* command, std::unordered_map<std::string, std::string>& sh_vars)
+{
+    auto sep = separator{" \t"};
+    auto tokens = boost::tokenizer<separator>{string(command), sep};
+
+    std::string ret("");
+
+    // iterate over all parameters of the requested endpoint
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+        ret.append(expand_var(*it, sh_vars));
+        ret.append(" ");
+    }
+    return ret;  // RVO
 }
 
 bool correct_token_cnt(std::string& command, std::set<unsigned> allowedCnts, boost::tokenizer<separator>** tokens, uint* cnt = NULL)
@@ -230,7 +245,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     // origin and to selected in operator's shell
     eevm::Address sh_origin = this->m_ecl.operAddr;
     eevm::Address sh_to(0u);
-    std::string sh_recent_out("NULL");
+
+    // shell variables
+    std::unordered_map<std::string, std::string> sh_vars;
+    sh_vars["$?"] = "NULL";                                                                                                       // the last deployed contract
+    sh_vars["$D"] = "/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/contracts/erc20/ERC20_combined.json";  // testing definition file
 
     while (true) {
         if (tokens) {
@@ -241,9 +260,30 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? " (SUPER)" : "";
         cout << fmt::format("$[or={}..{} | to={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(sh_to).substr(0, 8));
         cin.getline(command, MAX_CMD_LEN);
-        command_s = string(command);
+        std::string command_s = expand_vars(command, sh_vars);
 
-        if (0 == strcmp(command, "")) {
+        // shell variables' handling
+        if (0 == strncmp(command, "$", 1)) {
+            boost::char_separator<char> sep("=");
+            auto tmp = string(command);
+            auto tokens = boost::tokenizer<separator>{tmp, sep};
+            auto cnt = std::distance(tokens.begin(), tokens.end());
+            auto it = tokens.begin();
+
+            if (cnt == 1) {
+                std::cout << fmt::format("\t {} = {} \n", *it, sh_vars[*it]);
+                continue;
+            } else if (cnt != 2) {
+                std::cerr << "\t Incorrect arguments.\n";
+                continue;
+            }
+
+            auto key = *it;
+            it++;
+            sh_vars[key] = *it;
+            std::cout << fmt::format("\t Setting  {} <= {} \n", key, *it);
+
+        } else if (0 == strcmp(command, "")) {
             continue;
 
         } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
@@ -325,7 +365,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto it = tokens->begin();
             std::advance(it, 1);
 
-            eevm::Address addr = string_to_uint256(expand_var(*it, sh_recent_out));
+            eevm::Address addr = string_to_uint256(*it);
             if (m_contracts.end() == m_contracts.find(addr)) {
                 error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
                 continue;
@@ -398,9 +438,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             uint j = 0;
             for (; it != tokens->end(); ++it, j++) {
                 if (ParamTypes::address == requiredParTypes[j]) {
-                    parsedParams.push_back(string_to_uint256(expand_var(*it, sh_recent_out)));  // this might later change
+                    parsedParams.push_back(string_to_uint256(*it));  // this might later change
                 } else if (ParamTypes::uint256 == requiredParTypes[j]) {
-                    parsedParams.push_back(string_to_uint256(expand_var(*it, sh_recent_out)));
+                    parsedParams.push_back(string_to_uint256(*it));
                 } else {
                     std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", (uint)requiredParTypes[j], j);
                     continue;
@@ -499,7 +539,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             this->_dispatchTX(enclave, tx);
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
-            sh_recent_out = address_to_hex_string(tx->to);
+            sh_vars["$?"] = address_to_hex_string(tx->to);
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
@@ -514,9 +554,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             // (const uint8_t*)tx->code.data(), tx->code.size());
-
-        } else if (0 == strcmp(command, "$?")) {
-            std::cout << "\t $? = " << sh_recent_out << "\n";
 
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
