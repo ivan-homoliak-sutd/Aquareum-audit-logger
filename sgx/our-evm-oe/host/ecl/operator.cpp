@@ -250,6 +250,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     std::unordered_map<std::string, std::string> sh_vars;
     sh_vars["$?"] = "NULL";                                                                                                       // the last deployed contract
     sh_vars["$D"] = "/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/contracts/erc20/ERC20_combined.json";  // testing definition file
+    sh_vars["$O"] = address_to_hex_string(sh_origin);                                                                             // operator's super account
 
     while (true) {
         if (tokens) {
@@ -257,8 +258,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             tokens = NULL;
         }
 
-        std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? " (SUPER)" : "";
-        cout << fmt::format("$[or={}..{} | to={}..]: $>", address_to_hex_string(sh_origin).substr(0, 8), operatorFlag, address_to_hex_string(sh_to).substr(0, 8));
+        std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? "<SUPER>" : "";
+        std::string toFlag = (m_contracts.end() != m_contracts.find(sh_to)) ? string("<") + m_contracts[sh_to]->name + string(">") : "";
+        cout << fmt::format("$[or={}..{} | to={}..{}]: $>",
+                            address_to_hex_string(sh_origin).substr(0, 8), operatorFlag,
+                            address_to_hex_string(sh_to).substr(0, 8), toFlag);
         cin.getline(command, MAX_CMD_LEN);
         std::string command_s = expand_vars(command, sh_vars);
 
@@ -370,7 +374,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
                 continue;
             }
-            info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}", address_to_hex_string(addr)));
+            info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}\n", address_to_hex_string(addr)));
             sh_to = addr;
 
         } else if (0 == strncmp(command, "gen", 3)) {
@@ -391,6 +395,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 }
             }
             this->_createNRandomAccounts(n, initBal, enclave);
+            auto beg = m_accounts.begin();
+            std::advance(beg, m_accounts.size() - 1);
+            sh_vars["$?"] = address_to_hex_string(beg->first); // store the last generated account address into $?
 
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
