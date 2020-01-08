@@ -37,7 +37,7 @@ namespace eevm
         // {}
 
         AccountState(const _Account&& a, _Storage& s)  // move ctor
-          : acc(std::move(a)), st(s)
+          : acc(a), st(s)
         {}
 
         AccountState(const AccountState& other)  // copy ctor

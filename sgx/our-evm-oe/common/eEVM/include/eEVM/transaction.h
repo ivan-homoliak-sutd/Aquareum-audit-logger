@@ -24,7 +24,7 @@ namespace eevm
 
     struct LogEntry {
         Address address;
-        log::Data data;
+        log::Data data; // IH: what is this field?
         std::vector<log::Topic> topics;
 
         bool operator==(const LogEntry& that) const;

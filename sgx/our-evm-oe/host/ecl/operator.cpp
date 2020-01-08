@@ -101,6 +101,15 @@ typedef boost::char_separator<char> separator;
 auto sep = separator{" "};
 
 
+const std::string& expand_var(const std::string& variable_text, const std::string& sh_recent_out)
+{
+    if (variable_text == "$?") {
+        return sh_recent_out;
+    } else {
+        return variable_text;
+    }
+}
+
 bool correct_token_cnt(std::string& command, std::set<unsigned> allowedCnts, boost::tokenizer<separator>** tokens, uint* cnt = NULL)
 {
     *tokens = new boost::tokenizer<separator>{command, sep};
@@ -221,6 +230,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     // origin and to selected in operator's shell
     eevm::Address sh_origin = this->m_ecl.operAddr;
     eevm::Address sh_to(0u);
+    std::string sh_recent_out("NULL");
 
     while (true) {
         if (tokens) {
@@ -245,7 +255,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t origin a"     << "\t change the active address of origin to 'a' [default=operator's SUPER].\n"
                       << "\t to a"         << "\t\t change the active address of contract destination to 'a'.\n"
                       << "\t deploy f"     << "\t deploy a contract using definition file 'f'.\n"
-                      << "\t call"         << "\t\t display # of endpoints for selected destination contract.\n"
+                      << "\t ep | end"     << "\t display # of endpoints for selected destination contract.\n"
                       << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
                       << "\n"
                       << "Hardcoded testing:\n"
@@ -315,7 +325,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto it = tokens->begin();
             std::advance(it, 1);
 
-            eevm::Address addr = string_to_uint256(*it);
+            eevm::Address addr = string_to_uint256(expand_var(*it, sh_recent_out));
             if (m_contracts.end() == m_contracts.find(addr)) {
                 error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
                 continue;
@@ -388,9 +398,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             uint j = 0;
             for (; it != tokens->end(); ++it, j++) {
                 if (ParamTypes::address == requiredParTypes[j]) {
-                    parsedParams.push_back(string_to_uint256(*it));  // this might later change
+                    parsedParams.push_back(string_to_uint256(expand_var(*it, sh_recent_out)));  // this might later change
                 } else if (ParamTypes::uint256 == requiredParTypes[j]) {
-                    parsedParams.push_back(string_to_uint256(*it));
+                    parsedParams.push_back(string_to_uint256(expand_var(*it, sh_recent_out)));
                 } else {
                     std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", (uint)requiredParTypes[j], j);
                     continue;
@@ -489,6 +499,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             this->_dispatchTX(enclave, tx);
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
+            sh_recent_out = address_to_hex_string(tx->to);
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
@@ -503,6 +514,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             // (const uint8_t*)tx->code.data(), tx->code.size());
+
+        } else if (0 == strcmp(command, "$?")) {
+            std::cout << "\t $? = " << sh_recent_out << "\n";
+
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
             ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
@@ -596,6 +611,7 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
     debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
+    debug_print(fmt::format("Code passed to E is {}", to_hex_string(tx->code)));
 
     // 2) Execute TX in Enclave
     oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,

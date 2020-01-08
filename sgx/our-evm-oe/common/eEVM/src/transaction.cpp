@@ -56,7 +56,7 @@ namespace eevm
         nlohmann::json j;
         auto vlh = dynamic_cast<const VectorLogHandler&>(lh);  // will throw exception if cannot be casted
         to_json(j, vlh);
-        return j.dump();
+        return j.dump(4);
     }
 
 }  // namespace eevm

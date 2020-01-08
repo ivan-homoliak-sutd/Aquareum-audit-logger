@@ -82,7 +82,7 @@ namespace eevm
         vector<uint8_t> mem;
         Stack s;
 
-        SimpleAccountState as;
+        SimpleAccountState& as;
         Account& acc;
         Storage& st;
         const Address caller;
@@ -95,7 +95,7 @@ namespace eevm
 
         Context(
             const Address& caller,
-            SimpleAccountState as,
+            SimpleAccountState& as,
             vector<uint8_t>&& input,
             const uint256_t& call_value,
             Program&& prog,
@@ -173,8 +173,8 @@ namespace eevm
 
         ExecResult run(
             const Address& caller,
-            AccountState<_A, _S> callee,  // IH: try to use ref here
-            vector<uint8_t> input,        // Take a copy here, then move it into context
+            AccountState<_A, _S>& callee,  // IH: try to use ref here
+            vector<uint8_t> input,         // Take a copy here, then move it into context
             const uint256_t& call_value)
         {
             TRACE_ME("started");
@@ -196,7 +196,7 @@ namespace eevm
                 caller,
                 callee,
                 move(input),
-                callee.acc.get_code(),  // IH: try to use ref here
+                callee.acc.get_code(),  // IH: should be copy here - ref would not likely work (check later)
                 call_value,
                 rh,
                 hh,
@@ -230,7 +230,7 @@ namespace eevm
     private:
         void push_context(
             const Address& caller,
-            AccountState<_A, _S> as,
+            AccountState<_A, _S>& as,
             vector<uint8_t>&& input,  // IH: input of function call
             Program&& prog,           //IH: program of smart contract
             const uint256_t& call_value,
@@ -250,7 +250,7 @@ namespace eevm
                 move(rh),
                 move(hh),
                 move(eh));
-            ctxts.emplace_back(move(c));  // IH: std::move ?
+            ctxts.emplace_back(move(c));
             ctxt = ctxts.back().get();
         }
 
@@ -1091,15 +1091,26 @@ namespace eevm
 
         void log()
         {
+            TRACE_ME("log() started");
+            tr->print_last_n(std::cout, 1);
+
             const uint8_t n = get_op() - LOG0;
             const auto offset = ctxt->s.pop64();
             const auto size = ctxt->s.pop64();
 
-            vector<uint256_t> topics(n);
+            vector<uint256_t> topics(n);  // IH: TODO: the limitation is a current support of only u256 params in events of log
             for (int i = 0; i < n; i++)
                 topics[i] = ctxt->s.pop();
 
+            TRACE_ME("log() topics addedd");
+
+            TRACE_ME("addr= %s", address_to_hex_string(ctxt->acc.get_address()).c_str());
+
+            copy_from_mem(offset, size);
+            TRACE_ME("...");
+
             tx.log_handler.handle({ctxt->acc.get_address(), copy_from_mem(offset, size), topics});
+            TRACE_ME("log() done\n");
         }
 
         void blockhash()
@@ -1314,7 +1325,7 @@ namespace eevm
     ExecResult Processor<_A, _S>::run(
         Transaction& tx,
         const Address& caller,
-        AccountState<_A, _S> callee,
+        AccountState<_A, _S>& callee,
         const vector<uint8_t>& input,
         const uint256_t& call_value,
         Trace* tr)

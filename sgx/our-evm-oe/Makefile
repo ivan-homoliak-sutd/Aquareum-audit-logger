@@ -23,6 +23,12 @@ host:
 enc:
 	$(MAKE) -C enclave
 
+
+debug: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+debug:
+	valgrind host/ecledger_host ./enclave/ecledger_enc.signed
+
+
 sim: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 sim:
 	host/ecledger_host ./enclave/ecledger_enc.signed --simulate

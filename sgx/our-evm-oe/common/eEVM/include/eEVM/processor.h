@@ -54,7 +54,7 @@ namespace eevm
         ExecResult run(
             Transaction& tx,
             const Address& caller,
-            AccountState<_A, _S> callee,
+            AccountState<_A, _S>& callee,
             const std::vector<uint8_t>& input,
             const uint256_t& call_value,
             Trace* tr = nullptr);
@@ -62,7 +62,7 @@ namespace eevm
 
     using T_Processor = Processor<SimpleAccount, SimpleStorage>;
 
-    // IH: instantiation of template for two specific args
+    // IH: forcing instantiation of a template for two specific args
     template class Processor<SimpleAccount, SimpleStorage>;
 
 }  // namespace eevm

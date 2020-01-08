@@ -68,16 +68,16 @@ bool check_simulate_opt(int* argc, const char* argv[]) {
     return false;
 }
 
-int parseArgs(int argc, const char* argv[], uint32_t& flags) {
-    flags = OE_ENCLAVE_FLAG_DEBUG;
+int parseArgs(int argc, const char* argv[], uint32_t * flags) {
+    *flags = OE_ENCLAVE_FLAG_DEBUG;
     if (check_simulate_opt(&argc, argv)) {
-        flags |= OE_ENCLAVE_FLAG_SIMULATE;
+        *flags |= OE_ENCLAVE_FLAG_SIMULATE;
     }
     if (argc != 2) {
         fprintf(stderr, "Usage: %s enclave_image_path [ --simulate  ]\n", argv[0]);
         return ERR_WRONG_ARGS;
     }
-    // debug_print(fmt::format("OPEN ENCLAVE FLAGS = {}", flags));
+    // debug_print(fmt::format("OPEN ENCLAVE FLAGS = {}", *flags));
     return RET_SUCCESS;
 }
 
@@ -91,11 +91,11 @@ int main(int argc, const char* argv[]) {
     Operator* op;
     uint32_t flags = 0;
 
-    if (RET_SUCCESS != parseArgs(argc, argv, flags))
+    if (RET_SUCCESS != parseArgs(argc, argv, &flags))
         return ret;
 
     // Create the enclave
-    result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_AUTO, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
+    result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_SGX, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
     if (OE_OK != result) {
         ERROR_PRINT("oe_create_ecledger_enclave(): %s", oe_result_str(result));
         goto exit;

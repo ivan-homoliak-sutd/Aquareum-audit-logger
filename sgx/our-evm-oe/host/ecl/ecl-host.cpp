@@ -239,7 +239,8 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     }
 
     // 1) Create eevm::Tx object from the persistant TX and code
-    auto lh = eevm::NullLogHandler();
+    // auto lh = eevm::NullLogHandler();
+    auto lh = eevm::VectorLogHandler();
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(&tx->origin),
                                  reinterpret_cast<eevm::Address*>(&tx->to),
                                  lh, tx->code, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
@@ -293,11 +294,14 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("Unexpected return code: {}", (size_t)e.er) << std::endl;
         tr.print_last_n(std::cout, 10);
-        // TRACE_HOST("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
+        if (lh.logs.size())  // print LOG events emmitted in EVM
+            TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    // tr.print_last_n(std::cout, 10);
+    if (lh.logs.size())  // print LOG events emmitted in EVM
+        TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
+
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_HOST("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);

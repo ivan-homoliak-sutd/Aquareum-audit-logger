@@ -73,8 +73,8 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // 1) Create eevm::Tx object from the proxy and code
     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
-    auto lh = eevm::NullLogHandler();
-    // auto lh = eevm::VectorLogHandler();
+    // auto lh = eevm::NullLogHandler();
+    auto lh = eevm::VectorLogHandler();
     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
                                  reinterpret_cast<eevm::Address*>(tx->to),
                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
@@ -121,7 +121,9 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     }
 
     // 4) Create processor & Run code of TX
-    TRACE_ENCLAVE("running processor...");
+    TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
+
+
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
     eevm::Trace tr;
 
@@ -132,11 +134,13 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         tr.print_last_n(std::cout, 10);
-        // TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
+        if (lh.logs.size())  // print LOG events emmitted in EVM
+            TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    // tr.print_last_n(std::cout, 10);
+    if (lh.logs.size())  // print LOG events emmitted in EVM
+        TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
@@ -252,7 +256,7 @@ int ECLedger::execute_hello_world()
     const eevm::Code code = create_bytecode(hello_world);
 
     // Deploy contract to global state
-    const eevm::SimpleAccountState contract = gs.create(to, 0, code);
+    eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
     // Create transaction
     // eevm::NullLogHandler ignore;
@@ -361,7 +365,7 @@ int ECLedger::execute_sum_a_b(int a, int b)
     eevm::SimpleGlobalState gs;
 
     // Populate the global state with the constructed contract
-    const eevm::SimpleAccountState contract = gs.create(to, 0, code);
+    eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
     if (verbose) {
         std::cout << fmt::format(
