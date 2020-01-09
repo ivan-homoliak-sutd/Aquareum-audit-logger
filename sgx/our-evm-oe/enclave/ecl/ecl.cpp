@@ -33,7 +33,8 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
     TRACE_ENCLAVE("running processor...");
 
     // Create processor
-    eevm::T_Processor p(this->simple_gs);
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;
+    eevm::T_Processor p(this->simple_gs, updated_accounts);
 
     // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
     // with empty input
@@ -53,6 +54,15 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+
+    // Sync all (foreign) account states modified by the eEVM processor.
+    for (auto& i : updated_accounts) {
+        auto& as = i.second;
+        TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
+        // throw std::logic_error("Not tested yet!");
+        as.acc.set_stHash(as.st.hash());
+        simple_gs.update(i.first, {as.acc, as.st});
+    }
 
     return RET_SUCCESS;
 }
@@ -122,9 +132,8 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 
     // 4) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
-
-
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs);
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // processor will fill this list if needed, and then we need to sync to MP3 gs
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs, updated_accounts);
     eevm::Trace tr;
 
     // Use empty input for contract deployment
@@ -151,11 +160,26 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         contrState->acc.set_code(std::move(e.output));
     }
 
-    // 7) update the storage hash of the account of contract called
+    // 7) update the storage hash (and nonce) of the account of contract called. Note that nonce was already modified by processor.
     contrState->acc.set_stHash(contrState->st.hash());
     gs->update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
-    // 8) Update the nonce of the sender
+    // 8) Sync all (foreign) account states modified by the eEVM processor.
+    for (auto& i : updated_accounts) {
+        auto& as = i.second;
+        TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
+        // throw std::logic_error("Not tested yet!");
+        as.acc.set_stHash(as.st.hash());
+        gs->update(i.first, {eevm::SimpleAccount(
+                                 as.acc.get_address(),
+                                 as.acc.get_balance(),
+                                 as.acc.get_code_ref(),
+                                 as.acc.get_nonce(),
+                                 as.st),
+                             as.st});
+    }
+
+    // 9) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
     gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
@@ -264,7 +288,8 @@ int ECLedger::execute_hello_world()
     eevm::Transaction tx(sender, to, lh);
 
     // Create processor
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs);
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
 
     // Execute code. All executions are associated with a transaction. This
     // transaction is called by sender, executing the code in contract, with empty
@@ -383,7 +408,8 @@ int ECLedger::execute_sum_a_b(int a, int b)
     std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
 
     // Construct processor
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs);
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
 
     if (verbose)
         std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender), eevm::to_checksum_address(to))

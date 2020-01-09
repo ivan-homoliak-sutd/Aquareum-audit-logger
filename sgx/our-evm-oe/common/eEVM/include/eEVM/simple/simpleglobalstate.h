@@ -36,7 +36,7 @@ namespace eevm
         SimpleAccountState create(const Address& addr, const uint256_t& balance, const Code& code) override;
         SimpleAccountState update(const Address& addr, const StateEntry& p) override;
 
-        bool exists(const Address& addr);
+        bool exists(const Address& addr) override;
         size_t num_accounts();
 
         virtual const Block& get_current_block() override;

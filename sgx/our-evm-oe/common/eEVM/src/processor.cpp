@@ -64,6 +64,79 @@ namespace eevm
         }
     };
 
+
+    /**
+     * Overlay class for the global state. It incorporate cache of updated accounts by processor with the intention to reduce MP3 overhead on
+     * modifications of global MP3. The modifications of MP3 will be done just once after processor finishes.
+     *
+     * Hence, lookups first search in the cache and then in gs. Note that only Account objects are temporary; storages are in place references.
+     */
+    template <class _A, class _S>
+    class GSOverlay {
+        GlobalState<_A, _S>& m_gs;                                           // the interface to the global state
+        std::unordered_map<Address, AccountState<_A, _S>>& m_cached_accnts;  // the reference to the
+
+    public:
+        GSOverlay(GlobalState<_A, _S>& gs, std::unordered_map<Address, AccountState<_A, _S>>& ca)
+          : m_gs(gs), m_cached_accnts(ca)
+        {}
+
+        // fetch the fresh read only AS object
+        AccountState<_A, _S> getRO(const Address& addr)
+        {
+            if (m_cached_accnts.end() != m_cached_accnts.find(addr)) {
+                return m_cached_accnts[addr];
+            }
+            if (m_gs.exists(addr)) {
+                return m_gs.get(addr);
+            }
+            return create(addr, 0u);  // transform ref to object
+        }
+
+        // fetch the fresh writable reference on the cached AS object
+        // Note that creation of AS is made here as well if it does not exist, which emulates the functionality of original eEVM account state.
+        AccountState<_A, _S>& getRef(const Address& addr)
+        {
+            if (m_cached_accnts.end() != m_cached_accnts.find(addr)) {
+                return m_cached_accnts[addr];
+            }
+            if (m_gs.exists(addr)) {
+                auto as = m_gs.get(addr);
+                // update the cache of Overlay.
+                auto it = m_cached_accnts.insert(std::make_pair(Address(addr), std::move(as)));  // hopefully, movable works here
+                return (*(it.first)).second;
+            }
+            // if not matched nor in cache nor in gs, then just create a temporary AccountState object and return it
+            // TBD: note that this could be further optimized by creation of only temporary object in processor, which will be inserted
+            // later by the caller of the processor (in its potentially updated form).
+            auto as = m_gs.create(addr, 0u, EMPTY_CODE_OBJ);
+            auto it = m_cached_accnts.insert(std::make_pair(Address(addr), std::move(as)));  // hopefully, movable works here
+            return (*(it.first)).second;
+            ;
+        }
+
+        AccountState<_A, _S>& create(const Address& newAddress, const uint256_t& contractValue)
+        {
+            assert(m_cached_accnts.end() == m_cached_accnts.find(newAddress));  // TODO: maybe exception handler should be called instead
+            assert(!m_gs.exists(newAddress));
+
+            auto as = m_gs.create(newAddress, contractValue, EMPTY_CODE_OBJ);
+            auto it = m_cached_accnts.insert(std::make_pair(Address(newAddress), std::move(as)));  // hopefully, movable works here
+            return (*(it.first)).second;
+            ;
+        }
+
+        void remove(const Address& addr)
+        {
+            if (m_cached_accnts.end() != m_cached_accnts.find(addr)) {
+                m_cached_accnts.erase(addr);
+            }
+            if (m_gs.exists(addr)) {  // do direct modification in GS
+                m_gs.remove(addr);
+            }
+        }
+    };
+
     /**
    * execution context of a call
    */
@@ -82,9 +155,9 @@ namespace eevm
         vector<uint8_t> mem;
         Stack s;
 
-        SimpleAccountState& as;
-        Account& acc;
-        Storage& st;
+        SimpleAccountState& as;  // indirect reference to GSOverlay
+        Account& acc;            // indirect reference to GSOverlay
+        Storage& st;             // indirect reference to GSOverlay
         const Address caller;
         const vector<uint8_t> input;
         const uint256_t call_value;
@@ -151,8 +224,10 @@ namespace eevm
     template <class _A, class _S>
     class _Processor {
     private:
-        /// the interface to the global state
-        GlobalState<_A, _S>& gs;
+        /// the interface to the global state - should be used only when not modifying account objects, only storages !!!
+        GlobalState<_A, _S>& m_gs;
+        /// the overlay to global state, which encapsulates caching of account states modified through multiple contexts
+        GSOverlay<_A, _S> m_gso;
         /// the transaction object
         Transaction& tx;
         /// pointer to trace object (for debugging)
@@ -165,15 +240,17 @@ namespace eevm
         using ET = Exception::Type;
 
     public:
-        _Processor(GlobalState<_A, _S>& gs, Transaction& tx, Trace* tr)
-          : gs(gs),
+        _Processor(GlobalState<_A, _S>& gs, Transaction& tx, Trace* tr, std::unordered_map<Address, AccountState<_A, _S>>& updated_accnts)
+          : m_gs(gs),
+            m_gso(gs, updated_accnts),
             tx(tx),
             tr(tr)
         {}
 
+
         ExecResult run(
             const Address& caller,
-            AccountState<_A, _S>& callee,  // IH: try to use ref here
+            AccountState<_A, _S>& callee,  // we need reference here to make modifications to it
             vector<uint8_t> input,         // Take a copy here, then move it into context
             const uint256_t& call_value)
         {
@@ -222,7 +299,7 @@ namespace eevm
 
             // clean-up
             for (const auto& addr : tx.destroy_list)
-                gs.remove(addr);
+                m_gso.remove(addr);
 
             return result;
         }
@@ -995,18 +1072,17 @@ namespace eevm
 
         void extcodesize()
         {
-            ctxt->s.push(gs.get(pop_addr(ctxt->s)).acc.get_code().size());
+            ctxt->s.push(m_gso.getRO(pop_addr(ctxt->s)).acc.get_code_ref().size());
         }
 
         void extcodecopy()
         {
-            copy_mem(
-                ctxt->mem, gs.get(pop_addr(ctxt->s)).acc.get_code(), Opcode::STOP);
+            copy_mem(ctxt->mem, m_gso.getRO(pop_addr(ctxt->s)).acc.get_code_ref(), Opcode::STOP);
         }
 
         void codesize()
         {
-            ctxt->s.push(ctxt->acc.get_code().size());
+            ctxt->s.push(ctxt->acc.get_code_ref().size());
         }
 
         void calldataload()
@@ -1045,7 +1121,7 @@ namespace eevm
 
         void balance()
         {
-            decltype(auto) acc = gs.get(pop_addr(ctxt->s)).acc;
+            auto acc = m_gso.getRO(pop_addr(ctxt->s)).acc;
             ctxt->s.push(acc.get_balance());
         }
 
@@ -1119,12 +1195,12 @@ namespace eevm
             if (i >= 256)
                 ctxt->s.push(0);
             else
-                ctxt->s.push(gs.get_block_hash(i % 256));
+                ctxt->s.push(m_gs.get_block_hash(i % 256));  // IH TODO
         }
 
         void number()
         {
-            ctxt->s.push(gs.get_current_block().number);
+            ctxt->s.push(m_gs.get_current_block().number);
         }
 
         void gasprice()
@@ -1134,17 +1210,17 @@ namespace eevm
 
         void coinbase()
         {
-            ctxt->s.push(gs.get_current_block().coinbase);
+            ctxt->s.push(m_gs.get_current_block().coinbase);
         }
 
         void timestamp()
         {
-            ctxt->s.push(gs.get_current_block().timestamp);
+            ctxt->s.push(m_gs.get_current_block().timestamp);
         }
 
         void difficulty()
         {
-            ctxt->s.push(gs.get_current_block().difficulty);
+            ctxt->s.push(m_gs.get_current_block().difficulty);
         }
 
         void gas()
@@ -1156,7 +1232,7 @@ namespace eevm
 
         void gaslimit()
         {
-            ctxt->s.push(gs.get_current_block().gas_limit);
+            ctxt->s.push(m_gs.get_current_block().gas_limit);
         }
 
         void sha3()
@@ -1192,7 +1268,7 @@ namespace eevm
 
         void destroy()
         {
-            auto recipient = gs.get(pop_addr(ctxt->s));
+            auto& recipient = m_gso.getRef(pop_addr(ctxt->s));
             ctxt->acc.pay_to(recipient.acc, ctxt->acc.get_balance());
             tx.destroy_list.push_back(ctxt->acc.get_address());
             stop();
@@ -1205,15 +1281,12 @@ namespace eevm
             const auto size = ctxt->s.pop64();
             auto initCode = copy_from_mem(offset, size);
 
-            const auto newAddress =
-                generate_address(ctxt->acc.get_address(), ctxt->acc.get_nonce());
+            const auto newAddress = generate_address(ctxt->acc.get_address(), ctxt->acc.get_nonce());
 
-            // For contract accounts, the nonce counts the number of
-            // contract-creations by this account
-            // TODO: Work out why this fails the test cases
-            // ctxt->acc.increment_nonce();
+            // For contract accounts, the nonce counts the number of contract-creations by this account
+            ctxt->acc.increment_nonce();
 
-            decltype(auto) newAcc = gs.create(newAddress, contractValue, EMPTY_CODE_OBJ);
+            auto& newAcc = m_gso.create(newAddress, contractValue);  // store the AS object in our GS overlay
 
             // In contract creation, the transaction value is an endowment for the
             // newly created account
@@ -1257,7 +1330,7 @@ namespace eevm
                     "Precompiled contracts/native extensions are not implemented.");
             }
 
-            decltype(auto) callee = gs.get(addr);
+            auto& callee = m_gso.getRef(addr);  // we need writable reference on object in overlay here
             ctxt->acc.pay_to(callee.acc, value);
             if (!callee.acc.has_code()) {
                 ctxt->s.push(1);
@@ -1317,20 +1390,22 @@ namespace eevm
     };
 
     template <class _A, class _S>
-    Processor<_A, _S>::Processor(GlobalState<_A, _S>& gs)
-      : gs(gs)
+    Processor<_A, _S>::Processor(GlobalState<_A, _S>& gs, std::unordered_map<Address, AccountState<_A, _S>>& updated_accnts)
+      : gs(gs),
+        m_updated_accnts(updated_accnts)  // this is a cache of other updated accounts witin the run of a curent TX (they need to be synced to MP3)
     {}
 
     template <class _A, class _S>
     ExecResult Processor<_A, _S>::run(
         Transaction& tx,
         const Address& caller,
-        AccountState<_A, _S>& callee,
+        AccountState<_A, _S>& callee,  // this is a reference to a temporary AcountState object; storage is updated in place, but account not !
         const vector<uint8_t>& input,
         const uint256_t& call_value,
         Trace* tr)
     {
-        return _Processor(gs, tx, tr)
+        return _Processor(gs, tx, tr, m_updated_accnts)
             .run(caller, callee, input, call_value);
     }
+
 }  // namespace eevm

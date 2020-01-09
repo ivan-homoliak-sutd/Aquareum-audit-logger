@@ -33,9 +33,10 @@ namespace eevm
     class Processor {
     private:
         GlobalState<_A, _S>& gs;
+        std::unordered_map<Address, AccountState<_A, _S>>& m_updated_accnts;
 
     public:
-        Processor(GlobalState<_A, _S>& gs);
+        Processor(GlobalState<_A, _S>& gs, std::unordered_map<Address, AccountState<_A, _S>>& updated_accnts);
         /**
      * @brief The main entry point for the EVM.
      *
@@ -64,5 +65,6 @@ namespace eevm
 
     // IH: forcing instantiation of a template for two specific args
     template class Processor<SimpleAccount, SimpleStorage>;
+
 
 }  // namespace eevm

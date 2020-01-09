@@ -397,7 +397,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             this->_createNRandomAccounts(n, initBal, enclave);
             auto beg = m_accounts.begin();
             std::advance(beg, m_accounts.size() - 1);
-            sh_vars["$?"] = address_to_hex_string(beg->first); // store the last generated account address into $?
+            sh_vars["$?"] = address_to_hex_string(beg->first);  // store the last generated account address into $?
 
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
@@ -411,6 +411,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2, 3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
                 continue;
+
+            if (m_contracts.end() == m_contracts.find(sh_to)) {
+                error_print(fmt::format("Destination address {} was not found in local cache of contracts... (maybe already deleted?)", address_to_hex_string(sh_to)));
+                continue;
+            }
 
             auto it = tokens->begin();
             std::advance(it, 1);

@@ -36,7 +36,17 @@ namespace eevm
         //   : acc(a), st(s)
         // {}
 
+        AccountState()
+          : acc(), st(*(new _Storage())) // IH: should be resolved nicer
+        {
+            assert(false);  // this should never happen, but template generation engine for unordered_map<.., AccountState<>> requires DEFINITION of defaut constructor
+        }
+
         AccountState(const _Account&& a, _Storage& s)  // move ctor
+          : acc(a), st(s)
+        {}
+
+        AccountState(const _Account& a, _Storage& s)  // copy ctor
           : acc(a), st(s)
         {}
 
@@ -74,6 +84,8 @@ namespace eevm
         virtual AccountState<_A, _S> create(const Address& addr, const uint256_t& balance, const Code& code) = 0;
 
         virtual AccountState<_A, _S> update(const Address& addr, const GenericStateEntry& p) = 0;
+
+        virtual bool exists(const Address& addr) = 0;
 
         virtual const Block& get_current_block() = 0;
         virtual uint256_t get_block_hash(uint8_t offset) = 0;

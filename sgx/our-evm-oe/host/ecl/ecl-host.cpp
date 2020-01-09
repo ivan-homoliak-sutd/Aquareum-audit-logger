@@ -286,7 +286,8 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
 
     // 4) Create processor & Run code of TX
     TRACE_HOST("running processor...");
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(m_gs);
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // processor will fill this list if needed, and then we need to sync to MP3 gs
+    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(m_gs, updated_accounts);
     eevm::Trace tr;
     eevm::ExecResult e = p.run(etx, etx.origin, *contrState, (contrDeployed) ? EMPTY_CODE_OBJ : etx.code, etx.value, &tr);
 
@@ -316,8 +317,22 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx)
     contrState->acc.set_stHash(contrState->st.hash());
     m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
+    // 8) Sync all (foreign) account states modified by the eEVM processor.
+    for (auto& i : updated_accounts) {
+        auto& as = i.second;
+        TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
+        // throw std::logic_error("Not tested yet!");
+        as.acc.set_stHash(as.st.hash());
+        m_gs.update(i.first, {eevm::SimpleAccount(
+                                  as.acc.get_address(),
+                                  as.acc.get_balance(),
+                                  as.acc.get_code_ref(),
+                                  as.acc.get_nonce(),
+                                  as.st),
+                              as.st});
+    }
 
-    // 8) Update the nonce of the sender
+    // 9) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
     m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
