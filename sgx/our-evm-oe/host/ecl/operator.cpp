@@ -265,6 +265,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                             address_to_hex_string(sh_to).substr(0, 8), toFlag);
         cin.getline(command, MAX_CMD_LEN);
         std::string command_s = expand_vars(command, sh_vars);
+        TRACE_HOST("expanded_cmd = %s", command_s.c_str());
 
         // shell variables' handling
         if (0 == strncmp(command, "$", 1)) {
@@ -274,7 +275,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto cnt = std::distance(tokens.begin(), tokens.end());
             auto it = tokens.begin();
 
-            if (cnt == 1) {
+            if (cnt == 1) {  // just display
                 std::cout << fmt::format("\t {} = {} \n", *it, sh_vars[*it]);
                 continue;
             } else if (cnt != 2) {
@@ -284,8 +285,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             auto key = *it;
             it++;
-            sh_vars[key] = *it;
-            std::cout << fmt::format("\t Setting  {} <= {} \n", key, *it);
+            sh_vars[key] = expand_var(*it, sh_vars);  // do expansion also here
+            std::cout << fmt::format("\t Setting  {} <= {} \n", key, sh_vars[key]);
 
         } else if (0 == strcmp(command, "")) {
             continue;
@@ -368,15 +369,20 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             auto it = tokens->begin();
             std::advance(it, 1);
+            eevm::Address addr;
+            try {
+                addr = string_to_uint256(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
 
-            eevm::Address addr = string_to_uint256(*it);
             if (m_contracts.end() == m_contracts.find(addr)) {
                 error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
                 continue;
             }
             info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}\n", address_to_hex_string(addr)));
             sh_to = addr;
-
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -394,10 +400,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                     continue;
                 }
             }
-            this->_createNRandomAccounts(n, initBal, enclave);
-            auto beg = m_accounts.begin();
-            std::advance(beg, m_accounts.size() - 1);
-            sh_vars["$?"] = address_to_hex_string(beg->first);  // store the last generated account address into $?
+            auto addrLast = this->_createNRandomAccounts(n, initBal, enclave);
+            sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
 
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
@@ -406,7 +410,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when invoking internal TX generation.");
             }
-
         } else if (0 == strncmp(command, "call ", 5)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2, 3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
@@ -425,7 +428,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             try {
                 endpointID = std::stoul(*it);
             } catch (const std::invalid_argument& ia) {
-                std::cerr << fmt::format("Invalid argument for endpoint ID. The range for the current contract is: <0-{}>\n", m_contracts[sh_to]->endpoints.size() - 1);
+                std::cerr << fmt::format("Invalid argument for endpoint ID ({}). The range for the current contract is: <0-{}>\n", *it, m_contracts[sh_to]->endpoints.size() - 1);
                 continue;
             }
 
@@ -464,7 +467,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
             this->_dispatchTX(enclave, tx);
-
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
                 continue;
@@ -483,7 +485,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 std::cout << fmt::format("\t [#{}] => {} \n", ep_id++, ep.first);
             }
             print_sep();
-
         } else if (0 == strncmp(command, "tx add", 6)) {
             if (!correct_token_cnt(command_s, {4}, &tokens))
                 continue;
@@ -513,7 +514,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // if (ecall_ret != OE_OK || is_error(ret)) {
             //     error_print("Error when processing sum TX in Enclave.");
             // }
-
         } else if (0 == strcmp(command, "tx inc")) {
             info_print("Creating increment counter TX ...");
 
@@ -526,7 +526,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing increment counter TX in Enclave.");
             }
-
         } else if (0 == strncmp(command, "deploy ", 7)) {
             info_print("Creating contract ...");
             if (!correct_token_cnt(command_s, {2}, &tokens))
@@ -552,7 +551,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
             sh_vars["$?"] = address_to_hex_string(tx->to);
-
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
             auto selAccnt = m_ecl.m_gs.get(sh_origin).acc;  // get O's account state
@@ -566,7 +564,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
             // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
             // (const uint8_t*)tx->code.data(), tx->code.size());
-
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
             ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
@@ -602,17 +599,18 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
 /**
  * Create N simple accounts with initial balance set to 'initBalance'
  * For each account creation, do ecall into E.
+ * Return the last created account;
  */
-void Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
+Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
     std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
     auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
     size_t nonceBefore = operAccnt.get_nonce();
 
+    OperAccount acc;
     for (unsigned i = 0; i < N; i++) {
         std::cout << fmt::format("\n [{}] Creating next operator's testing account...\n", i);
 
-        OperAccount acc;
 
         // 1) generate SK of account
         if (1 != RAND_priv_bytes((unsigned char*)&acc.SK, ECC_SK_SIZE)) {
@@ -639,6 +637,7 @@ void Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_encla
         m_accounts[acc.addr] = acc;
     }
     assert(nonceBefore + N == operAccnt.get_nonce());
+    return acc.addr;
 }
 
 /**
