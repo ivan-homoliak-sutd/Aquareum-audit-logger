@@ -5,6 +5,7 @@
 // #include "eEVM/bigint.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/transaction.h"
+#include "eEVM/util.h"
 
 #include "secp256k1.h"
 #include "signing.h"
@@ -34,7 +35,7 @@ enum class ParamTypes {
 
 struct ContrDefinition {
     std::string name;
-    std::vector<byte> bin;                                 // code of the contract
+    std::vector<uint8_t> bin;                              // code of the contract
     std::vector<std::pair<std::string, Bytes>> endpoints;  // functions available
     std::vector<CtorPar> ctor_params;                      // parameters of ctors (with defaut values)
 
@@ -64,6 +65,27 @@ struct ContrDefinition {
             }
         }
         return ret;
+    }
+
+    std::string toString()
+    {
+        nlohmann::json j = nlohmann::json::object();
+        j["name"] = name;
+        j["bin"] = to_hex_string(bin);
+
+        nlohmann::json eps = nlohmann::json::array();
+        for (auto& ep : endpoints) {
+            eps.push_back(nlohmann::json({{"endpoint", ep.first}, {"bin", to_hex_string(ep.second)}}));
+        }
+        j["endpoints"] = eps;
+
+        nlohmann::json ctor = nlohmann::json::array();
+        for (auto& ep : ctor_params) {
+            ctor.push_back(nlohmann::json({{"name", ep.name}, {"type", ep.type}, {"value", ep.value}}));
+        }
+        j["ctor"] = ctor;
+
+        return j.dump(4);
     }
 };
 

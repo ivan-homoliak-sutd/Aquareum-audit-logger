@@ -268,7 +268,6 @@ namespace eevm
                 result.exmsg = ex_.what();
             };
 
-            TRACE_ME("push_context");
             push_context(
                 caller,
                 callee,
@@ -315,6 +314,7 @@ namespace eevm
             Context::HaltHandler&& hh,
             Context::ExceptionHandler&& eh)
         {
+            TRACE_ME("push_context");
             if (get_call_depth() >= Consts::MAX_CALL_DEPTH)
                 throw Exception(ET::outOfBounds, "Reached max call depth (" + to_string(Consts::MAX_CALL_DEPTH) + ")");
 
@@ -349,6 +349,7 @@ namespace eevm
 
         void pop_context()
         {
+            TRACE_ME("Poping context...");
             ctxts.pop_back();
             if (!ctxts.empty())
                 ctxt = ctxts.back().get();

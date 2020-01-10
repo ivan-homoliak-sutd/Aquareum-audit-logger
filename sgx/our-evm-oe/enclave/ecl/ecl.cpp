@@ -153,7 +153,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
-    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(result_bi).c_str());
 
     // 6) if deployment of contract was made, then update the code of the contract to contain the effect of execution
     if (contrDeployed) {

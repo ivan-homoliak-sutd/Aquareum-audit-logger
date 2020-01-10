@@ -112,7 +112,7 @@ namespace eevm
         virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) const override;
 
         std::string toString() const;
-        void to_json(nlohmann::json& j) const;
+        void obj_to_json(nlohmann::json& j) const;
 
         friend void to_json(nlohmann::json&, const SimpleAccount&);
         friend void from_json(const nlohmann::json&, SimpleAccount&);

@@ -80,8 +80,10 @@ namespace eevm
         return size_of_storage;
     }
 
-    void SimpleStorage::to_json(nlohmann::json& j) const
+    void SimpleStorage::obj_to_json(nlohmann::json& j) const
     {
+        j = nlohmann::json::object();
+
         for (const auto& p : m_s) {
             j[to_hex_string(p.first)] = to_hex_string(p.second);
         }
@@ -90,8 +92,8 @@ namespace eevm
     std::string SimpleStorage::toString() const
     {
         nlohmann::json j;
-        to_json(j);
-        return std::string(std::move(j.dump()));
+        obj_to_json(j);
+        return std::string(j.dump());
     }
 
     /////////////////////////////////
@@ -115,7 +117,7 @@ namespace eevm
         return m_s == that.m_s;
     }
 
-    void to_json(nlohmann::json& j, const SimpleStorage& s)  // IH: TODO: drop this later since it is not const and instance-based
+    void to_json(nlohmann::json& j, const SimpleStorage& s)
     {
         j = nlohmann::json::object();
 

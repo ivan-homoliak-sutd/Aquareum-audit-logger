@@ -50,7 +50,7 @@ namespace eevm
         static uint256_t hashOfEmptyStorage();
 
         std::string toString() const override;
-        void to_json(nlohmann::json& j) const;
+        void obj_to_json(nlohmann::json& j) const;
 
         friend void to_json(nlohmann::json&, const SimpleStorage&);
         friend void from_json(const nlohmann::json&, SimpleStorage&);

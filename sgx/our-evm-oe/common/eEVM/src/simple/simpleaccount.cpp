@@ -86,12 +86,12 @@ namespace eevm
     std::vector<uint8_t>& SimpleAccount::asJsonBytes(std::vector<uint8_t>& output) const
     {
         nlohmann::json j;
-        to_json(j); // populate JSON object
+        obj_to_json(j);  // populate JSON object
         // to_json(j, *this);
         // std::cerr << "\t SimpleAccount::toString(): " << this->toString() << "\n";
         // std::cerr << "\t SimpleAccount::asJsonBytes: " << j.dump() << "\n";
 
-        auto s = std::string(std::move(j.dump()));
+        auto s = std::string(j.dump());  // TODO: move?
         output.assign(s.begin(), s.end());
         return output;
     }
@@ -114,22 +114,35 @@ namespace eevm
         return s;
     }
 
-    void SimpleAccount::to_json(nlohmann::json& j) const
+    void SimpleAccount::obj_to_json(nlohmann::json& j) const
     {
-        j["address"] = address_to_hex_string(address);
-        j["balance"] = to_hex_string(balance);
-        j["nonce"] = to_hex_string(nonce);
-        j["code"] = to_hex_string(code);
-        j["storage_hash"] = to_hex_string(storage_hash);
-    }
+        j = nlohmann::json({{"address", address_to_hex_string(address)},
+                            {"balance", to_hex_string(balance)},
+                            {"nonce", to_hex_string(nonce)},
+                            {"code", to_hex_string(code)},
+                            {"storage_hash", to_hex_string(storage_hash)}});
+
+        // j["address"] = address_to_hex_string(address);
+        // j["balance"] = to_hex_string(balance);
+        // j["nonce"] = to_hex_string(nonce);
+        // j["code"] = to_hex_string(code);
+        // j["storage_hash"] = to_hex_string(storage_hash);
+    }  // namespace eevm
 
     void to_json(nlohmann::json& j, const SimpleAccount& a)
     {
-        j["address"] = address_to_hex_string(a.address);
-        j["balance"] = to_hex_string(a.balance);
-        j["nonce"] = to_hex_string(a.nonce);
-        j["code"] = to_hex_string(a.code);
-        j["storage_hash"] = to_hex_string(a.storage_hash);
+        //IH: I do not like that that "https://github.com/nlohmann/json#serialization--deserialization" reconstructs the object
+        j = nlohmann::json({{"address", address_to_hex_string(a.address)},
+                            {"balance", to_hex_string(a.balance)},
+                            {"nonce", to_hex_string(a.nonce)},
+                            {"code", to_hex_string(a.code)},
+                            {"storage_hash", to_hex_string(a.storage_hash)}});
+
+        // j["address"] = address_to_hex_string(a.address);
+        // j["balance"] = to_hex_string(a.balance);
+        // j["nonce"] = to_hex_string(a.nonce);
+        // j["code"] = to_hex_string(a.code);
+        // j["storage_hash"] = to_hex_string(a.storage_hash);
     }
 
     void from_json(const nlohmann::json& j, SimpleAccount& a)
