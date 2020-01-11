@@ -1,0 +1,13 @@
+It is necessary to source rc file:
+    . /opt/openenclave/share/openenclave/openenclaverc
+
+
+Since there are collision in names of c++/C headers in OpenEnclave, I had to drop a few C++ headers from /opt/openenclave/include/openenclave/3rdparty/libcxx/, i.e., stdlib.h, stddef.h, and string.h
+
+
+Before running host part of application, It is necessary to set LD environment variable:
+    export LD_LIBRARY_PATH=/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+    NOTE: I added it into Makefile
+
+
+Note that secp256k1 is configured withou gmp support. Later, try to enable it to increase performance.

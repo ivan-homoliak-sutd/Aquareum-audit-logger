@@ -1,0 +1,742 @@
+#include "operator.h"
+#include "common.h"
+#include "secp256k1.h"
+#include "utils.h"
+
+#include <boost/tokenizer.hpp>
+#include <fmt/format_header_only.h>
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <openssl/err.h>
+#include <openssl/rand.h>
+#include <stdexcept>
+#include <string>
+#include <sys/stat.h>
+
+using namespace ecl;
+
+Operator::Operator(secp256k1_pubkey* _enc_PK)
+  : m_ecc(), m_ecl(&m_ecc)
+{
+    // If keys were generated and persisted before, just load them, otherwise generate new keys
+    if (this->existsMyKeyFile()) {
+        info_print(string("loading operator's keys from file."));
+        if (RET_SUCCESS != this->loadMyKeysFromFile()) {
+            error_print(string("Error when loading operator's keys."));
+            return;
+        }
+    } else {
+        info_print(string("generating new operator's keys."));
+
+        // 1) compute SK of operator (under PB)
+        int rc = RAND_priv_bytes((unsigned char*)&this->SK_O, ECC_SK_SIZE);
+        if (rc != 1) {
+            unsigned long err = ERR_get_error();
+            error_print(string("RAND_pseudo_bytes failed, err = ") + std::to_string(err));
+            return;
+        }
+
+        // 2) compute PK of operator (under PB)
+        if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &this->PK_O, (const uint8_t*)&this->SK_O)) {
+            error_print(string("secp256k1_ec_pubkey_create failed"));
+            return;
+        }
+        this->persistMyKeys();
+    }
+    memcpy(this->PK_E_PB.data, _enc_PK->data, ECC_PK_SIZE);
+    this->m_ecl.operAddr = eevm::from_big_endian(this->PK_O.data, PB_ADDR_SIZE);  // copy the address of O to the ECL object
+
+    info_print(string("PK_E_PB = ") + to_hex_str(_enc_PK->data, ECC_PK_SIZE));
+    info_print(string("SK_O = ") + to_hex_str(this->SK_O, ECC_SK_SIZE));
+    info_print(string("PK_O = ") + to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE));
+}
+
+void Operator::sendMyPKtoEnclave(oe_enclave_t* enclave)
+{
+    int ret;
+    oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, this->PK_O.data, PK_SIZE_PB);
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when passing operator's PK to Enclave.");
+    }
+}
+
+int Operator::loadMyKeysFromFile()
+{
+    ifstream file(FILE_OPERATOR_KEYS, ios::in | ios::binary);
+    if (file.fail()) {
+        return 1;
+    }
+    file.read((char*)this->SK_O, ECC_SK_SIZE);
+    file.read((char*)this->PK_O.data, ECC_PK_SIZE);
+    file.close();
+    return 0;
+}
+
+bool Operator::existsMyKeyFile()
+{
+    struct stat buffer;
+    if (0 != stat(FILE_OPERATOR_KEYS, &buffer)) {
+        return false;
+    }
+    return true;
+}
+
+int Operator::persistMyKeys()
+{
+    ofstream file(FILE_OPERATOR_KEYS, ios::out | ios::binary);
+    if (file.fail()) {
+        return ERR_SAVING_OPER_KEYS;
+    }
+    file.write((const char*)this->SK_O, ECC_SK_SIZE);
+    file.write((const char*)this->PK_O.data, ECC_PK_SIZE);
+    file.close();
+    return RET_SUCCESS;
+}
+
+//////////////////// AUX ////////////////////
+
+typedef boost::char_separator<char> separator;
+auto sep = separator{" "};
+
+
+const std::string expand_var(const std::string token_text, std::unordered_map<std::string, std::string>& sh_vars)
+{
+    if (token_text.substr(0, 1) == "$" && sh_vars.end() != sh_vars.find(token_text)) {
+        return sh_vars[token_text];
+    } else {
+        return token_text;
+    }
+}
+
+std::string expand_vars(const char* command, std::unordered_map<std::string, std::string>& sh_vars)
+{
+    auto sep = separator{" \t"};
+    auto tmp = std::string(command);
+    auto tokens = boost::tokenizer<separator>{tmp, sep};
+
+    std::string ret("");
+
+    // iterate over all parameters of the requested endpoint
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+        // debug_print(fmt::format("token: {}", *it));
+        ret.append(expand_var(*it, sh_vars));
+        ret.append(" ");
+    }
+    return ret;  // RVO
+}
+
+bool correct_token_cnt(std::string& command, std::set<unsigned> allowedCnts, boost::tokenizer<separator>** tokens, uint* cnt = NULL)
+{
+    *tokens = new boost::tokenizer<separator>{command, sep};
+    auto _tokens = *tokens;
+
+    auto distance = std::distance(_tokens->begin(), _tokens->end());
+    if (allowedCnts.end() == allowedCnts.find(distance)) {
+        std::cerr << "wrong token count: " << std::distance(_tokens->begin(), _tokens->end()) << "\n";
+        return false;
+    }
+    if (NULL != cnt)
+        *cnt = distance;
+    return true;
+}
+
+void Operator::printEvmState(PublicSealedData_T& es)
+{
+    cout << "\t PK_E_PB = " << to_hex_str(this->PK_E_PB.data, ECC_PK_SIZE) << "\n"
+         << "\t PK_O = " << to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE) << "\n"
+         << "\t SK_O = " << to_hex_str((const unsigned char*)&this->SK_O, ECC_SK_SIZE) << "\n"
+         << "\t ADDR of O = " << eevm::address_to_hex_string(this->m_ecl.operAddr) << "\n";
+
+    cout << fmt::format("\t hdrLast[{}] = ", es.idCurrent) << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
+         << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"
+         << "\t globStRoot = " << to_hex_str(es.globStRoot, HASH_SIZE) << "\t(the actual global state root in E; not flushed to PB)\n"
+         << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
+         << "\t diskInits = " << es.diskInits << "\n";
+
+    eevm::print_sep();
+}
+
+void Operator::_printGlobalState(unsigned max)
+{
+    std::cout << "\nGlobal state of host contains accounts:\n";
+
+    nlohmann::json j;
+
+    unsigned i = 1;
+    for (const auto& a : this->m_ecl.m_gs.getAccounts()) {
+        j = nlohmann::json::parse(a.second.toString());
+
+        SimpleAccount acc;
+        eevm::from_json(j, acc);
+        std::string superTag = (this->m_ecl.operAddr == acc.get_address()) ? "*" : " ";  // mark SUPER account of O
+
+        std::string contrTag = "";
+        if (acc.get_code_ref() != EMPTY_CODE_OBJ) {
+            std::string name = (m_contracts.end() != m_contracts.find(acc.get_address())) ? m_contracts[acc.get_address()].name : "-";
+            contrTag.append(fmt::format(" [{}]", name));  // show name of contract if any
+        }
+
+        std::cout << fmt::format("\t{}[{}] {}{}\n", superTag, i++, acc.toString(), contrTag);
+        if (i - 1 == max) {
+            break;
+        }
+    }
+    if (i == max) {
+        std::cout << "... some accounts were omitted ... \n";
+    }
+    eevm::print_sep();
+}
+
+ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
+{
+    std::ifstream contract_fstream(contract_path);
+    if (!contract_fstream) {
+        error_print(fmt::format("Unable to open contract definition file: \"{}\"", contract_path));
+        throw std::logic_error("Unable to open contract definition file");
+    }
+
+    // parsing JSON
+    const auto contracts_definition = nlohmann::json::parse(contract_fstream);
+    const auto all_contracts = contracts_definition["contracts"];
+
+
+    // if (1 != all_contracts.size()) {
+    //     error_print("Multiple contracts found in the definition file... just one is supported for now.");
+    //     throw std::logic_error("Multiple contracts found in the definition file");
+    // }
+
+    auto conDef = ContrDefinition();
+
+    // skip all imported contracts and go to the last one
+    auto cit = all_contracts.begin();
+    std::advance(cit, all_contracts.size() - 1);
+
+    info_print(fmt::format("Processing contract definition called: '{}'", cit.key()));
+    conDef.name = std::string(cit.key().substr(0, cit.key().find(".")));
+    const auto& contract_definition = cit.value();
+
+    conDef.bin = eevm::to_bytes(contract_definition["bin"]);
+
+    auto endpoints = contract_definition["hashes"];
+    for (auto&& e : endpoints.items()) {
+        conDef.endpoints.push_back(
+            std::make_pair(e.key(), eevm::to_bytes(e.value())));
+    }
+
+    // ctor is optional parameter
+    bool ctorFound = true;
+    try {
+        contract_definition.at("ctor");
+    } catch (const std::exception& e) {
+        ctorFound = false;
+    }
+
+    if (ctorFound) {
+        for (auto& ctor_param : contract_definition["ctor"]) {
+            debug_print(fmt::format("parsing ctor parameter: {} {} => {} ", string(ctor_param["type"]), string(ctor_param["name"]), string(ctor_param["value"])));
+            if (string(ctor_param["type"]) == "uint256" || string(ctor_param["type"]) == "address") {
+                conDef.ctor_params.emplace_back(string(ctor_param["name"]), string(ctor_param["type"]), std::stoul(string(ctor_param["value"])));
+            } else {
+                throw std::logic_error(fmt::format("Unsupported type of parameter in contract's constructor: '{}'", string(ctor_param["type"])));
+            }
+        }
+    }
+
+    return conDef;
+}
+
+
+////////////////////////////////////////
+// Processing commands from operator  //
+////////////////////////////////////////
+
+void Operator::operatorLoop(oe_enclave_t* enclave)
+{
+    int ret;                // internal return value
+    oe_result_t ecall_ret;  // return value of general enclave call
+    char command[MAX_CMD_LEN];
+    boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
+    string command_s;
+
+    this->sendMyPKtoEnclave(enclave);
+    this->_createMyAccntState(enclave);
+
+    // origin and to selected in operator's shell
+    eevm::Address sh_origin = this->m_ecl.operAddr;
+    eevm::Address sh_to(0u);
+
+    // shell variables
+    std::unordered_map<std::string, std::string> sh_vars;
+    sh_vars["$?"] = "NULL";                                     // the last deployed contract
+    sh_vars["$ERC"] = "./contracts/erc20/ERC20_combined.json";  // testing definition file
+    sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
+    sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
+    sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
+
+    while (true) {
+        if (tokens) {
+            free(tokens);
+            tokens = NULL;
+        }
+
+        std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? "<SUPER>" : "";
+        std::string toFlag = (m_contracts.end() != m_contracts.find(sh_to)) ? string("<") + m_contracts[sh_to].name + string(">") : "";
+        cout << fmt::format("$[from={}..{} | to={}..{}]: $>",
+                            address_to_hex_string(sh_origin).substr(0, 8), operatorFlag,
+                            address_to_hex_string(sh_to).substr(0, 8), toFlag);
+        cin.getline(command, MAX_CMD_LEN);
+        std::string command_s(expand_vars(command, sh_vars));
+        // TRACE_HOST("expanded_cmd = %s", command_s.c_str());
+
+        // shell variables' handling
+        if (0 == strncmp(command, "$", 1)) {
+            boost::char_separator<char> sep("=");
+            auto tmp = string(command);
+            auto tokens = boost::tokenizer<separator>{tmp, sep};
+            auto cnt = std::distance(tokens.begin(), tokens.end());
+            auto it = tokens.begin();
+
+            if (cnt == 1) {  // just display
+                std::cout << fmt::format("\t {} = {} \n", *it, sh_vars[*it]);
+                continue;
+            } else if (cnt != 2) {
+                std::cerr << "\t Incorrect arguments.\n";
+                continue;
+            }
+
+            auto key = *it;
+            it++;
+            sh_vars[key] = expand_var(*it, sh_vars);  // do expansion also here
+            std::cout << fmt::format("\t Setting  {} <= {} \n", key, sh_vars[key]);
+
+        } else if (0 == strcmp(command, "")) {
+            continue;
+
+        } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+            // clang-format off
+            std::cout << "Supported commands are:\n"
+                      << "\t show | s"     << "\t display info about operator and enclave.\n"
+                      << "\t gs [n]"       << "\t\t display global state with max 'n' entries [default=100].\n"
+                      << "\t gen [n]"      << "\t generate 'n' random accounts [default=5].\n"
+                      << "\t origin a"     << "\t change the active address of origin to 'a' [default=operator's SUPER].\n"
+                      << "\t to a"         << "\t\t change the active address of contract destination to 'a'.\n"
+                      << "\t deploy f"     << "\t deploy a contract using definition file 'f'.\n"
+                      << "\t ep | end"     << "\t display # of endpoints for selected destination contract.\n"
+                      << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
+                      << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
+                      << "\n"
+                      << "Hardcoded testing:\n"
+                      << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
+                      << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
+                      << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
+                      << "\n";
+            // clang-format on
+
+        } else if (0 == strcmp(command, "show") || 0 == strcmp(command, "s")) {
+            PublicSealedData_T pub_evm_state;
+            ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+            if (ecall_ret != OE_OK && is_error(ret)) {
+                error_print("Failed to read the state of enclave.");
+            }
+            this->printEvmState(pub_evm_state);
+
+        } else if (0 == strcmp(command, "defs")) {
+            // dump definitions
+            unsigned i = 0;
+            std::cout << "All loaded definitions ";
+            for (auto& d : m_contracts) {
+                std::cout << fmt::format("\t [{}] Definition of contract on addr = {}:\n {}\n", ++i, to_hex_string(d.first) ,d.second.toString());
+            }
+
+        } else if (0 == strncmp(command, "gs", 2)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            int n = 100;  // default max no of entries to print
+            if (2 == tokenCnt) {
+                try {
+                    auto it = tokens->begin();
+                    std::advance(it, 1);
+                    n = std::stoi(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            try {
+                this->_printGlobalState(n);
+            } catch (const std::exception& e) {
+                std::cerr << "Exception in _printGlobalState: " << e.what() << '\n';
+                continue;
+            }
+
+
+        } else if (0 == strncmp(command, "origin", 6)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            if (1 == tokenCnt) {
+                std::cout << "\t The active address of origin is: " << address_to_hex_string(sh_origin) << operatorFlag << "\n";
+                continue;
+            }
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            eevm::Address addr = string_to_uint256(*it);
+            if (m_accounts.end() == m_accounts.find(addr)) {
+                error_print(fmt::format("Requested address {} was not found in local cache... (maybe contract?)", address_to_hex_string(addr)));
+                continue;
+            }
+            info_print(fmt::format("\t The active origin account of shell changed to: {}", address_to_hex_string(addr)));
+            sh_origin = addr;
+
+        } else if (0 == strncmp(command, "to", 2)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            if (1 == tokenCnt) {
+                std::cout << "\t The active address of destination for contract calls is: " << address_to_hex_string(sh_to) << "\n";
+                continue;
+            }
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+            eevm::Address addr;
+            try {
+                addr = string_to_uint256(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            if (m_contracts.end() == m_contracts.find(addr)) {
+                error_print(fmt::format("Requested address {} was not found in local cache of contracts... (maybe simple account?)", address_to_hex_string(addr)));
+                continue;
+            }
+            info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}\n", address_to_hex_string(addr)));
+            sh_to = addr;
+
+        } else if (0 == strncmp(command, "gen", 3)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            uint n = 5;  // default number of random accounts to generate
+            uint initBal = 1;
+            if (2 == tokenCnt) {
+                try {
+                    auto it = tokens->begin();
+                    std::advance(it, 1);
+                    n = std::stoul(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            auto addrLast = this->_createNRandomAccounts(n, initBal, enclave);
+            sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
+
+        } else if (0 == strcmp(command, "test")) {
+            info_print("Invoking internally generated TXs in enclave...");
+
+            ecall_ret = ecall_enclave_ecledger(enclave);
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when invoking internal TX generation.");
+            }
+        } else if (0 == strncmp(command, "call ", 5)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {2, 3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
+                continue;
+
+            if (m_contracts.end() == m_contracts.find(sh_to)) {
+                error_print(fmt::format("Destination address {} was not found in local cache of contracts... (maybe already deleted?)", address_to_hex_string(sh_to)));
+                continue;
+            }
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            // Scan endpoint ID
+            uint endpointID;
+            try {
+                endpointID = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << fmt::format("Invalid argument for endpoint ID ({}). The range for the current contract is: <0-{}>\n", *it, m_contracts[sh_to].endpoints.size() - 1);
+                continue;
+            }
+
+            // Check the number of endpoint's parameters passed
+            auto& cdef = m_contracts[sh_to];
+            auto& ep = cdef.endpoints[endpointID];
+            vector<ParamTypes> requiredParTypes;
+            try {
+                requiredParTypes = cdef.getParamTypesOfEP(endpointID);
+            } catch (const std::exception& e) {
+                std::cerr << e.what() << '\n';
+                continue;
+            }
+            if (tokenCnt - 2 != requiredParTypes.size()) {
+                std::cerr << fmt::format("Invalid number of arguments ({}) passed for endpoint #{} (required {}).\n", tokenCnt - 2, endpointID, requiredParTypes.size());
+                continue;
+            }
+
+            // Process parameters for endpoint
+            std::advance(it, 1);
+            std::vector<u256> parsedParams;
+            uint j = 0;
+            for (; it != tokens->end(); ++it, j++) {
+                if (ParamTypes::address == requiredParTypes[j]) {
+                    parsedParams.push_back(string_to_uint256(*it));  // this might later change
+                } else if (ParamTypes::uint256 == requiredParTypes[j]) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                } else {
+                    std::cerr << fmt::format("Invalid parameter type passed {} at parameter position {} \n", (uint)requiredParTypes[j], j);
+                    continue;
+                }
+            }
+
+            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
+            auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
+
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+                continue;
+
+        } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
+            if (!correct_token_cnt(command_s, {1}, &tokens))
+                continue;
+
+            if (sh_to == u256(0u)) {
+                error_print("No destination contract selected.");
+                continue;
+            } else if (m_contracts.end() == m_contracts.find(sh_to)) {
+                error_print(fmt::format("Destination address {} was not found in local cache of contracts... (maybe already deleted?)", address_to_hex_string(sh_to)));
+                continue;
+            }
+
+            std::cout << fmt::format("\n\t Displaying endpoints of '{}' contract.\n", m_contracts[sh_to].name);
+            unsigned ep_id = 0;
+            for (auto& ep : m_contracts[sh_to].endpoints) {
+                std::cout << fmt::format("\t [#{}] => {} \n", ep_id++, ep.first);
+            }
+            print_sep();
+        } else if (0 == strncmp(command, "tx add", 6)) {
+            if (!correct_token_cnt(command_s, {4}, &tokens))
+                continue;
+
+            int a, b;
+            try {
+                auto it = tokens->begin();
+                std::advance(it, 2);
+                a = std::stoi(*it);
+                b = std::stoi(*std::next(it));
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+            INFO_PRINT("Creating TX that sums %d + %d ...", a, b);
+
+            // create TX using eEVM
+            auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
+            eevm::PersistantTransaction* tx = this->m_ecl.createSumTx(a, b, this->PK_O, this->SK_O, selAccnt.get_nonce());
+
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+                continue;
+
+            // [Alternative] executing TX in E while using E's full state
+            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            //                                             (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            //                                             (const uint8_t*)tx->code.data(), tx->code.size());
+            // if (ecall_ret != OE_OK || is_error(ret)) {
+            //     error_print("Error when processing sum TX in Enclave.");
+            // }
+        } else if (0 == strcmp(command, "tx inc")) {
+            info_print("Creating increment counter TX ...");
+
+            // create and sign TX
+            eevm::PersistantTransaction* tx = this->m_ecl.createIncCounterTX(this->PK_O, this->SK_O);
+
+            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                        (const uint8_t*)tx->code.data(), tx->code.size());
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when processing increment counter TX in Enclave.");
+            }
+        } else if (0 == strncmp(command, "deploy", 6)) {
+            info_print("Creating contract ...");
+            if (!correct_token_cnt(command_s, {2}, &tokens))
+                continue;
+
+            auto it = tokens->begin();
+            std::advance(it, 1);
+
+            const auto contract_path = *it;
+            ContrDefinition def;
+
+            // Parse the contract definition from file
+            try {
+                def = this->_parseDefinitionFile(contract_path);
+            } catch (const std::exception& e) {
+                std::cerr << "Exception occured:" << e.what() << "\n";
+                continue;
+            }
+
+            // create and sign deployment TX
+            auto selAccnt = getAccount(sh_origin).acc;  // get account state of active account
+            eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+                continue;
+
+            info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
+            sh_vars["$?"] = address_to_hex_string(tx->to);
+            m_contracts[tx->to] = def;  // store binding of contract address to its definition
+
+        } else if (0 == strcmp(command, "tx")) {
+            info_print("Creating hello world TX ...");
+            auto selAccnt = m_ecl.m_gs.get(sh_origin).acc;  // get O's account state
+
+            // create and sign TX
+            eevm::PersistantTransaction* tx = this->m_ecl.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+                continue;
+
+            // [Alternative] executing TX in E while using E's full state
+            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            // (const uint8_t*)tx->code.data(), tx->code.size());
+        } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
+            info_print("Syncing sealed state of enclave to disk...");
+            ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
+            if (ecall_ret != OE_OK || is_error(ret)) {
+                error_print("Error when syncing sealed state.");
+            }
+            std::cout << "Operator shell quits...\n";
+            break;
+        } else {
+            std::cout << "Unknown command\n";
+        }
+    }
+}
+
+/**
+ * It creates O's account state in E.
+ */
+void Operator::_createMyAccntState(oe_enclave_t* enclave)
+{
+    std::cout << "Creating account of Operator...\n";
+    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
+
+    if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+        exit(1);
+
+    auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
+    debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.toString()));
+
+    m_accounts[this->m_ecl.operAddr] = OperAccount(this->SK_O, &this->PK_O, this->m_ecl.operAddr);
+    eevm::print_sep();
+}
+
+/**
+ * Create N simple accounts with initial balance set to 'initBalance'
+ * For each account creation, do ecall into E.
+ * Return the last created account;
+ */
+Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
+{
+    std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
+    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
+    size_t nonceBefore = operAccnt.get_nonce();
+
+    OperAccount acc;
+    for (unsigned i = 0; i < N; i++) {
+        std::cout << fmt::format("\n [{}] Creating next operator's testing account...\n", i);
+
+
+        // 1) generate SK of account
+        if (1 != RAND_priv_bytes((unsigned char*)&acc.SK, ECC_SK_SIZE)) {
+            unsigned long err = ERR_get_error();
+            throw std::logic_error(fmt::format("RAND_pseudo_bytes failed, err = {}", err));
+        }
+
+        // 2) compute PK of account
+        if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &acc.PK, (const uint8_t*)&acc.SK))
+            throw std::logic_error("secp256k1_ec_pubkey_create failed");
+
+        acc.addr = eevm::from_big_endian(acc.PK.data, PB_ADDR_SIZE);
+
+        // 3) dispatch TX into E
+        auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx)) {
+            throw std::logic_error("error when dispatching TX");
+        }
+
+        eevm::AccountState accntState = this->m_ecl.m_gs.get(acc.addr);
+        debug_print(fmt::format("created account: {} ", accntState.acc.toString()));
+        operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
+
+        m_accounts[acc.addr] = acc;
+    }
+    assert(nonceBefore + N == operAccnt.get_nonce());
+    return acc.addr;
+}
+
+/**
+ * The point of interaction with the Enclave.
+ */
+int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx)
+{
+    int ret;
+
+    // 1) Dump global MP3 state into basic C types (to be passed into enclave)
+    std::vector<uint8_t> db_keys;  // \/== global account state
+    std::vector<uint8_t> db_values;
+    std::vector<size_t> values_sizes;
+    size_t db_keys_size, values_sizes_size;
+    std::vector<uint8_t> storages;  // \/== storages of all accounts
+    std::vector<size_t> storages_sizes;
+    size_t storages_sizes_size;
+    m_ecl.m_gs.dump_full_db(db_keys, db_values, values_sizes, db_keys_size, values_sizes_size, storages, storages_sizes, storages_sizes_size);
+
+    info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
+    debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
+    debug_print(fmt::format("Code passed to E is {}", to_hex_string(tx->code)));
+
+    // 2) Execute TX in Enclave
+    oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
+                                                              (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                              (const uint8_t*)tx->code.data(), tx->code.size(),
+                                                              (const uint8_t*)db_keys.data(), db_keys_size,
+                                                              (const uint8_t*)db_values.data(), values_sizes.data(), values_sizes_size,
+                                                              (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when executing TX in ENCLAVE.");
+        return ret;
+    }
+
+    // 3) Execute TX in Host
+    ret = this->m_ecl.executeTX(tx);
+    if (ret != RET_SUCCESS) {  // this updates global account state in the host
+        error_print("Error when executing TX in HOST.");
+        return ret;
+    }
+
+    // 4) Fetch the updated global state of E
+    PublicSealedData_T pub_evm_state;
+    ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+    if (ecall_ret != OE_OK && is_error(ret)) {
+        error_print("Failed to read the state of enclave.");
+        return ret;
+    }
+
+    // 5) Compare E's state to host's state
+    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
+    info_print("State in Host and Enclave match!");
+    return RET_SUCCESS;
+}
