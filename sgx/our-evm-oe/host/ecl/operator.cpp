@@ -287,7 +287,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                             address_to_hex_string(sh_origin).substr(0, 8), operatorFlag,
                             address_to_hex_string(sh_to).substr(0, 8), toFlag);
         cin.getline(command, MAX_CMD_LEN);
-        std::string command_s = expand_vars(command, sh_vars);
+        std::string command_s(expand_vars(command, sh_vars));
         // TRACE_HOST("expanded_cmd = %s", command_s.c_str());
 
         // shell variables' handling
@@ -568,7 +568,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK || is_error(ret)) {
                 error_print("Error when processing increment counter TX in Enclave.");
             }
-        } else if (0 == strncmp(command, "deploy ", 7)) {
+        } else if (0 == strncmp(command, "deploy", 6)) {
             info_print("Creating contract ...");
             if (!correct_token_cnt(command_s, {2}, &tokens))
                 continue;
