@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+// #include <random>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -52,7 +53,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
     info_print(string("PK_O = ") + to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE));
 }
 
-void Operator::sendMyPKtoEnclave(oe_enclave_t* enclave)
+void Operator::_sendMyPKtoEnclave(oe_enclave_t* enclave)
 {
     int ret;
     oe_result_t ecall_ret = ecall_set_operator_address(enclave, &ret, this->PK_O.data, PK_SIZE_PB);
@@ -100,7 +101,6 @@ int Operator::persistMyKeys()
 typedef boost::char_separator<char> separator;
 auto sep = separator{" "};
 
-
 const std::string expand_var(const std::string token_text, std::unordered_map<std::string, std::string>& sh_vars)
 {
     if (token_text.substr(0, 1) == "$" && sh_vars.end() != sh_vars.find(token_text)) {
@@ -142,7 +142,7 @@ bool correct_token_cnt(std::string& command, std::set<unsigned> allowedCnts, boo
     return true;
 }
 
-void Operator::printEvmState(PublicSealedData_T& es)
+void Operator::_printEvmState(PublicSealedData_T& es)
 {
     cout << "\t PK_E_PB = " << to_hex_str(this->PK_E_PB.data, ECC_PK_SIZE) << "\n"
          << "\t PK_O = " << to_hex_str((const unsigned char*)&this->PK_O, ECC_PK_SIZE) << "\n"
@@ -158,7 +158,7 @@ void Operator::printEvmState(PublicSealedData_T& es)
     eevm::print_sep();
 }
 
-void Operator::_printGlobalState(unsigned max)
+void Operator::_printGlobalState(unsigned max = 1000)
 {
     std::cout << "\nGlobal state of host contains accounts:\n";
 
@@ -247,6 +247,13 @@ ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
     return conDef;
 }
 
+uint256_t get_random_uint256(size_t bytes = 32)
+{
+    std::vector<uint8_t> raw(bytes);
+    std::generate(raw.begin(), raw.end(), []() { return rand(); });
+    return eevm::from_big_endian(raw.data(), raw.size());
+}
+
 
 ////////////////////////////////////////
 // Processing commands from operator  //
@@ -259,8 +266,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     char command[MAX_CMD_LEN];
     boost::tokenizer<separator>* tokens = NULL;  // tokens object for parsing command line
     string command_s;
+    uint256_t output_u256;  // first 32B output of EVM execution
 
-    this->sendMyPKtoEnclave(enclave);
+    this->_sendMyPKtoEnclave(enclave);
     this->_createMyAccntState(enclave);
 
     // origin and to selected in operator's shell
@@ -326,9 +334,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t ep | end"     << "\t display # of endpoints for selected destination contract.\n"
                       << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
+                      << "\t contracts"    << "\t print all deployed contracts.\n"
                       << "\n"
                       << "Hardcoded testing:\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
+                      << "\t test erc [a]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract [default=10].\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\n";
@@ -340,15 +350,26 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (ecall_ret != OE_OK && is_error(ret)) {
                 error_print("Failed to read the state of enclave.");
             }
-            this->printEvmState(pub_evm_state);
+            this->_printEvmState(pub_evm_state);
 
         } else if (0 == strcmp(command, "defs")) {
             // dump definitions
             unsigned i = 0;
-            std::cout << "All loaded definitions ";
+            std::cout << "All loaded definitions:\n";
             for (auto& d : m_contracts) {
-                std::cout << fmt::format("\t [{}] Definition of contract on addr = {}:\n {}\n", ++i, to_hex_string(d.first) ,d.second.toString());
+                std::cout << fmt::format("\t [{}] Definition of contract on addr = {}:\n {}\n", ++i, to_hex_string(d.first), d.second.toString());
             }
+
+        } else if (0 == strcmp(command, "contracts")) {
+            // dump contract accounts
+            unsigned i = 0;
+            std::cout << "All contracts deployed by operator:\n";
+            for (auto& c : m_contracts) {
+                auto acc = this->getAccount(c.first).acc;
+                std::string contrTag = fmt::format(" [{}]", m_contracts[acc.get_address()].name);
+                std::cout << fmt::format("\t[{}] {}{}\n", i++, acc.toString(), contrTag);
+            }
+            print_sep();
 
         } else if (0 == strncmp(command, "gs", 2)) {
             uint tokenCnt;
@@ -441,6 +462,39 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
             auto addrLast = this->_createNRandomAccounts(n, initBal, enclave);
             sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
+            this->_printGlobalState();
+
+        } else if (0 == strncmp(command, "test erc", 8)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {2, 3}, &tokens, &tokenCnt))
+                continue;
+
+            uint accntsCount = 5;  // default number of accounts involved in transactions
+            uint n = 10;           // default number of transactions
+
+            if (tokenCnt == 3) {
+                try {
+                    auto it = tokens->begin();
+                    std::advance(it, 2);
+                    n = std::stoul(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            if (n < 10) {
+                std::cerr << "The minimum number of TXs is 10.\n";
+                continue;
+            }
+            if (m_contracts.end() == m_contracts.find(sh_to) || m_contracts[sh_to].name != "ERC20") {
+                error_print(fmt::format("Selected contract {} is not an ERC20 contract.", address_to_hex_string(sh_to)));
+                continue;
+            }
+            if (m_accounts.size() < accntsCount) {
+                error_print(fmt::format("The minimal number of normal accounts (current = {}) needs to be at least {}", m_accounts.size(), accntsCount));
+                continue;
+            }
+            this->_testBulkERC(enclave, n, accntsCount, sh_to);
 
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
@@ -505,7 +559,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
@@ -546,7 +600,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             eevm::PersistantTransaction* tx = this->m_ecl.createSumTx(a, b, this->PK_O, this->SK_O, selAccnt.get_nonce());
 
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
 
             // [Alternative] executing TX in E while using E's full state
@@ -590,12 +644,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // create and sign deployment TX
             auto selAccnt = getAccount(sh_origin).acc;  // get account state of active account
             eevm::PersistantTransaction* tx = this->m_ecl.createDeploymentTX(def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
 
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             sh_vars["$?"] = address_to_hex_string(tx->to);
+            def.owner = sh_origin;
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
+
 
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
@@ -603,7 +659,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // create and sign TX
             eevm::PersistantTransaction* tx = this->m_ecl.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
 
             // [Alternative] executing TX in E while using E's full state
@@ -625,6 +681,77 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 }
 
 /**
+ * Execute 'numberOfTx' TXs that transfer ERC20 tokens among 'accountsCnt' normal accounts through interaction with address 'erc'.
+ * Note that function execute additional 'accountsCnt' TXs to get balances of accounts at the bgining.
+ */
+void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc)
+{
+    u256 output_u256;
+    auto def = m_contracts[erc];
+
+    // select accountsCnt accounts, where the 1st one is the owner
+    std::vector<eevm::Address> selectedAccnts;
+    selectedAccnts.push_back(def.owner);
+    for (auto it = m_accounts.begin(); it != m_accounts.end() && selectedAccnts.size() < accountsCnt; ++it) {
+        if (it->first == def.owner)  // owner was already added
+            continue;
+        selectedAccnts.push_back(it->first);
+    }
+
+    // remember balances in the cache
+    std::vector<u256> balances;
+    for (uint i = 0; i < accountsCnt; i++) {
+        auto epbin = def.getEpBinByName("balanceOf(address)");
+
+        std::vector<u256> parsedParams;  // add address parameter
+        parsedParams.push_back(selectedAccnts[i]);
+
+        auto oper = getAccount(def.owner).acc;  // get O's account state
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[def.owner], erc, parsedParams, epbin, oper.get_nonce(), 0);
+
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            exit(1);
+
+        balances.push_back(output_u256);
+    }
+
+    // execute TXs one by one
+    for (uint i = 0; i < numberOfTx; i++) {
+        auto epbin = def.getEpBinByName("transfer(address,uint256)");
+
+        // select random origin who has some funds at ERC20 contract
+        uint j;
+        do {
+            j = uint(std::rand() % accountsCnt);
+        } while (balances[j] == u256(0u));
+
+        auto origin = getAccount(selectedAccnts[j]).acc;
+        uint destIdx = std::rand() % accountsCnt;
+        auto to = selectedAccnts[destIdx];
+
+        std::vector<u256> parsedParams;
+        parsedParams.push_back(to);                       // add receiver of ERC20 tokens
+        auto value = get_random_uint256() % balances[j];  // add amount of ERC20 tokens
+        parsedParams.push_back(value);
+
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[origin.get_address()], erc, parsedParams, epbin, origin.get_nonce(), 0);
+
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            exit(1);
+
+        // adjust balances in our cache
+        balances[j] -= value;
+        balances[destIdx] += value;
+    }
+
+    // print the final balances
+    std::cout << fmt::format("The final balances of ERC {} contract are:\n", to_hex_string(erc));
+    for (uint i = 0; i < accountsCnt; i++) {
+        std::cout << fmt::format("\t {} => {}\n", to_hex_string(selectedAccnts[i]), to_hex_string(balances[i]));
+    }
+}
+
+/**
  * It creates O's account state in E.
  */
 void Operator::_createMyAccntState(oe_enclave_t* enclave)
@@ -632,7 +759,8 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
     std::cout << "Creating account of Operator...\n";
     auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
 
-    if (RET_SUCCESS != this->_dispatchTX(enclave, tx))
+    u256 output_u256;
+    if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
         exit(1);
 
     auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
@@ -652,6 +780,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
     std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
     auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
     size_t nonceBefore = operAccnt.get_nonce();
+    u256 output_u256;
 
     OperAccount acc;
     for (unsigned i = 0; i < N; i++) {
@@ -672,7 +801,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 
         // 3) dispatch TX into E
         auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
-        if (RET_SUCCESS != this->_dispatchTX(enclave, tx)) {
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
             throw std::logic_error("error when dispatching TX");
         }
 
@@ -687,9 +816,9 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 }
 
 /**
- * The point of interaction with the Enclave.
+ * The point of interaction with the Enclave. Store the first 32B of the result into 'output_u256'
  */
-int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx)
+int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
 {
     int ret;
 
@@ -721,7 +850,7 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
     }
 
     // 3) Execute TX in Host
-    ret = this->m_ecl.executeTX(tx);
+    ret = this->m_ecl.executeTX(tx, output_u256);
     if (ret != RET_SUCCESS) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");
         return ret;

@@ -37,7 +37,20 @@ struct ContrDefinition {
     std::string name;
     std::vector<uint8_t> bin;                              // code of the contract
     std::vector<std::pair<std::string, Bytes>> endpoints;  // functions available
-    std::vector<CtorPar> ctor_params;                      // parameters of ctors (with defaut values)
+    std::vector<CtorPar> ctor_params;                      // parameters of ctor (with defaut values)
+
+    // not part of definition
+    Address owner = 0u;  // owner of the contract is added after deployment
+
+    Bytes getEpBinByName(std::string name)
+    {
+        for (auto it = endpoints.begin(); it != endpoints.end(); ++it) {
+            if (name == it->first) {
+                return it->second;
+            }
+        }
+        throw std::logic_error(fmt::format("EP with name = {} does not exist.", name));
+    }
 
     std::vector<ParamTypes> getParamTypesOfEP(uint endpointID)
     {
@@ -84,6 +97,7 @@ struct ContrDefinition {
             ctor.push_back(nlohmann::json({{"name", ep.name}, {"type", ep.type}, {"value", ep.value}}));
         }
         j["ctor"] = ctor;
+        j["owner"] = to_hex_string(owner);
 
         return j.dump(4);
     }
@@ -145,7 +159,7 @@ public:
                                               unsigned initBalance,
                                               size_t nonce);
 
-    int executeTX(PersistantTransaction* tx);
+    int executeTX(PersistantTransaction* tx, uint256_t& result_u256);
 
 private:
     int _execute_transfer_tx(Transaction& etx);
