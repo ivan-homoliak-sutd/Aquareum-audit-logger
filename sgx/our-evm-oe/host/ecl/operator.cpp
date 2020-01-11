@@ -4,13 +4,13 @@
 #include "utils.h"
 
 #include <boost/tokenizer.hpp>
+#include <chrono>
 #include <fmt/format_header_only.h>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <openssl/err.h>
 #include <openssl/rand.h>
-// #include <random>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -716,6 +716,7 @@ void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint account
     }
 
     // execute TXs one by one
+    auto start_t = chrono::steady_clock::now();
     for (uint i = 0; i < numberOfTx; i++) {
         auto epbin = def.getEpBinByName("transfer(address,uint256)");
 
@@ -743,6 +744,10 @@ void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint account
         balances[j] -= value;
         balances[destIdx] += value;
     }
+    auto end_t = chrono::steady_clock::now();
+    auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
+
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
 
     // print the final balances
     std::cout << fmt::format("The final balances of ERC {} contract are:\n", to_hex_string(erc));
