@@ -189,6 +189,24 @@ void Operator::_printGlobalState(unsigned max = 1000)
     eevm::print_sep();
 }
 
+void Operator::_iterExps(Address& key)
+{
+    std::cout << "\n MP3 Iterator testing:\n";
+
+    uint i = 1;
+    auto& accounts = this->m_ecl.m_gs.getAccounts();
+
+    h256 hashedKey = sha3(key);
+
+    for (auto it = accounts.hashedLowerBound(hashedKey); it != accounts.hashedEnd(); ++it) {  //
+        nlohmann::json j = nlohmann::json::parse((*it).second.toString());
+
+        SimpleAccount acc;
+        eevm::from_json(j, acc);
+        std::cout << fmt::format("\t[{}] {}\n", i++, acc.toString());
+    }
+}
+
 ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
 {
     std::ifstream contract_fstream(contract_path);
@@ -342,6 +360,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t test erc [a]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract [default=10].\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
+                      << "\t iter"         << "\t\t experimennts with MP3 iterator.\n"
                       << "\n";
             // clang-format on
 
@@ -395,6 +414,22 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
             }
 
+
+        } else if (0 == strncmp(command, "iter ", 5)) {
+            if (!correct_token_cnt(command_s, {2}, &tokens, NULL))
+                continue;
+
+            eevm::Address addr;
+            auto it = tokens->begin();
+            std::advance(it, 1);
+            try {
+                addr = string_to_uint256(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->_iterExps(addr);
 
         } else if (0 == strncmp(command, "origin", 6)) {
             uint tokenCnt;

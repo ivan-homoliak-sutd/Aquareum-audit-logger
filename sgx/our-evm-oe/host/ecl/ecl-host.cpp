@@ -357,7 +357,7 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
 
-    // allow account creation for operator (if it does not exist)
+    // allow new account creation for operator
     auto snderAcState = (etx.origin == this->operAddr && !m_gs.exists(etx.origin)) ? m_gs.create(etx.origin, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.origin);
 
     // 2) increment the nonce and adjust the balance of the sender

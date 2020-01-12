@@ -18,7 +18,7 @@ public:
     explicit OverlayDB(std::unique_ptr<db::DatabaseFace> _db = nullptr)
       : m_db(_db.release(), [](db::DatabaseFace* db) { // the lambda function is deleter of managed object (called when the last shared pointer is released)
             // if(VerbosityDebug == currentVerbosity)
-            std::cerr << "overlaydb: " << "Closing MP3 database...\n";
+            std::cerr << "OverlayDB: " << "Closing MP3 database...\n";
             delete db;
         }) {}
 
