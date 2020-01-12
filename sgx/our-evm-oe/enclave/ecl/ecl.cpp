@@ -220,7 +220,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = gs->getStorages().at(etx.origin);
     auto accSndUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
-    assert(accSndUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
+    assert(accSndUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
 
     // 4) add value to the target account
     auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // cretate target account if it does not exist

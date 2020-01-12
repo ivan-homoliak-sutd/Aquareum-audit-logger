@@ -333,6 +333,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t deploy f"     << "\t deploy a contract using definition file 'f'.\n"
                       << "\t ep | end"     << "\t display # of endpoints for selected destination contract.\n"
                       << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
+                      << "\t pay a [b]"    << "\t pay amount 'a' to address 'b' [default=active destination].\n"
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
                       << "\n"
@@ -443,6 +444,49 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             info_print(fmt::format("\t The destination account for contract calls of shell changed to: {}\n", address_to_hex_string(addr)));
             sh_to = addr;
 
+        } else if (0 == strncmp(command, "pay", 3)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {2, 3}, &tokens, &tokenCnt))
+                continue;
+
+            // parse amount
+            uint amount;
+            auto it = tokens->begin();
+            try {
+                std::advance(it, 1);
+                amount = std::stoul(*it);
+                info_print(fmt::format("Amount = {}", amount));
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // adjust destination
+            Address dest;
+            if (2 == tokenCnt) {
+                if (sh_to == Address(0u)) {
+                    std::cerr << "Destination account for contract calls not selected yet.\n";
+                    continue;
+                }
+                dest = sh_to;
+            } else {
+                try {
+                    std::advance(it, 1);
+                    dest = string_to_uint256(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+
+            // create TX and execute it
+            auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
+            eevm::Code emptyFunc = {0u};
+            eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[sh_origin], dest, {}, emptyFunc, selAccnt.get_nonce(), amount);
+
+            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+                continue;
+
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
@@ -463,7 +507,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto addrLast = this->_createNRandomAccounts(n, initBal, enclave);
             sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
             this->_printGlobalState();
-
         } else if (0 == strncmp(command, "test erc", 8)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2, 3}, &tokens, &tokenCnt))
@@ -495,7 +538,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
             }
             this->_testBulkERC(enclave, n, accntsCount, sh_to);
-
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
@@ -561,7 +603,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
-
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
                 continue;
@@ -651,8 +692,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             sh_vars["$?"] = address_to_hex_string(tx->to);
             def.owner = sh_origin;
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
-
-
         } else if (0 == strcmp(command, "tx")) {
             info_print("Creating hello world TX ...");
             auto selAccnt = m_ecl.m_gs.get(sh_origin).acc;  // get O's account state
@@ -841,7 +880,14 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
     debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
     debug_print(fmt::format("Code passed to E is {}", to_hex_string(tx->code)));
 
-    // 2) Execute TX in Enclave
+    // 2) Execute TX in Host
+    ret = this->m_ecl.executeTX(tx, output_u256);
+    if (ret != RET_SUCCESS) {  // this updates global account state in the host
+        error_print("Error when executing TX in HOST.");
+        return ret;
+    }
+
+    // 3) Execute TX in Enclave
     oe_result_t ecall_ret = ecall_run_single_tx_mp3state_full(enclave, &ret,
                                                               (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                               (const uint8_t*)tx->code.data(), tx->code.size(),
@@ -851,13 +897,6 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing TX in ENCLAVE.");
-        return ret;
-    }
-
-    // 3) Execute TX in Host
-    ret = this->m_ecl.executeTX(tx, output_u256);
-    if (ret != RET_SUCCESS) {  // this updates global account state in the host
-        error_print("Error when executing TX in HOST.");
         return ret;
     }
 
@@ -871,6 +910,6 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 
     // 5) Compare E's state to host's state
     assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
-    info_print("State in Host and Enclave match!");
+    info_print(">> State in Host and Enclave match! <<");
     return RET_SUCCESS;
 }

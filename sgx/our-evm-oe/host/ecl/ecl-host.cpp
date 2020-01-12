@@ -373,9 +373,9 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     }
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalBefore = snderAcState.acc.get_balance();
-    auto senderDeducted = ((etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value));
+    auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto accSndUpdated = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, snderAcState.acc.get_nonce(), storage), storage});
-    assert(accSndUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
+    assert(accSndUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
 
     // 3) add value to the target account
     auto recvAcState = (!m_gs.exists(etx.to)) ? m_gs.create(etx.to, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.to);  // cretate target account if it does not exist

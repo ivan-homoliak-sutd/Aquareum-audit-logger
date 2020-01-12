@@ -125,7 +125,7 @@ namespace dev {
 
                 void setChild(unsigned _i) { child = _i; }
                 void setFirstChild() { child = 16; }
-                void incrementChild() { child = child == 16 ? 0 : child == 15 ? 17 : (child + 1); }
+                void incrementChild() { child = (child == 16) ? 0 : (child == 15) ? 17 : (child + 1); }
 
                 bool operator==(Node const& _c) const { return rlp == _c.rlp && key == _c.key && child == _c.child; }
                 bool operator!=(Node const& _c) const { return !operator==(_c); }
@@ -660,8 +660,8 @@ namespace dev {
                         return;
                     }
 
-                    // enter child.
-                    m_trail.back().rlp = m_that->deref(rlp[1]);
+                    // enter child // IH: extension node
+                    m_trail.back().rlp = m_that->deref(rlp[1]); // IH: the hash of the extension node
                     // no need to set .child as 255 - it's already done.
                     continue;
                 } else {
@@ -680,7 +680,7 @@ namespace dev {
             }
 
 
-            // ...here. should only get here if we're a list.
+            // ...here. should only get here if we're a branch list.
             assert(rlp.isList() && rlp.itemCount() == 17);
             for (;; m_trail.back().incrementChild())
                 if (m_trail.back().child == 17) {
@@ -868,6 +868,7 @@ namespace dev {
         return (_n.isData() && RLP(node(_n.toHash<h256>())).itemCount() == 2) || (_n.isList() && _n.itemCount() == 2);
     }
 
+    // IH: get either data of the current node (if it is list with size 2) OR fetch the node from DB if it just RLP of hash (i.e., case of an extension node)
     template <class DB>
     std::string GenericTrieDB<DB>::deref(RLP const& _n) const {
         return _n.isList() ? _n.data().toString() : node(_n.toHash<h256>());

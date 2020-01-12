@@ -89,10 +89,10 @@ inline NibbleSlice keyOf(bytesConstRef _hpe)
 {
 	if (!_hpe.size())
 		return NibbleSlice(_hpe, 0);
-	if (_hpe[0] & 0x10) // IH: 0x10 means odd number of nibbles (in which 1st byte contains the 1st nibble of data => skip 1 nibble in slice)
+	if (_hpe[0] & 0x10) // IH: 0x10 means odd number of nibbles (in which 1st byte contains the 1st nibble of data => skip one nibble in slice)
 		return NibbleSlice(_hpe, 1);
 	else
-		return NibbleSlice(_hpe, 2); // IH: even number of nibbles encodes no data at the 1st byte => skipe 2 nibbles in slice
+		return NibbleSlice(_hpe, 2); // IH: even number of nibbles encodes no data at the 1st byte => skipe 2 nibbles in the slice
 }
 
 // IH: input node is list with 2 items (partialPath and value|key)
