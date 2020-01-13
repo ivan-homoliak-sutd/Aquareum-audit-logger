@@ -100,6 +100,9 @@ namespace ecl
         void _testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc);
 
         int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
+        int _dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
+        int _dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
+
         void _iterExps(eevm::Address& key);
         void _printTrailOfMP3Leaf(Address& key);
     };

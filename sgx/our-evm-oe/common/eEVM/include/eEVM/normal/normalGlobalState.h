@@ -6,6 +6,7 @@
 #include "eEVM/globalstate.h"
 #include "eEVM/simple/simpleaccount.h"
 #include "eEVM/simple/simplestorage.h"
+#include "eEVM/transaction.h"
 
 #include "aleth-mp3/Common.h"
 #include "aleth-mp3/database/MemoryDB.h"
@@ -77,6 +78,10 @@ namespace eevm
                           size_t& db_keys_size, size_t& values_sizes_size,
                           std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
 
+        void dump_partial_db(std::vector<PersistantTransaction>& txs,
+                             bytes& db_data, std::set<h256>& db_keys,
+                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
+
         /**
          * For tests which require some initial state, allow manual insertion of pre-constructed accounts
          */
@@ -85,6 +90,7 @@ namespace eevm
         static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* db_keys, size_t db_keys_size,
                                         const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
                                         const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size);
+
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);
         // friend void from_json(const nlohmann::json&, NormalGlobalState&);

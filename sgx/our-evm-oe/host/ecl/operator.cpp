@@ -1015,6 +1015,83 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 {
     int ret;
 
+    switch (this->mode) {
+        case MODE::FullState:
+            ret = _dispatchTX_FullState(enclave, tx, output_u256);
+            break;
+        case MODE::PartialState:
+            ret = _dispatchTX_PartialState();
+        default:
+            cerr << "Unknown mode: " << this->mode << "\n";
+            exit(1);
+            break;
+    }
+    return ret;
+}
+
+/**
+ * Executes one TX in enclave, while it dumps only partial MP3 state to enclave. [fast]
+ */
+int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
+{
+    int ret;
+
+    // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
+    std::set<h256> db_keys;  // this a temporary list of all keys in exported partial DB, which should avoid duplicity in 'data' vector
+    std::vector<eevm::PersistantTransaction> txs;
+    txs.push_back(*tx);
+    std::vector<uint8_t> db_data;   // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
+    std::vector<uint8_t> storages;  // \/== storages of all accounts
+    std::vector<size_t> storages_sizes;
+    size_t storages_sizes_size = 0;
+    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size);
+
+    info_print(fmt::format("Size of state passed to E: (accounts = {}B | storages = {}B); SUM = {}B", db_data.size(), sumVectST(storages_sizes), db_data.size() + sumVectST(storages_sizes)));
+    debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
+
+    // 2) Execute TX in Host
+    ret = this->m_ecl.executeTX(tx, output_u256);
+    if (ret != RET_SUCCESS) {  // this updates global account state in the host
+        error_print("Error when executing TX in HOST.");
+        return ret;
+    }
+
+    // 3) Update partial MP3 DB again since new accounts could be created (we accept some kind of duplicity with regards to partial trail of newly added entries - although they could be optimized)
+    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size);
+
+    // 4) Execute TX in Enclave
+    oe_result_t ecall_ret = ecall_run_single_tx_mp3state_partial(enclave, &ret,
+                                                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+                                                                 (const uint8_t*)tx->code.data(), tx->code.size(),
+                                                                 (const uint8_t*)db_data.data(),
+                                                                 (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when executing TX in ENCLAVE.");
+        return ret;
+    }
+
+    // 5) Fetch the updated global state of E
+    PublicSealedData_T pub_evm_state;
+    ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+    if (ecall_ret != OE_OK && is_error(ret)) {
+        error_print("Failed to read the state of enclave.");
+        return ret;
+    }
+
+    // 6) Compare E's state to host's state
+    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
+    info_print(">> State in Host and Enclave match! <<");
+    return RET_SUCCESS;
+}
+
+/**
+ * Executes one TX in enclave, while it dumps the full MP3 state to enclave. [slow when MP3 is big]
+ */
+int Operator::_dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
+{
+    int ret;
+
     // 1) Dump global MP3 state into basic C types (to be passed into enclave)
     std::vector<uint8_t> db_keys;  // \/== global account state
     std::vector<uint8_t> db_values;
@@ -1027,7 +1104,7 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B | storages = {}B)", db_keys_size, sumVectST(values_sizes), sumVectST(storages_sizes)));
     debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
-    debug_print(fmt::format("Code passed to E is {}", to_hex_string(tx->code)));
+    // debug_print(fmt::format("Code passed to E is {}", to_hex_string(tx->code)));
 
     // 2) Execute TX in Host
     ret = this->m_ecl.executeTX(tx, output_u256);

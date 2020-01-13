@@ -156,6 +156,41 @@ namespace eevm
 
 
     /**
+     * It dumps 'partial' global state of MP3 related to all transactions in txs. It uses iteration trails of MP3 to build this partial state.
+     * The results is stored into 'data'
+     */
+    void NormalGlobalState::dump_partial_db(std::vector<PersistantTransaction>& txs,
+                                            bytes& db_data, std::set<h256>& db_keys,
+                                            std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size)
+    {
+        size_t sum_size_data = 0;
+        size_t size_data_before = db_data.size();
+
+        for (auto& tx : txs) {
+            assert(exists(tx.to));
+            auto it = m_accounts.lower_bound(tx.to);  // get iterator to the current account in MP3
+
+            // pass all nodes in the trail of the iterator and store unique ones
+            auto& trail = it.get_trail();
+            for (auto& node : trail) {
+                RLP rlp = RLP(node.rlp);
+                h256 h = sha3(rlp.data());
+
+                if (db_keys.end() == db_keys.find(h)) {                                   // check for duplicity
+                    db_data.insert(db_data.end(), rlp.data().begin(), rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
+                    sum_size_data += rlp.data().size();
+                    db_keys.insert(h);
+                }
+            }
+
+            // dump full storage of the recepient account
+            this->_dump_single_storage(tx.to, storages, storages_sizes, storages_sizes_size);
+        }
+        assert(sum_size_data == db_data.size() - size_data_before);
+    }
+
+
+    /**
      * It dumps the full MP3 state of accounts and their storages into several references.
      * It iterates MP3 entries through MP3's iterator (thus only leaf nodes are considered)
      */

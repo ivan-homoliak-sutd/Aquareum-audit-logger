@@ -49,7 +49,7 @@ ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH ]
 IncludeCategories:
 
 
-IndentCaseLabels: false
+IndentCaseLabels: true
 IndentWidth:     4
 IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: false

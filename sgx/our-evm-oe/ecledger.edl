@@ -51,6 +51,21 @@ enclave {
             [in, size=storages_sizes_size] const size_t * storages_sizes,
             size_t storages_sizes_size
         );
+
+        public int ecall_run_single_tx_mp3state_partial(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size,
+
+            [user_check] const uint8_t* db_values, // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size
+        );
+
     };
 
 
