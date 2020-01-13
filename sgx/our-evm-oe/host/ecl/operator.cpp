@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
@@ -191,20 +192,57 @@ void Operator::_printGlobalState(unsigned max = 1000)
 
 void Operator::_iterExps(Address& key)
 {
-    std::cout << "\n MP3 Iterator testing:\n";
-
-    uint i = 1;
     auto& accounts = this->m_ecl.m_gs.getAccounts();
 
-    h256 hashedKey = sha3(key);
-
-    for (auto it = accounts.hashedLowerBound(hashedKey); it != accounts.hashedEnd(); ++it) {  //
+    // normal iterator - passes only leafs
+    std::cout << "\n MP3 Normal iterator starting from node: " << to_hex_string(key) << "\n";
+    uint i = 1;
+    for (auto it = accounts.lower_bound(h256(key)); it != accounts.end(); ++it) {  //
         nlohmann::json j = nlohmann::json::parse((*it).second.toString());
 
         SimpleAccount acc;
         eevm::from_json(j, acc);
         std::cout << fmt::format("\t[{}] {}\n", i++, acc.toString());
     }
+    print_sep();
+
+    std::cout << "\n MP3 Full DB iterator:\n";
+    i = 1;
+    for (auto it = accounts.beginFullDB(); it != accounts.endFullDB(); ++it) {
+        h256 db_key = (*it).first;
+        // auto mp3_entry_raw = (*it).second.toString();
+
+        dev::RLP rlp = dev::RLP((*it).second);
+        std::string mp3_data = "";
+
+        if (2 == rlp.itemCount() && dev::isLeaf(rlp)) {  // has 2 items
+            // append partial nibble
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            mp3_data += fmt::format("[Leaf]\t k={} | ", s.str());
+
+            // append data of entry
+            mp3_data += fmt::format("v={}\n", rlp[1].toString());
+        } else if (2 == rlp.itemCount()) {  //  extension node (or in a special case might be empty root node)
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            auto h = h256(rlp[1].data());
+            mp3_data += fmt::format("[Extension] path={} | db_k={}\n", s.str(), h.hex());
+        } else {  // branch node
+            assert(17 == rlp.itemCount());
+            mp3_data += "[Branch]\n";
+            int j = 0;
+            for (auto r : rlp) {
+                auto h = h256(r);
+                std::string idx = (j != 16) ? fmt::format("{}", j) : "val";
+                mp3_data += fmt::format("\t\t {} : {}\n", idx, h.hex());
+                j++;
+            }
+        }
+
+        std::cout << fmt::format("\t[{}] db_k: {} => {} \n", i++, db_key.hex(), mp3_data);
+    }
+    print_sep();
 }
 
 ContrDefinition Operator::_parseDefinitionFile(const std::string& contract_path)
@@ -415,20 +453,24 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             }
 
 
-        } else if (0 == strncmp(command, "iter ", 5)) {
-            if (!correct_token_cnt(command_s, {2}, &tokens, NULL))
+        } else if (0 == strncmp(command, "iter", 4)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
                 continue;
 
             eevm::Address addr;
-            auto it = tokens->begin();
-            std::advance(it, 1);
-            try {
-                addr = string_to_uint256(*it);
-            } catch (const std::invalid_argument& ia) {
-                std::cerr << "Invalid argument\n";
-                continue;
+            if (1 == tokenCnt) {
+                addr = (*this->m_ecl.m_gs.getAccounts().begin()).first;
+            } else {
+                auto it = tokens->begin();
+                std::advance(it, 1);
+                try {
+                    addr = string_to_uint256(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
             }
-
             this->_iterExps(addr);
 
         } else if (0 == strncmp(command, "origin", 6)) {

@@ -135,52 +135,6 @@ namespace dev {
             std::vector<Node> m_trail;
             GenericTrieDB<DB> const* m_that;
         };
-
-
-        class iterator {
-          public:
-            using value_type = std::pair<bytesConstRef, bytesConstRef>;
-
-            iterator() {}
-            explicit iterator(GenericTrieDB const* _db);
-            iterator(GenericTrieDB const* _db, bytesConstRef _key);
-
-            iterator& operator++() {
-                next();
-                return *this;
-            }
-
-            value_type operator*() const { return at(); }
-            value_type operator->() const { return at(); }
-
-            bool operator==(iterator const& _c) const { return _c.m_trail == m_trail; }
-            bool operator!=(iterator const& _c) const { return _c.m_trail != m_trail; }
-
-            value_type at() const;
-
-          private:
-            void next();
-            void next(NibbleSlice _key);
-
-            struct Node {
-                std::string rlp;
-                std::string key; // as hexPrefixEncoding.
-                byte child;      // 255 -> entering, 16 -> actually at the node, 17 -> exiting, 0-15 -> actual children.
-
-                // 255 -> 16 -> 0 -> 1 -> ... -> 15 -> 17       // IH: this looks to me as pre-order iteration (parent first, then children)
-
-                void setChild(unsigned _i) { child = _i; }
-                void setFirstChild() { child = 16; }
-                void incrementChild() { child = (child == 16) ? 0 : (child == 15) ? 17 : (child + 1); }
-
-                bool operator==(Node const& _c) const { return rlp == _c.rlp && key == _c.key && child == _c.child; }
-                bool operator!=(Node const& _c) const { return !operator==(_c); }
-            };
-
-          protected:
-            std::vector<Node> m_trail;
-            GenericTrieDB<DB> const* m_that;
-        };
         iterator begin() const { return iterator(this); }
         iterator end() const { return iterator(); }
         iterator lower_bound(bytesConstRef _key) const { return iterator(this, _key); }
@@ -190,7 +144,7 @@ namespace dev {
         // Author: IH
         class iteratorFullDB {
           public:
-            using value_type = std::pair<h256, std::string>; // these are DB mapping value types
+            using value_type = std::pair<h256, bytesConstRef>; // these are DB mapping value types <key in DB : rlp data of entry>
 
             iteratorFullDB() {}
             explicit iteratorFullDB(GenericTrieDB const* _db);
@@ -201,13 +155,13 @@ namespace dev {
                 return *this;
             }
 
-            value_type operator*() const { return at_F(); }
-            value_type operator->() const { return at_F(); }
+            value_type operator*() const { return at(); }
+            value_type operator->() const { return at(); }
 
             bool operator==(iteratorFullDB const& _c) const { return _c.m_trail == m_trail; }
             bool operator!=(iteratorFullDB const& _c) const { return _c.m_trail != m_trail; }
 
-            value_type at_F() const;
+            value_type at() const;
 
           private:
             void next();
@@ -216,9 +170,13 @@ namespace dev {
             struct Node {
                 std::string rlp;
                 std::string key; // as hexPrefixEncoding.
-                byte child;      // 255 -> entering, 16 -> actually at the node, 17 -> exiting, 0-15 -> actual children.
+                byte child;      // 255 -> entering,
+                                 // 16 -> value of the branch the current branch node (usualy not),
+                                 // 17 -> the branch node itself
+                                 // 18 -> exiting,
+                                 // 0-15 -> actual children.
 
-                // 255 -> 0 -> 1 -> ... -> 15 -> 16 -> 17       // IH: we make post-order iteration (children first, then parent) - it is due to later re-hashing of the root
+                // 255 -> 0 -> 1 -> ... -> 15 -> 16 -> 17 -> 18      // IH: we make post-order iteration (children first, then parent) - it is due to later re-hashing of the root
 
                 void setChild(unsigned _i) { child = _i; }
                 void setFirstChild() { child = 0; }
@@ -232,9 +190,9 @@ namespace dev {
             std::vector<Node> m_trail;
             GenericTrieDB<DB> const* m_that;
         };
-        iteratorFullDB begin() const { return iteratorFullDB(this); }
-        iteratorFullDB end() const { return iteratorFullDB(); }
-        // iteratorFullDB lower_bound(bytesConstRef _key) const { return iteratorFullDB(this, _key); }
+        iteratorFullDB beginFullDB() const { return iteratorFullDB(this); }
+        iteratorFullDB endFullDB() const { return iteratorFullDB(); }
+        // iteratorFullDB lower_boundFullDB(bytesConstRef _key) const { return iteratorFullDB(this, _key); }
 
 
 
@@ -561,7 +519,6 @@ namespace dev {
           private:
             mutable bytes m_key;
         };
-
         iterator begin() const { return iterator(); }
         iterator end() const { return iterator(); }
 
@@ -579,29 +536,29 @@ namespace dev {
                 return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
             }
         };
-
         HashedIterator hashedBegin() const { return HashedIterator(this); }
         HashedIterator hashedEnd() const { return HashedIterator(); }
         HashedIterator hashedLowerBound(h256 const& _hashedKey) const { return HashedIterator(this, _hashedKey.ref()); }
 
-        // iterates also over extension and branch nodes (on top of leaf nodes)
-        class HashedFullIterator : public GenericTrieDB<_DB>::iterator {
-        public:
-            using Super = typename GenericTrieDB<_DB>::iterator;
 
-            HashedFullIterator() {}
-            HashedFullIterator(FatGenericTrieDB const* _trie): Super(_trie) {}
-            HashedFullIterator(FatGenericTrieDB const* _trie, bytesConstRef _hashedKey): Super(_trie, _hashedKey) {}
+        // // iterates also over extension and branch nodes (on top of leaf nodes)
+        // //
+        // class iteratorHashedFullDB : public GenericTrieDB<_DB>::iteratorFullDB {
+        // public:
+        //     using Super = typename GenericTrieDB<_DB>::iteratorFullDB;
 
-            bytes key() const{
-                auto hashed = Super::at();
-                return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
-            }
-        };
+        //     iteratorHashedFullDB() {}
+        //     iteratorHashedFullDB(FatGenericTrieDB const* _trie): Super(_trie) {}
+        //     iteratorHashedFullDB(FatGenericTrieDB const* _trie, bytesConstRef _hashedKey): Super(_trie, _hashedKey) {}
 
-        HashedFullIterator hFullBegin() const { return HashedFullIterator(this); }
-        HashedFullIterator hFullEnd() const { return HashedFullIterator(); }
-        HashedFullIterator hFullLowerBound(h256 const& _hashedKey) const { return HashedFullIterator(this, _hashedKey.ref()); }
+        //     bytes key() const{
+        //         auto hashed = Super::at();
+        //         return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
+        //     }
+        // };
+        // iteratorHashedFullDB beginFullDB() const { return iteratorHashedFullDB(this); }
+        // iteratorHashedFullDB endFullDB() const { return iteratorHashedFullDB(); }
+        // iteratorHashedFullDB lowerBoundFullDB(h256 const& _hashedKey) const { return iteratorHashedFullDB(this, _hashedKey.ref()); }
     };
 
 
@@ -852,7 +809,7 @@ namespace dev {
         // assert(!(b.key[0] & 0x10)); // should be an integer number of bytes (i.e. not an odd number of nibbles). // IH: 0x10 means odd number of nibbles, which does not hold for iteration of all DB  entries
 
         RLP rlp(b.rlp);
-        return std::make_pair(sha3(rlp),  rlp); // this emulates database entry
+        return std::make_pair(sha3(rlp.data()), rlp.data()); // this emulates database entry
     }
 
     template <class DB>
@@ -874,10 +831,10 @@ namespace dev {
                     if (isLeaf(rlp)) {
                         // leaf; exit now.
                         m_trail.back().key = hexPrefixEncode(keyOf(back.key), keyOf(rlp), false);
-                        m_trail.back().child = 0;
+                        m_trail.back().child = 0; // IH: this ensures later dropping of the leaf from the trail
                         return;
                     }else{
-                        // enter child // IH: we are in the extension node, so create a new child node in the trail
+                        // IH: we are in the extension node, so create a new child node in the trail
                         m_trail.back().child = 222; // IH: maybe put some special value for the later investigation of extension node
                         m_trail.push_back(Node{
                                 m_that->deref(rlp[1]), // IH: get the data from DB based on the hash of the child node
@@ -889,11 +846,11 @@ namespace dev {
                 } else {
                     // A branch node  // IH: 17 items
                     m_trail.back().setFirstChild();
-                    return;
+                    // pass through
                 }
             } else {
                 // Continuing/exiting. Look for next...
-                if(rlp.isList() && rlp.itemCount() == 2 && m_trail.back().child = 222){ // IH: we are in the extension node
+                if(rlp.isList() && rlp.itemCount() == 2 && m_trail.back().child == 222){ // IH: we are in the extension node
                     m_trail.back().child = 223; // exiting with extension node
                     return;
                 }
@@ -903,8 +860,8 @@ namespace dev {
                 // }
 
                 if (!(rlp.isList() && rlp.itemCount() == 17)) {
-                    m_trail.pop_back(); // IH: I am wondering why we need this - maybe to drop a processed leaves?
-                    return;
+                    m_trail.pop_back(); // IH: drop processed leaves and extension nodes
+                    continue;
                 }
                 // else run through to...
                 m_trail.back().incrementChild();
@@ -915,15 +872,18 @@ namespace dev {
             assert(rlp.isList() && rlp.itemCount() == 17);
             for (;; m_trail.back().incrementChild())
                 if (m_trail.back().child == 17) {
-                    // finished here.
-                    m_trail.pop_back();
+                    // exit with the branch node here
+                    return;
+                }else if (m_trail.back().child == 18) {
+                    // finished here. - IH: do hash computation here and remove branch node from the trail
+                    m_trail.pop_back(); // drop branch node
                     break;
                 } else if (!rlp[m_trail.back().child].isEmpty()) {
                     if (m_trail.back().child == 16){
-                        // IH: later compute summarized hash of this node
-                        return; // have a value at this node - exit now.
-                    }
-                    else { // these are child values 0-15
+
+                        return; // have a value at this node - exit now. (IH: this is statistically impossible to occur)
+
+                    } else { // these are child values 0-15
                         // lead-on to another node - enter child.
                         // fixed so that Node passed into push_back is constructed *before* m_trail is potentially resized (which invalidates back and rlp)
                         Node const& back = m_trail.back();

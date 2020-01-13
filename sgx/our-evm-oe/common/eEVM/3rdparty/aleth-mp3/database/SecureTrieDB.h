@@ -13,10 +13,11 @@ namespace dev
 
 #ifdef ETH_FATDB
 template <class KeyType, class DB>
-using SecureTrieDB = SpecificTrieDB<FatGenericTrieDB<DB>, KeyType>;
+    // using SecureTrieDB = SpecificTrieDB<FatGenericTrieDB<DB>, KeyType>;
+    using SecureTrieDB = SpecificTrieDB<GenericTrieDB<DB>, KeyType>;
 #else
 template <class KeyType, class DB>
-using SecureTrieDB = SpecificTrieDB<HashedGenericTrieDB<DB>, KeyType>;
+    using SecureTrieDB = SpecificTrieDB<HashedGenericTrieDB<DB>, KeyType>;
 #endif
 
 }  // namespace dev
