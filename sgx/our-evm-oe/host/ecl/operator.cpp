@@ -190,6 +190,54 @@ void Operator::_printGlobalState(unsigned max = 1000)
     eevm::print_sep();
 }
 
+
+void Operator::_printTrailOfMP3Leaf(Address& key)
+{
+    std::cout << "\n MP3 Printing trail of address: " << to_hex_string(key) << "\n";
+    auto& accounts = this->m_ecl.m_gs.getAccounts();
+    auto it = accounts.lower_bound(h256(key));
+
+    // print trail of iterator
+    uint k = 0;
+    auto& trail = it.get_trail();
+    for (auto& node : trail) {
+        dev::RLP rlp = dev::RLP(node.rlp);
+        std::string mp3_data = "";
+
+        if (2 == rlp.itemCount() && dev::isLeaf(rlp)) {  // has 2 items
+            // append partial nibble
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            mp3_data += fmt::format("[Leaf]\t k={} | ", s.str());
+            // append data of entry
+            mp3_data += fmt::format("v={}\n", rlp[1].toString());
+
+        } else if (2 == rlp.itemCount()) {  //  extension node (or in a special case might be empty root node)
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            auto h = h256(rlp[1]);
+            mp3_data += fmt::format("[Extension] path={} | db_k={}\n", s.str(), h.hex());
+
+        } else {  // branch node
+            assert(17 == rlp.itemCount());
+            mp3_data += "[Branch]\n";
+            uint j = 0;
+            for (auto r : rlp) {
+                auto h = h256(r);
+                std::string idx = (j != 16) ? fmt::format("{}", j) : "val";
+                mp3_data += fmt::format("\t\t {} : {}\n", idx, h.hex());
+                j++;
+            }
+        }
+
+        // parse partial key in Node struct
+
+        auto h = dev::sha3(rlp.data());
+        std::cout << fmt::format("\t\t[{}]  db_k {} => {} \n", k++, h.hex(), mp3_data);
+    }
+    print_sep();
+}
+
 void Operator::_iterExps(Address& key)
 {
     auto& accounts = this->m_ecl.m_gs.getAccounts();
@@ -205,6 +253,7 @@ void Operator::_iterExps(Address& key)
         std::cout << fmt::format("\t[{}] {}\n", i++, acc.toString());
     }
     print_sep();
+    return;
 
     std::cout << "\n MP3 Full DB iterator:\n";
     i = 1;
@@ -223,11 +272,13 @@ void Operator::_iterExps(Address& key)
 
             // append data of entry
             mp3_data += fmt::format("v={}\n", rlp[1].toString());
+
         } else if (2 == rlp.itemCount()) {  //  extension node (or in a special case might be empty root node)
             std::stringstream s;
             s << dev::keyOf(rlp);
-            auto h = h256(rlp[1].data());
+            auto h = h256(rlp[1]);
             mp3_data += fmt::format("[Extension] path={} | db_k={}\n", s.str(), h.hex());
+
         } else {  // branch node
             assert(17 == rlp.itemCount());
             mp3_data += "[Branch]\n";
@@ -398,7 +449,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t test erc [a]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract [default=10].\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
-                      << "\t iter"         << "\t\t experimennts with MP3 iterator.\n"
+                      << "\t iter [a]"     << "\t experimennts with MP3 iterator.\n"
+                      << "\t trail [a]"    << "\t print trail of MP3 related to account with address a [default=1st address]. .\n"
                       << "\n";
             // clang-format on
 
@@ -472,6 +524,26 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 }
             }
             this->_iterExps(addr);
+
+        } else if (0 == strncmp(command, "trail", 5)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            eevm::Address addr;
+            if (1 == tokenCnt) {
+                addr = (*this->m_ecl.m_gs.getAccounts().begin()).first;
+            } else {
+                auto it = tokens->begin();
+                std::advance(it, 1);
+                try {
+                    addr = string_to_uint256(*it);
+                } catch (const std::invalid_argument& ia) {
+                    std::cerr << "Invalid argument\n";
+                    continue;
+                }
+            }
+            this->_printTrailOfMP3Leaf(addr);
 
         } else if (0 == strncmp(command, "origin", 6)) {
             uint tokenCnt;

@@ -95,6 +95,21 @@ namespace dev {
           public:
             using value_type = std::pair<bytesConstRef, bytesConstRef>;
 
+            struct Node {
+                std::string rlp;
+                std::string key; // as hexPrefixEncoding.
+                byte child;      // 255 -> entering, 16 -> actually at the node, 17 -> exiting, 0-15 -> actual children.
+
+                // 255 -> 16 -> 0 -> 1 -> ... -> 15 -> 17       // IH: this looks to me as pre-order iteration (parent first, then children)
+
+                void setChild(unsigned _i) { child = _i; }
+                void setFirstChild() { child = 16; }
+                void incrementChild() { child = (child == 16) ? 0 : (child == 15) ? 17 : (child + 1); }
+
+                bool operator==(Node const& _c) const { return rlp == _c.rlp && key == _c.key && child == _c.child; }
+                bool operator!=(Node const& _c) const { return !operator==(_c); }
+            };
+
             iterator() {}
             explicit iterator(GenericTrieDB const* _db);
             iterator(GenericTrieDB const* _db, bytesConstRef _key);
@@ -112,24 +127,14 @@ namespace dev {
 
             value_type at() const;
 
+            // IH: we can extract all nodes in the trail
+            inline std::vector<Node>& get_trail() {
+                return m_trail;
+            }
+
           private:
             void next();
             void next(NibbleSlice _key);
-
-            struct Node {
-                std::string rlp;
-                std::string key; // as hexPrefixEncoding.
-                byte child;      // 255 -> entering, 16 -> actually at the node, 17 -> exiting, 0-15 -> actual children.
-
-                // 255 -> 16 -> 0 -> 1 -> ... -> 15 -> 17       // IH: this looks to me as pre-order iteration (parent first, then children)
-
-                void setChild(unsigned _i) { child = _i; }
-                void setFirstChild() { child = 16; }
-                void incrementChild() { child = (child == 16) ? 0 : (child == 15) ? 17 : (child + 1); }
-
-                bool operator==(Node const& _c) const { return rlp == _c.rlp && key == _c.key && child == _c.child; }
-                bool operator!=(Node const& _c) const { return !operator==(_c); }
-            };
 
           protected:
             std::vector<Node> m_trail;
@@ -193,8 +198,6 @@ namespace dev {
         iteratorFullDB beginFullDB() const { return iteratorFullDB(this); }
         iteratorFullDB endFullDB() const { return iteratorFullDB(); }
         // iteratorFullDB lower_boundFullDB(bytesConstRef _key) const { return iteratorFullDB(this, _key); }
-
-
 
         /// Used for debugging, scans the whole trie.
         void descendKey(h256 const& _k, h256Hash& _keyMask, bool _wasExt, std::ostream* _out, int _indent = 0) const {
@@ -539,26 +542,6 @@ namespace dev {
         HashedIterator hashedBegin() const { return HashedIterator(this); }
         HashedIterator hashedEnd() const { return HashedIterator(); }
         HashedIterator hashedLowerBound(h256 const& _hashedKey) const { return HashedIterator(this, _hashedKey.ref()); }
-
-
-        // // iterates also over extension and branch nodes (on top of leaf nodes)
-        // //
-        // class iteratorHashedFullDB : public GenericTrieDB<_DB>::iteratorFullDB {
-        // public:
-        //     using Super = typename GenericTrieDB<_DB>::iteratorFullDB;
-
-        //     iteratorHashedFullDB() {}
-        //     iteratorHashedFullDB(FatGenericTrieDB const* _trie): Super(_trie) {}
-        //     iteratorHashedFullDB(FatGenericTrieDB const* _trie, bytesConstRef _hashedKey): Super(_trie, _hashedKey) {}
-
-        //     bytes key() const{
-        //         auto hashed = Super::at();
-        //         return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
-        //     }
-        // };
-        // iteratorHashedFullDB beginFullDB() const { return iteratorHashedFullDB(this); }
-        // iteratorHashedFullDB endFullDB() const { return iteratorHashedFullDB(); }
-        // iteratorHashedFullDB lowerBoundFullDB(h256 const& _hashedKey) const { return iteratorHashedFullDB(this, _hashedKey.ref()); }
     };
 
 
@@ -1053,7 +1036,7 @@ namespace dev {
         return (_n.isData() && RLP(node(_n.toHash<h256>())).itemCount() == 2) || (_n.isList() && _n.itemCount() == 2);
     }
 
-    // IH: get either data of the current node (if it is list) OR fetch the node from DB if it is RLP of hash (i.e., the case of an extension node)
+    // IH: get either 1) data of the current node (if it is list) OR 2) fetch the node from DB if it is RLP of hash (i.e., the case of an extension node)
     template <class DB>
     std::string GenericTrieDB<DB>::deref(RLP const& _n) const {
         return _n.isList() ? _n.data().toString() : node(_n.toHash<h256>());

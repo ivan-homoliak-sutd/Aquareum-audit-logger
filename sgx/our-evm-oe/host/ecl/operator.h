@@ -101,6 +101,7 @@ namespace ecl
 
         int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         void _iterExps(eevm::Address& key);
+        void _printTrailOfMP3Leaf(Address& key);
     };
 
 }  // namespace ecl
