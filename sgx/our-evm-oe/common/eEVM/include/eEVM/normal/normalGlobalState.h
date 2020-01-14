@@ -79,7 +79,7 @@ namespace eevm
                           std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
 
         void dump_partial_db(std::vector<Address>& txs,
-                             bytes& db_data, std::set<h256>& db_keys,
+                             std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
                              std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes,
                              size_t& storages_sizes_size, std::vector<uint8_t>& acnts_storages);
 

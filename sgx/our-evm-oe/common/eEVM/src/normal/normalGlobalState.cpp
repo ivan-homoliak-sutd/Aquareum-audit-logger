@@ -90,7 +90,7 @@ namespace eevm
      * The results is stored into 'data'
      */
     void NormalGlobalState::dump_partial_db(std::vector<Address>& addrs_to_process,
-                                            bytes& db_data, std::set<h256>& db_keys,
+                                            std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
                                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes,
                                             size_t& storages_sizes_size, std::vector<uint8_t>& acnts_storages)
     {
@@ -194,17 +194,22 @@ namespace eevm
         acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
 
         size_t sum_data_size = 0, sum_aux_size = 0;
-        unsigned inserted_db_data_entries = 0;
+        unsigned inserted_db_data_entries = 0, i = 0;
 
         // 1) insert all passed RLP DB entries
+        TRACE_ME("Inserting db_data to DB");
         while (sum_data_size < db_data_size) {
+            TRACE_ME("[%d]", i++);
             // construct full RLP of DB entry by parsing its length first
-            auto len_size = RLP(db_data, 1).lengthSize();
-            RLP rlp_len = RLP(db_data, 1 + len_size);
+            RLP rlp_oneB = RLP(db_data + sum_data_size, 1, RLP::LaissezFaire);
+            auto len_size = rlp_oneB.lengthSize();
+            TRACE_ME("len_size = %d ", len_size);
+
+            RLP rlp_len = RLP(db_data + sum_data_size, 1 + len_size, RLP::LaissezFaire);
             size_t full_rlp_size = 1 + len_size + rlp_len.length();
 
             // construct key & value of DB entry
-            RLP full_rlp = RLP(db_data, full_rlp_size);
+            RLP full_rlp = RLP(db_data + sum_data_size, full_rlp_size);
             h256 h = sha3(full_rlp.data());
 
             // insert DB entry directly into DB without touching MP3 API
@@ -222,6 +227,7 @@ namespace eevm
         }
 
         // 3) insert all passed storages
+        TRACE_ME("Inserting storages");
         size_t ptr_storages = 0;  // indicates the current possition in storages
         size_t ptr_addrs = 0;     // indicates the current possition in accnts_of_storages
         for (unsigned i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
@@ -239,24 +245,33 @@ namespace eevm
         }
 
         // 4) insert all passed auxiliary RLP DB entries
-        inserted_db_data_entries = 0;
+        TRACE_ME("Inserting aux data to DB");
+        inserted_db_data_entries = 0, i = 0;
         while (sum_aux_size < db_data_aux_size) {
+            TRACE_ME("[%d]", i++);
             // construct full RLP of DB entry by parsing its length first
-            auto len_size = RLP(db_data_aux, 1).lengthSize();
-            RLP rlp_len = RLP(db_data_aux, 1 + len_size);
+            RLP rlp_oneB = RLP(db_data_aux + sum_aux_size, 1, RLP::LaissezFaire);
+            auto len_size = rlp_oneB.lengthSize();
+            TRACE_ME("len_size = %d ", len_size);
+            RLP rlp_len = RLP(db_data_aux + sum_aux_size, 1 + len_size, RLP::LaissezFaire);
+            TRACE_ME("1");
             size_t full_rlp_size = 1 + len_size + rlp_len.length();
 
             // construct key & value of DB entry
-            RLP full_rlp = RLP(db_data_aux, full_rlp_size);
+            RLP full_rlp = RLP(db_data_aux + sum_aux_size, full_rlp_size);
+            TRACE_ME("2");
             h256 h = sha3(full_rlp.data());
 
             // insert DB entry directly into DB without touching MP3 API
             (*gs)->db()->insert(h, (full_rlp.data()));
+            TRACE_ME("3");
             sum_aux_size += full_rlp_size;
             inserted_db_data_entries++;
         }
         TRACE_ME("inserted_db_aux_entries = %d", inserted_db_data_entries);
         assert(sum_aux_size == db_data_aux_size);
+        print_sep();
+
         return 0;
     }
 
@@ -280,13 +295,13 @@ namespace eevm
 
         // 1) insert account states one by one to global MP3
         for (size_t i = 0; i < mp3_values_sizes_size / sizeof(size_t); i++) {
-            TRACE_ME("[%ld]", i);
+            // TRACE_ME("[%ld]", i);
             auto* key = new h256(&(mp3_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
             uint8_t* val = new uint8_t[values_sizes[i]];                                     // manually allocating enclave memory since 'mp3_values' is in host memory
             memcpy(val, &mp3_values[ptr_mp3_values], values_sizes[i]);
             auto val_ref = bytesConstRef(val, values_sizes[i]);
 
-            std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
+            // std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
             acnts.insert(*key, val_ref);
             ptr_mp3_values += values_sizes[i];
 
@@ -297,7 +312,7 @@ namespace eevm
             ptr_storages += storages_sizes[i];
             delete val;
         }
-        print_sep();
+        // print_sep();
         return 0;
     }
 
