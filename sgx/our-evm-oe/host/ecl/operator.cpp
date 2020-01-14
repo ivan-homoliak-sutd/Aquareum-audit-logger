@@ -396,11 +396,12 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             tokens = NULL;
         }
 
+        std::string mode_short = (this->m_ecl.m_mode == ECLedger::MODE::FullStateTransfer) ? "F" : "P";
         std::string operatorFlag = (sh_origin == this->m_ecl.operAddr) ? "<SUPER>" : "";
         std::string toFlag = (m_contracts.end() != m_contracts.find(sh_to)) ? string("<") + m_contracts[sh_to].name + string(">") : "";
-        cout << fmt::format("$[from={}..{} | to={}..{}]: $>",
+        cout << fmt::format("$[from={}..{} | to={}..{}]:({}) $>",
                             address_to_hex_string(sh_origin).substr(0, 8), operatorFlag,
-                            address_to_hex_string(sh_to).substr(0, 8), toFlag);
+                            address_to_hex_string(sh_to).substr(0, 8), toFlag, mode_short);
         cin.getline(command, MAX_CMD_LEN);
         std::string command_s(expand_vars(command, sh_vars));
         // TRACE_HOST("expanded_cmd = %s", command_s.c_str());
@@ -443,6 +444,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t pay a [b]"    << "\t pay amount 'a' to address 'b' [default=active destination].\n"
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
+                      << "\t mode [m]"         << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"
+
                       << "\n"
                       << "Hardcoded testing:\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
@@ -504,6 +507,32 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
             }
 
+
+        } else if (0 == strncmp(command, "mode", 4)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
+
+            if (1 == tokenCnt) {
+                std::string m = (this->m_ecl.m_mode == ECLedger::MODE::FullStateTransfer) ? "full transfer" : "partial transfer";
+                std::cout << "The current mode is: " << m << "\n";
+                continue;
+            }
+
+            ECLedger::MODE mode;
+            try {
+                auto it = tokens->begin();
+                std::advance(it, 1);
+                mode = ECLedger::MODE(std::stoi(*it));
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+            if (mode != ECLedger::MODE::FullStateTransfer && mode != ECLedger::MODE::PartialStateTransfer) {
+                error_print("Unknown mode. Supported options are 1 and 2.");
+                continue;
+            }
+            m_ecl.m_mode = ECLedger::MODE(mode);
 
         } else if (0 == strncmp(command, "iter", 4)) {
             uint tokenCnt;
@@ -1015,16 +1044,20 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 {
     int ret;
 
-    switch (this->mode) {
-        case MODE::FullState:
+    switch (this->m_ecl.m_mode) {
+        case ECLedger::MODE::FullStateTransfer:
             ret = _dispatchTX_FullState(enclave, tx, output_u256);
             break;
-        case MODE::PartialState:
-            ret = _dispatchTX_PartialState();
-        default:
-            cerr << "Unknown mode: " << this->mode << "\n";
+        case ECLedger::MODE::FullStateMaintained:
+            std::cerr << "FullStateMaintained mode is not currently supported.\n";
             exit(1);
             break;
+        case ECLedger::MODE::PartialStateTransfer:
+            ret = _dispatchTX_PartialState(enclave, tx, output_u256);
+            break;
+        default:
+            std::cerr << "Unknown mode: " << static_cast<int>(this->m_ecl.m_mode) << "\n";
+            exit(1);
     }
     return ret;
 }
@@ -1047,8 +1080,8 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     if (m_ecl.m_gs.exists(tx->origin)) {
         txs.push_back(tx->origin);
     }
-    std::vector<uint8_t> db_data;   // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
-    std::vector<uint8_t> storages;  // \/== storages of all accounts
+    std::vector<uint8_t> db_data;         // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
+    std::vector<uint8_t> storages;        // \/== storages of all accounts
     std::vector<uint8_t> acnts_storages;  // \/== addresses of accounts related to dumped storages
     std::vector<size_t> storages_sizes;
     size_t storages_sizes_size = 0;
@@ -1068,7 +1101,7 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     }
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
-                           db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + sumVectST(storages_sizes)));
+                           db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + db_data_aux.size() + sumVectST(storages_sizes)));
     debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
 
     // 3) Execute TX in Enclave
@@ -1078,7 +1111,8 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
                                                                  (const uint8_t*)root_orig.data(), 32u,
                                                                  (const uint8_t*)db_data.data(), db_data.size(),
                                                                  (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
-                                                                 (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
+                                                                 (const uint8_t*)storages.data(), storages_sizes.data(),
+                                                                 storages_sizes_size, (const uint8_t*)acnts_storages.data());
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing TX in ENCLAVE.");

@@ -261,8 +261,8 @@ int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, con
 
 int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* code, size_t code_size,
-                                      const uint8_t* db_keys, size_t db_keys_size,  // from here below is MP3  global state
-                                      const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+                                      const uint8_t* mp3_keys, size_t mp3_keys_size,  // from here below is MP3  global state
+                                      const uint8_t* mp3_values, const size_t* mp3_values_sizes, size_t mp3_values_sizes_size,
                                       const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
     print_enc_sep(EncExec::START);
@@ -316,7 +316,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
                                                                db_data_aux, db_data_aux_size,
                                                                storages, storages_sizes, storages_sizes_size, accnts_of_storages);
     if (ret != RET_SUCCESS)
-        return ERR_EVM_WRONG_FULL_STATE;
+        return ERR_EVM_WRONG_PARTIAL_STATE;
 
     // 2) verify a consistency of the reconstructed global state with the last known value stored in E
     if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object

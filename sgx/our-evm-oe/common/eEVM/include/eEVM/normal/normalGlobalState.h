@@ -111,7 +111,7 @@ namespace eevm
                                            const uint8_t* db_data, size_t db_data_size,
                                            const uint8_t* db_data_aux, size_t db_data_aux_size,
                                            const uint8_t* storages, const size_t* storages_sizes,
-                                           size_t storages_sizes_size, std::vector<uint8_t>& acnts_storages);
+                                           size_t storages_sizes_size, const uint8_t* acnts_storages);
 
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);

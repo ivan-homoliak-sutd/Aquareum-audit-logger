@@ -97,10 +97,10 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     if (EMPTY_CODE_OBJ == etx.get_code_ref()) {
         return this->_execute_transfer_tx(gs, etx);
     }
-    // TODO: ensure that in production, Operator can create only simple accounts (without code) to avoid inflation bugs from constructors
+    // TODO: ensure that in production, Operator can create only simple accounts (without code) to avoid "inflation" bugs from constructors
     // assert(etx.origin != this->operAddr);
 
-    // 2b) If some code is present, then (deploy contract if does not exist and) ececute TX with the code
+    // 2b) If some code is present, then (deploy contract if does not exist and) execute TX with the code
     auto senderAccnt = gs->get(etx.origin);
     bool contrDeployed = false;
 
@@ -182,8 +182,6 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // 9) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
     gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
-
-    // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
     delete contrState;
     return RET_SUCCESS;

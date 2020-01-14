@@ -179,11 +179,11 @@ namespace eevm
      * Constructs partial NormalGlobalState object from parameters passed. (called from enclave)
      * Note that also integrity of copied storages is verified here, since they are passed to as [user_check]
      */
-    static int construct_partial_state(NormalGlobalState** gs, const uint8_t* gs_root_h,
-                                       const uint8_t* db_data, size_t db_data_size,
-                                       const uint8_t* db_data_aux, size_t db_data_aux_size,
-                                       const uint8_t* storages, const size_t* storages_sizes,
-                                       size_t storages_sizes_size, const uint8_t* accnts_of_storages)
+    int NormalGlobalState::construct_partial_state(NormalGlobalState** gs, const uint8_t* gs_root_h,
+                                                   const uint8_t* db_data, size_t db_data_size,
+                                                   const uint8_t* db_data_aux, size_t db_data_aux_size,
+                                                   const uint8_t* storages, const size_t* storages_sizes,
+                                                   size_t storages_sizes_size, const uint8_t* accnts_of_storages)
     {
         TRACE_ME("Constructing partial state");
 
@@ -194,7 +194,7 @@ namespace eevm
         acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
 
         size_t sum_data_size = 0, sum_aux_size = 0;
-        uint inserted_db_data_entries = 0;
+        unsigned inserted_db_data_entries = 0;
 
         // 1) insert all passed RLP DB entries
         while (sum_data_size < db_data_size) {
@@ -212,7 +212,7 @@ namespace eevm
             sum_data_size += full_rlp_size;
             inserted_db_data_entries++;
         }
-        TRACE_ME("inserted_db_data_entries = %ld", inserted_db_data_entries);
+        TRACE_ME("inserted_db_data_entries = %d", inserted_db_data_entries);
         assert(sum_data_size == db_data_size);
 
         // 2) verify whether DB entry with the claimed root value exists after filling DB
@@ -224,13 +224,13 @@ namespace eevm
         // 3) insert all passed storages
         size_t ptr_storages = 0;  // indicates the current possition in storages
         size_t ptr_addrs = 0;     // indicates the current possition in accnts_of_storages
-        for (uint i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
+        for (unsigned i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
             Address addr = from_big_endian(&(accnts_of_storages[ptr_addrs]));
             SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
             strgs.insert(std::make_pair(std::move(addr), std::move(*s)));
 
             // 3a) verify integrity of storages
-            if (s->hash() != (*gs)->get(addr).acc.get_stHash()) {
+            if (s->hash() != (*gs)->get(addr).acc.get_stHash()) {  // if accnt does not exits => throw
                 TRACE_ME("Mismatch of storage hash for addr = %s", to_hex_string(addr).c_str());
                 return 1;
             }
@@ -251,11 +251,11 @@ namespace eevm
             h256 h = sha3(full_rlp.data());
 
             // insert DB entry directly into DB without touching MP3 API
-            acnts.db().insert(h, (full_rlp.data()));
+            (*gs)->db()->insert(h, (full_rlp.data()));
             sum_aux_size += full_rlp_size;
             inserted_db_data_entries++;
         }
-        TRACE_ME("inserted_db_aux_entries = %ld", inserted_db_data_entries);
+        TRACE_ME("inserted_db_aux_entries = %d", inserted_db_data_entries);
         assert(sum_aux_size == db_data_aux_size);
         return 0;
     }
@@ -280,13 +280,13 @@ namespace eevm
 
         // 1) insert account states one by one to global MP3
         for (size_t i = 0; i < mp3_values_sizes_size / sizeof(size_t); i++) {
-            // TRACE_ME("[%ld]", i);
+            TRACE_ME("[%ld]", i);
             auto* key = new h256(&(mp3_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
             uint8_t* val = new uint8_t[values_sizes[i]];                                     // manually allocating enclave memory since 'mp3_values' is in host memory
             memcpy(val, &mp3_values[ptr_mp3_values], values_sizes[i]);
             auto val_ref = bytesConstRef(val, values_sizes[i]);
 
-            // std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
+            std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
             acnts.insert(*key, val_ref);
             ptr_mp3_values += values_sizes[i];
 
@@ -297,7 +297,7 @@ namespace eevm
             ptr_storages += storages_sizes[i];
             delete val;
         }
-        // print_sep();
+        print_sep();
         return 0;
     }
 

@@ -363,9 +363,9 @@ namespace dev {
         }
 
         // IH: these are related to DB logging of inserted nodes during insert into MP3
-        bool m_insert_logging;
-        std::set<h256>* m_logged_keys; // pointer to caller's allocated memory (since he migh pre-initialize the set)
-        std::vector<uint8_t>* m_inserted_nodes; // pointer to caller's allocated memory (should be empty on start)
+        bool m_insert_logging = false;
+        std::set<h256>* m_logged_keys = NULL; // pointer to caller's allocated memory (since he migh pre-initialize the set)
+        std::vector<uint8_t>* m_inserted_nodes = NULL; // pointer to caller's allocated memory (should be empty on start)
 
 
         // IH: main data of MP3
@@ -1209,9 +1209,9 @@ namespace dev {
             auto inserted = forceInsertNode(&_b);
             _s.append(inserted);
             //  IH: log inserted DB nodes
-            if(m_insert_logging && m_logged_keys.end() == m_logged_keys.find(inserted)){
-                m_inserted_nodes.insert(m_inserted_nodes.end(), _b.begin(), _b.end()); // copy RLP data
-                m_logged_keys.insert(inserted);
+            if(m_insert_logging && m_logged_keys->end() == m_logged_keys->find(inserted)){
+                m_inserted_nodes->insert(m_inserted_nodes->end(), _b.begin(), _b.end()); // copy RLP data
+                m_logged_keys->insert(inserted);
             }
         }
         return _s;

@@ -33,6 +33,7 @@ enum class ParamTypes {
     uint256
 };
 
+
 struct ContrDefinition {
     std::string name;
     std::vector<uint8_t> bin;                              // code of the contract
@@ -120,15 +121,23 @@ struct OperAccount {
 
 class ECLedger {
 public:
+    enum class MODE {
+        FullStateMaintained = 0,
+        FullStateTransfer,
+        PartialStateTransfer,
+    };
+
     NormalGlobalState m_gs;  // the full global state of the ECL ledger
 
     ECC* m_ecc;  // ECC signing wrapper
+
+    MODE m_mode;
 
     eevm::Address operAddr;
 
 
     inline ECLedger(ECC* e)
-      : m_ecc(e){};
+      : m_ecc(e), m_mode(MODE::PartialStateTransfer){};
 
     PersistantTransaction* createHelloWorldTX(OperAccount& sender,
                                               size_t nonce);
