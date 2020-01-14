@@ -40,12 +40,12 @@ enclave {
             [in, size=code_size] const uint8_t* code,
             size_t code_size,
 
-            [in, size=db_keys_size] const uint8_t* db_keys, // each key in the array has constant size
-            size_t db_keys_size,
+            [in, size=db_keys_size] const uint8_t* mp3_keys, // each key in the array has constant size
+            size_t mp3_keys_size,
 
-            [user_check] const uint8_t* db_values, // each value (Account) in the array has variable size that is determined in the follow up parameter
-            [in, size=db_values_sizes_size] const size_t * values_sizes,
-            size_t db_values_sizes_size,
+            [user_check] const uint8_t* mp3_values, // each value (Account) in the array has variable size that is determined in the follow up parameter
+            [in, size=db_values_sizes_size] const size_t * mp3_values_sizes,
+            size_t mp3_values_sizes_size,
 
             [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
             [in, size=storages_sizes_size] const size_t * storages_sizes,
@@ -59,11 +59,18 @@ enclave {
             [in, size=code_size] const uint8_t* code,
             size_t code_size,
 
-            [user_check] const uint8_t* db_values, // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+            [in, size=root_size] const uint8_t* gs_root_h,
+            size_t root_size,
+
+            [user_check] const uint8_t* db_data,    // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+            size_t db_data_size,
+            [user_check] const uint8_t* db_data_aux,  // RLP of auxiliary data needed for account creation and update
+            size_t db_data_aux_size,
 
             [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
             [in, size=storages_sizes_size] const size_t * storages_sizes,
-            size_t storages_sizes_size
+            size_t storages_sizes_size,
+            [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
         );
 
     };

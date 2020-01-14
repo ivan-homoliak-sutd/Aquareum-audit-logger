@@ -266,6 +266,19 @@ namespace dev {
             }
         }
 
+        /// IH: Logging of inserted DB entries for the purpose of building valid partial state
+        void startInsertLogging(std::set<h256>* keys_before, std::vector<uint8_t>* db_data_aux){
+            assert(!m_insert_logging);
+            m_insert_logging = true;
+            m_logged_keys = keys_before;
+            m_inserted_nodes = db_data_aux;
+        }
+        void finishInsertLogging(){
+            assert(m_insert_logging);
+            m_insert_logging = false;
+            m_logged_keys = NULL;
+            m_inserted_nodes = NULL;
+        }
 
         /// Get the underlying database.
         /// @warning This can be used to bypass the trie code. Don't use these unless you *really*
@@ -349,6 +362,13 @@ namespace dev {
                 forceKillNode(_h);
         }
 
+        // IH: these are related to DB logging of inserted nodes during insert into MP3
+        bool m_insert_logging;
+        std::set<h256>* m_logged_keys; // pointer to caller's allocated memory (since he migh pre-initialize the set)
+        std::vector<uint8_t>* m_inserted_nodes; // pointer to caller's allocated memory (should be empty on start)
+
+
+        // IH: main data of MP3
         h256 m_root;
         DB* m_db = nullptr;
     };
@@ -1185,8 +1205,15 @@ namespace dev {
     RLPStream& GenericTrieDB<DB>::streamNode(RLPStream& _s, bytes const& _b) {
         if (_b.size() < 32)
             _s.appendRaw(_b);
-        else
-            _s.append(forceInsertNode(&_b));
+        else{
+            auto inserted = forceInsertNode(&_b);
+            _s.append(inserted);
+            //  IH: log inserted DB nodes
+            if(m_insert_logging && m_logged_keys.end() == m_logged_keys.find(inserted)){
+                m_inserted_nodes.insert(m_inserted_nodes.end(), _b.begin(), _b.end()); // copy RLP data
+                m_logged_keys.insert(inserted);
+            }
+        }
         return _s;
     }
 

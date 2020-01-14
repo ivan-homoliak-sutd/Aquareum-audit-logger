@@ -271,8 +271,8 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     // 1) reconstruct the global MP3 state from host passed data
     eevm::NormalGlobalState* gs;
     int ret = eevm::NormalGlobalState::construct_full_state(&gs,
-                                                            db_keys, db_keys_size,
-                                                            db_values, values_sizes, db_values_sizes_size,
+                                                            mp3_keys, mp3_keys_size,
+                                                            mp3_values, mp3_values_sizes, mp3_values_sizes_size,
                                                             storages, storages_sizes, storages_sizes_size);
     if (ret != RET_SUCCESS)
         return ERR_EVM_WRONG_FULL_STATE;
@@ -280,6 +280,45 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
     // 2) verify a consistency of the reconstructed global state with the last known value stored in E
     // std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
     // std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
+    if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+        TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
+        delete gs;
+        return ERR_EVM_INCONSISTANT_STATE;
+    }
+    TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
+
+    // 3) Execute TX in E (while updating the protected global state)
+    ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
+
+    // 4) update the current root hash of the global MP3 state in E
+    memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+
+    delete gs;  // clear global state allocated before
+    print_enc_sep(EncExec::END);
+    return ret;
+}
+
+
+int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size,
+                                         const uint8_t* code, size_t code_size,
+                                         const uint8_t* gs_root_h, size_t root_size,
+                                         const uint8_t* db_data, size_t db_data_size,
+                                         const uint8_t* db_data_aux, size_t db_data_aux_size,
+                                         const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
+{
+    print_enc_sep(EncExec::START);
+    TRACE_ENCLAVE("running TX with partial MP3 copied.");
+
+    // 1) reconstruct the global MP3 state from host passed data
+    eevm::NormalGlobalState* gs;
+    int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
+                                                               db_data, db_data_size,
+                                                               db_data_aux, db_data_aux_size,
+                                                               storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+    if (ret != RET_SUCCESS)
+        return ERR_EVM_WRONG_FULL_STATE;
+
+    // 2) verify a consistency of the reconstructed global state with the last known value stored in E
     if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
         TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
         delete gs;

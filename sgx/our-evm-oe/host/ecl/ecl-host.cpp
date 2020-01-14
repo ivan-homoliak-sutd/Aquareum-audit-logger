@@ -349,9 +349,7 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     // 1) Verify signature of TX
     auto inp4hash = etx.asDataForHash();
     eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
-    bool correct = m_ecc->verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature,
-                                     txHash.data(),
-                                     etx.origin);
+    bool correct = m_ecc->verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature, txHash.data(), etx.origin);
     if (!correct) {
         error_print("Signature verifiation of a TX failed.");
         return ERROR_SIGNATURE_VERIFY_FAIL;

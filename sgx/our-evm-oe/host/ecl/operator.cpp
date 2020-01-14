@@ -950,7 +950,7 @@ void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint account
 void Operator::_createMyAccntState(oe_enclave_t* enclave)
 {
     std::cout << "Creating account of Operator...\n";
-    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->m_ecl.operAddr, 100, 0);
+    auto* tx = this->m_ecl.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);
 
     u256 output_u256;
     if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
@@ -959,7 +959,7 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
     auto operAccnt = this->getAccount(this->getOperAddr());  // get the updated account state of O
     debug_print(fmt::format("created operator's account: {} ", operAccnt.acc.toString()));
 
-    m_accounts[this->m_ecl.operAddr] = OperAccount(this->SK_O, &this->PK_O, this->m_ecl.operAddr);
+    m_accounts[this->getOperAddr()] = OperAccount(this->SK_O, &this->PK_O, this->getOperAddr());
     eevm::print_sep();
 }
 
@@ -1037,33 +1037,47 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     int ret;
 
     // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
-    std::set<h256> db_keys;  // this a temporary list of all keys in exported partial DB, which should avoid duplicity in 'data' vector
-    std::vector<eevm::PersistantTransaction> txs;
-    txs.push_back(*tx);
+    std::set<h256> db_keys;          // this a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'data' vector
+    std::vector<eevm::Address> txs;  // addresses whose trails we need for partial state
+
+    // if origin and to exist then we need their trails
+    if (m_ecl.m_gs.exists(tx->to)) {
+        txs.push_back(tx->to);
+    }
+    if (m_ecl.m_gs.exists(tx->origin)) {
+        txs.push_back(tx->origin);
+    }
     std::vector<uint8_t> db_data;   // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
     std::vector<uint8_t> storages;  // \/== storages of all accounts
+    std::vector<uint8_t> acnts_storages;  // \/== addresses of accounts related to dumped storages
     std::vector<size_t> storages_sizes;
     size_t storages_sizes_size = 0;
-    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size);
+    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
 
-    info_print(fmt::format("Size of state passed to E: (accounts = {}B | storages = {}B); SUM = {}B", db_data.size(), sumVectST(storages_sizes), db_data.size() + sumVectST(storages_sizes)));
-    debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
+    // store root
+    h256 root_orig = m_ecl.m_gs.root();
 
-    // 2) Execute TX in Host
+    // 2) Execute TX in Host    (and log all newly created accounts and their trails)
+    std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
+    m_ecl.m_gs.startInsertLogging(&db_keys, &db_data_aux);
     ret = this->m_ecl.executeTX(tx, output_u256);
+    m_ecl.m_gs.finishInsertLogging();
     if (ret != RET_SUCCESS) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");
         return ret;
     }
 
-    // 3) Update partial MP3 DB again since new accounts could be created (we accept some kind of duplicity with regards to partial trail of newly added entries - although they could be optimized)
-    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size);
+    info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
+                           db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + sumVectST(storages_sizes)));
+    debug_print(fmt::format("Size of code passed to E is {}", tx->code.size()));
 
-    // 4) Execute TX in Enclave
+    // 3) Execute TX in Enclave
     oe_result_t ecall_ret = ecall_run_single_tx_mp3state_partial(enclave, &ret,
                                                                  (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
                                                                  (const uint8_t*)tx->code.data(), tx->code.size(),
-                                                                 (const uint8_t*)db_data.data(),
+                                                                 (const uint8_t*)root_orig.data(), 32u,
+                                                                 (const uint8_t*)db_data.data(), db_data.size(),
+                                                                 (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
                                                                  (const uint8_t*)storages.data(), storages_sizes.data(), storages_sizes_size);
 
     if (ecall_ret != OE_OK || is_error(ret)) {

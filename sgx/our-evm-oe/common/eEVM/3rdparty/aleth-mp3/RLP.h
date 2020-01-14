@@ -88,6 +88,7 @@ public:
     /// Contains a zero-length string or zero-length list.
     bool isEmpty() const { return !isNull() && (m_data[0] == c_rlpDataImmLenStart || m_data[0] == c_rlpListStart); }
 
+
     /// String value.
     bool isData() const { return !isNull() && m_data[0] < c_rlpListStart; }
 
@@ -311,6 +312,15 @@ public:
     /// @note Under normal circumstances, is equivalent to m_data.size() - use that unless you know it won't work.
     size_t actualSize() const;
 
+
+    //IH: I made publis these two since I need to read RLP data with unknown size
+    /// @returns the amount of bytes used to encode the length of the data. Valid for all types.
+    unsigned lengthSize() const { if (isData() && m_data[0] > c_rlpDataIndLenZero) return m_data[0] - c_rlpDataIndLenZero; if (isList() && m_data[0] > c_rlpListIndLenZero) return m_data[0] - c_rlpListIndLenZero; return 0; }
+
+    /// @returns the size in bytes of the payload, as given by the RLP as opposed to as inferred from m_data.
+    size_t length() const;
+
+
 private:
     /// Disable construction from rvalue
     explicit RLP(bytes const&&) {}
@@ -320,12 +330,6 @@ private:
 
     /// Single-byte data payload.
     bool isSingleByte() const { return !isNull() && m_data[0] < c_rlpDataImmLenStart; }
-
-    /// @returns the amount of bytes used to encode the length of the data. Valid for all types.
-    unsigned lengthSize() const { if (isData() && m_data[0] > c_rlpDataIndLenZero) return m_data[0] - c_rlpDataIndLenZero; if (isList() && m_data[0] > c_rlpListIndLenZero) return m_data[0] - c_rlpListIndLenZero; return 0; }
-
-    /// @returns the size in bytes of the payload, as given by the RLP as opposed to as inferred from m_data.
-    size_t length() const;
 
     /// @returns the number of bytes into the data that the payload starts.
     size_t payloadOffset() const { return isSingleByte() ? 0 : (1 + lengthSize()); }

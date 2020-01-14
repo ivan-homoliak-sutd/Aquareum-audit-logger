@@ -34,6 +34,9 @@ namespace eevm
 
         void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const;
 
+        // std::vector<Address>* m_log_created_accounts = NULL;
+        bool m_accnt_logging = false;  // indicates whether adresses of new accounts should be logged
+
     public:
         NormalGlobalState(bool init = true)
           : m_accounts(
@@ -45,9 +48,6 @@ namespace eevm
                 m_accounts.init();  // create empty node into MP3
         };
 
-        // constexpr NormalGlobalState(const NormalGlobalState & other){ // copy ctor
-        //     m_accounts =
-        // }
         ~NormalGlobalState() = default;
 
         virtual void remove(const Address& addr) override;
@@ -72,24 +72,46 @@ namespace eevm
         virtual const Block& get_current_block() override;
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
-        void dump_full_db(std::vector<uint8_t>& db_keys,
-                          std::vector<uint8_t>& db_values,
+        void dump_full_db(std::vector<uint8_t>& mp3_keys,
+                          std::vector<uint8_t>& mp3_values,
                           std::vector<size_t>& values_sizes,
-                          size_t& db_keys_size, size_t& values_sizes_size,
+                          size_t& mp3_keys_size, size_t& values_sizes_size,
                           std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
 
-        void dump_partial_db(std::vector<PersistantTransaction>& txs,
+        void dump_partial_db(std::vector<Address>& txs,
                              bytes& db_data, std::set<h256>& db_keys,
-                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
+                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes,
+                             size_t& storages_sizes_size, std::vector<uint8_t>& acnts_storages);
 
         /**
          * For tests which require some initial state, allow manual insertion of pre-constructed accounts
          */
         void insert(const StateEntry& e);
 
-        static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* db_keys, size_t db_keys_size,
-                                        const uint8_t* db_values, const size_t* values_sizes, size_t db_values_sizes_size,
+        inline void startInsertLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
+        {
+            assert(!m_accnt_logging);
+            m_accnt_logging = true;
+            m_accounts.startInsertLogging(db_keys, db_data_aux);
+        }
+
+        inline void finishInsertLogging()
+        {
+            assert(m_accnt_logging);
+            m_accounts.finishInsertLogging();
+            m_accnt_logging = false;
+        }
+
+        static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,
+                                        const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
                                         const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size);
+
+
+        static int construct_partial_state(NormalGlobalState** out_gs, const uint8_t* gs_root_h,
+                                           const uint8_t* db_data, size_t db_data_size,
+                                           const uint8_t* db_data_aux, size_t db_data_aux_size,
+                                           const uint8_t* storages, const size_t* storages_sizes,
+                                           size_t storages_sizes_size, std::vector<uint8_t>& acnts_storages);
 
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);
