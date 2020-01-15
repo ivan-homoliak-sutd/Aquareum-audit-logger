@@ -20,7 +20,7 @@ endif
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
 
-CFLAGS=$(shell pkg-config oeenclave-$(COMPILER) --cflags)
+CFLAGS=$(shell pkg-config oeenclave-$(C_COMPILER) --cflags)
 CXXFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --cflags)
 LDFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --libs)
 CXX_STANDARD := c++1z

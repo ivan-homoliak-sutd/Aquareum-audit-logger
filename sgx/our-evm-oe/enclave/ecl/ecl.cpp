@@ -221,7 +221,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     assert(accSndUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
 
     // 4) add value to the target account
-    auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // cretate target account if it does not exist
+    auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // create target account if it does not exist
     auto& storage = gs->getStorages().at(etx.to);                                                         // just copy the old storage
     auto recvBalanceBefore = recvAcState.acc.get_balance();
     code = recvAcState.acc.get_code_ref();

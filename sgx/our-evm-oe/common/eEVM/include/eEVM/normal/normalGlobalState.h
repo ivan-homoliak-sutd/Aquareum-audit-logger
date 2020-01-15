@@ -36,6 +36,7 @@ namespace eevm
 
         // std::vector<Address>* m_log_created_accounts = NULL;
         bool m_accnt_logging = false;  // indicates whether adresses of new accounts should be logged
+        unsigned m_logged_entries_cnt = 0; // counter of DB lookups that are logged in MP3 during the capture
 
     public:
         NormalGlobalState(bool init = true)
@@ -88,18 +89,19 @@ namespace eevm
          */
         void insert(const StateEntry& e);
 
-        inline void startInsertLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
+        inline void startLookupLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
         {
             assert(!m_accnt_logging);
             m_accnt_logging = true;
-            m_accounts.startInsertLogging(db_keys, db_data_aux);
+            m_accounts.startLookupLoggingMP3(db_keys, db_data_aux, &m_logged_entries_cnt);
         }
 
-        inline void finishInsertLogging()
+        inline unsigned finishLookupLogging()
         {
             assert(m_accnt_logging);
-            m_accounts.finishInsertLogging();
             m_accnt_logging = false;
+            m_accounts.finishLookupLoggingMP3();
+            return m_logged_entries_cnt;
         }
 
         static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,

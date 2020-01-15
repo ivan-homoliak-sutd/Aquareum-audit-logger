@@ -11,3 +11,21 @@ Before running host part of application, It is necessary to set LD environment v
 
 
 Note that secp256k1 is configured withou gmp support. Later, try to enable it to increase performance.
+
+
+# Checking SGX support and FLC (Flexible Launch Control) - https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/SGXSupportLevel.md
+
+$ oesgx 
+CPU supports Software Guard Extensions:SGX1
+MaxEnclaveSize_64: 2^(36)
+EPC size on the platform: 98041856
+
+
+# After I updated a new kernel (in auto update) and rebooted a machine, i got the Errror: 
+    enclave_create with ENCLAVE_TYPE_SGX1 type failed (err=0x1) (oe_result_t=OE_PLATFORM_ERROR)
+    
+1) This means that SGX kernel module needs to be reinstalled. Download and install the actual drivers from https://download.01.org/intel-sgx/linux-2.4/ubuntu18.04-server/
+
+2) the rebuild OE depdendent project - eEVM in build directory.
+
+3) rubuild the main project

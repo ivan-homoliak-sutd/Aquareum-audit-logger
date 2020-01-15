@@ -95,7 +95,7 @@ int main(int argc, const char* argv[]) {
         return ret;
 
     // Create the enclave
-    result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_AUTO, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
+    result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_SGX, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
     if (OE_OK != result) {
         ERROR_PRINT("oe_create_ecledger_enclave(): %s", oe_result_str(result));
         goto exit;

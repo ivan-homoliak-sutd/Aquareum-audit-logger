@@ -267,17 +267,20 @@ namespace dev {
         }
 
         /// IH: Logging of inserted DB entries for the purpose of building valid partial state
-        void startInsertLogging(std::set<h256>* keys_before, std::vector<uint8_t>* db_data_aux){
-            assert(!m_insert_logging);
-            m_insert_logging = true;
+        void startLookupLoggingMP3(std::set<h256>* keys_before, std::vector<uint8_t>* db_data_aux, unsigned *cnt){
+            assert(!m_lookup_logging);
+            m_cnt_logged_entries = cnt;
+            *m_cnt_logged_entries = 0; // init the counter
+            m_lookup_logging = true;
             m_logged_keys = keys_before;
-            m_inserted_nodes = db_data_aux;
+            m_fetched_nodes = db_data_aux;
         }
-        void finishInsertLogging(){
-            assert(m_insert_logging);
-            m_insert_logging = false;
-            m_logged_keys = NULL;
-            m_inserted_nodes = NULL;
+        void finishLookupLoggingMP3(){
+            assert(m_lookup_logging);
+            m_lookup_logging = false;
+            // m_logged_keys = NULL;
+            // m_fetched_nodes = NULL;
+            // m_cnt_logged_entries = NULL;
         }
 
         /// Get the underlying database.
@@ -338,7 +341,19 @@ namespace dev {
         bool isTwoItemNode(RLP const& _n) const;
         std::string deref(RLP const& _n) const;
 
-        std::string node(h256 const& _h) const { return m_db->lookup(_h); } // IH: returns empty string if not found
+        std::string node(h256 const& _h, bool log_this_entry = false) const {  // IH: it returns empty string if not found
+
+            std::string fetched = m_db->lookup(_h);
+
+            // IH: log fetched DB nodes if logging is enabled (and other than empty string was returned)
+            if(m_lookup_logging && log_this_entry && std::string() != fetched && m_logged_keys->end() == m_logged_keys->find(_h)){
+                m_fetched_nodes->insert(m_fetched_nodes->end(), fetched.begin(), fetched.end() ); // copy RLP data
+                m_logged_keys->insert(_h);
+                (*m_cnt_logged_entries)++;
+            }
+            return fetched;
+        }
+
 
         // These are low-level node insertion functions that just go straight through into the DB. // IH: they allocate a memory in DB and copy.
         h256 forceInsertNode(bytesConstRef _v) {
@@ -363,9 +378,10 @@ namespace dev {
         }
 
         // IH: these are related to DB logging of inserted nodes during insert into MP3
-        bool m_insert_logging = false;
+        bool m_lookup_logging = false;
+        unsigned *m_cnt_logged_entries = NULL; // counter of logged entries (it is pointer due to respecting const modifiers)
         std::set<h256>* m_logged_keys = NULL; // pointer to caller's allocated memory (since he migh pre-initialize the set)
-        std::vector<uint8_t>* m_inserted_nodes = NULL; // pointer to caller's allocated memory (should be empty on start)
+        std::vector<uint8_t>* m_fetched_nodes = NULL; // pointer to caller's allocated memory (should be empty on start)
 
 
         // IH: main data of MP3
@@ -904,7 +920,7 @@ namespace dev {
 
     template <class DB>
     void GenericTrieDB<DB>::insert(bytesConstRef _key, bytesConstRef _value) {
-        std::string rootValue = node(m_root);
+        std::string rootValue = node(m_root, true);
 
         assert(rootValue.size());
         bytes b = mergeAt(RLP(rootValue), m_root, NibbleSlice(_key), _value);
@@ -1031,7 +1047,7 @@ namespace dev {
         if (!r.isList() && !r.isEmpty()) {
             h256 h = _orig.toHash<h256>();
             //        std::cerr << "going down non-inline node " << h << "\n";
-            s = node(h);
+            s = node(h, true);
             r = RLP(s);
             assert(!r.isNull());
             isRemovable = true;
@@ -1208,11 +1224,6 @@ namespace dev {
         else{
             auto inserted = forceInsertNode(&_b);
             _s.append(inserted);
-            //  IH: log inserted DB nodes
-            if(m_insert_logging && m_logged_keys->end() == m_logged_keys->find(inserted)){
-                m_inserted_nodes->insert(m_inserted_nodes->end(), _b.begin(), _b.end()); // copy RLP data
-                m_logged_keys->insert(inserted);
-            }
         }
         return _s;
     }

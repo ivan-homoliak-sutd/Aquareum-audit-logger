@@ -220,31 +220,7 @@ namespace eevm
         TRACE_ME("inserted_db_data_entries = %d", inserted_db_data_entries);
         assert(sum_data_size == db_data_size);
 
-        // 2) verify whether DB entry with the claimed root value exists after filling DB
-        if (std::string() == (*gs)->db()->lookup(root)) {
-            TRACE_ME("Passed root %s does not exist in DB.", root.hex().c_str());
-            return 2;
-        }
-
-        // 3) insert all passed storages
-        TRACE_ME("Inserting storages");
-        size_t ptr_storages = 0;  // indicates the current possition in storages
-        size_t ptr_addrs = 0;     // indicates the current possition in accnts_of_storages
-        for (unsigned i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
-            Address addr = from_big_endian(&(accnts_of_storages[ptr_addrs]));
-            SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
-            strgs.insert(std::make_pair(std::move(addr), std::move(*s)));
-
-            // 3a) verify integrity of storages
-            if (s->hash() != (*gs)->get(addr).acc.get_stHash()) {  // if accnt does not exits => throw
-                TRACE_ME("Mismatch of storage hash for addr = %s", to_hex_string(addr).c_str());
-                return 1;
-            }
-            ptr_storages += storages_sizes[i];
-            ptr_addrs += ADDR_SIZE_B;
-        }
-
-        // 4) insert all passed auxiliary RLP DB entries
+        // 2) insert all passed auxiliary RLP DB entries
         TRACE_ME("Inserting aux data to DB");
         inserted_db_data_entries = 0, i = 0;
         while (sum_aux_size < db_data_aux_size) {
@@ -270,6 +246,34 @@ namespace eevm
         }
         TRACE_ME("inserted_db_aux_entries = %d", inserted_db_data_entries);
         assert(sum_aux_size == db_data_aux_size);
+
+        // 3) insert all passed storages
+        TRACE_ME("Inserting storages");
+        size_t ptr_storages = 0;  // indicates the current possition in storages
+        size_t ptr_addrs = 0;     // indicates the current possition in accnts_of_storages
+        for (unsigned i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
+            Address addr = from_big_endian(&(accnts_of_storages[ptr_addrs]));
+            SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
+            strgs.insert(std::make_pair(std::move(addr), std::move(*s)));
+
+            // 3a) verify integrity of storages
+            if (s->hash() != (*gs)->get(addr).acc.get_stHash()) {  // if accnt does not exits => throw
+                TRACE_ME("Mismatch of storage hash for addr = %s. Expected = %s, got %s",
+                         to_hex_string(addr).c_str(),
+                         to_hex_string(s->hash()).c_str(),
+                         to_hex_string((*gs)->get(addr).acc.get_stHash()).c_str());
+                return 1;
+            }
+            ptr_storages += storages_sizes[i];
+            ptr_addrs += ADDR_SIZE_B;
+        }
+
+        // 4) verify whether DB entry with the claimed root value exists after filling DB
+        if (std::string() == (*gs)->db()->lookup(root)) {
+            TRACE_ME("Passed root %s does not exist in DB.", root.hex().c_str());
+            return 2;
+        }
+
         print_sep();
 
         return 0;

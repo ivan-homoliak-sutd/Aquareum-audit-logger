@@ -1092,9 +1092,10 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
 
     // 2) Execute TX in Host    (and log all newly created accounts and their trails)
     std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
-    m_ecl.m_gs.startInsertLogging(&db_keys, &db_data_aux);
+    m_ecl.m_gs.startLookupLogging(&db_keys, &db_data_aux);
     ret = this->m_ecl.executeTX(tx, output_u256);
-    m_ecl.m_gs.finishInsertLogging();
+    unsigned cntLookups = m_ecl.m_gs.finishLookupLogging();
+    TRACE_HOST("The number of auxiliary entries fetched from DB is %d.", cntLookups);
     if (ret != RET_SUCCESS) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");
         return ret;
