@@ -246,8 +246,8 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
                                  lh, tx->code, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
     TRACE_HOST("TX with val = %ld from = %s to = %s",
-               etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
-               eevm::to_hex_string(etx.to).c_str());
+               etx.value, (eevm::address_to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
+               eevm::address_to_hex_string(etx.to).c_str());
 
     // 2a) If no code is present in TX, execute just simple transfer
     if (EMPTY_CODE_OBJ == etx.get_code_ref()) {

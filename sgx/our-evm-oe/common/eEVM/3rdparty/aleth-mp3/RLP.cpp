@@ -12,16 +12,15 @@ using namespace dev;
 bytes dev::RLPNull = rlp("");
 bytes dev::RLPEmptyList = rlpList();
 
-namespace
-{
+// namespace
+// {
 // errinfo_comment constructRLPSizeErrorInfo(size_t _actualSize, size_t _dataSize)
 // {
 //     std::stringstream s;
 //     s << "Actual size: " << _actualSize << ", data size: " << _dataSize;
 //     return errinfo_comment(s.str());
 // }
-
-}
+// }
 
 RLP::RLP(bytesConstRef _d, Strictness _s)
   : m_data(_d) {

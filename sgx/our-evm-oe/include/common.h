@@ -109,3 +109,5 @@ inline void print_enc_sep(EncExec e)
 #define ERR_EVM_WRONG_CONTR_ADDR 206
 #define ERR_EVM_SENDER_DOES_NOT_EXIST 207
 #define ERR_EVM_WRONG_PARTIAL_STATE 208
+
+#define ERR_EXCEPTION 301

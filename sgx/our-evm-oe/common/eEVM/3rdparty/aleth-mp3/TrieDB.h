@@ -274,6 +274,13 @@ namespace dev {
             m_lookup_logging = true;
             m_logged_keys = keys_before;
             m_fetched_nodes = db_data_aux;
+
+            // handle empty trie
+            if(isEmpty()){
+                auto empty_root = rlp("");
+                // m_fetched_nodes->insert(m_fetched_nodes->end(), empty_root.begin(), empty_root.end() ); // copy RLP data
+                (*m_cnt_logged_entries)++;
+            }
         }
         void finishLookupLoggingMP3(){
             assert(m_lookup_logging);
@@ -920,7 +927,7 @@ namespace dev {
 
     template <class DB>
     void GenericTrieDB<DB>::insert(bytesConstRef _key, bytesConstRef _value) {
-        std::string rootValue = node(m_root, true);
+        std::string rootValue = node(m_root);
 
         assert(rootValue.size());
         bytes b = mergeAt(RLP(rootValue), m_root, NibbleSlice(_key), _value);
@@ -944,6 +951,10 @@ namespace dev {
             // not found.
             return std::string();
 
+        // #ifdef ENCLAVE_BUILD
+            // std::cerr << "atAux(): " << RLP2MP3String(_here) << " with partial key = " << _key << "\n";
+        // #endif
+
         unsigned itemCount = _here.itemCount();
         assert(_here.isList() && (itemCount == 2 || itemCount == 17));
         if (itemCount == 2) {
@@ -957,7 +968,7 @@ namespace dev {
             else
                 // not us.
                 return std::string();
-            } else {                 // itemCount == 17
+        } else {                 // itemCount == 17
             if (_key.size() == 0)
                 return _here[16].toString();
             auto n = _here[_key[0]];
@@ -965,7 +976,6 @@ namespace dev {
                 return std::string();
             else
                 return atAux(n.isList() ? n : RLP(node(n.toHash<h256>())), _key.mid(1)); // mid(1) creates new NibbleSlice, but 1 nibble shorter
-
         }
     }
 

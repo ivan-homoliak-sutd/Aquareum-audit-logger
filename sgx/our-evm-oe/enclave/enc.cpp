@@ -52,46 +52,50 @@ int generate_keypair_PB(KeyPairPB_T* keypair)
 // TODO: this is just temp function: drop it later
 void ecall_enclave_ecledger()
 {
-    print_enc_sep(EncExec::START);
-    // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
-    std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
+    try {
+        print_enc_sep(EncExec::START);
+        // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
+        std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
 
-    // Call back into the host
-    oe_result_t result = ocall_host_ecledger();
-    if (result != OE_OK) {
-        fprintf(stderr, "[ENCLAVE]: Call to ocall_host_ecledger failed: result=%u (%s)\n", result, oe_result_str(result));
+        // Call back into the host
+        oe_result_t result = ocall_host_ecledger();
+        if (result != OE_OK) {
+            fprintf(stderr, "[ENCLAVE]: Call to ocall_host_ecledger failed: result=%u (%s)\n", result, oe_result_str(result));
+        }
+        ECLedger l = ECLedger();
+        l.execute_hello_world();
+        l.execute_sum_a_b(2, 3);
+
+
+        // some tmp experiments with MP3 and DB
+        auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
+        dev::OverlayDB* m_db = new dev::OverlayDB(std::move(mem_db));
+        auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
+        assert(t->isNull());
+
+        t->init();
+
+        assert(!t->isNull());
+        assert(t->isEmpty());
+
+        string inp4hash("some input text 4 hash");
+        eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+
+        TRACE_ENCLAVE("1");
+        auto hash = dev::h256(tx_hash.data(), dev::h256::ConstructFromPointer);
+        TRACE_ENCLAVE("2");
+        t->insert(hash, inp4hash);
+        TRACE_ENCLAVE("3");
+        assert(t->at(hash) == inp4hash);
+        TRACE_ENCLAVE("4");
+        t->remove(hash);
+        TRACE_ENCLAVE("5");
+        assert(t->isEmpty());
+
+        print_enc_sep(EncExec::END);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
     }
-    ECLedger l = ECLedger();
-    l.execute_hello_world();
-    l.execute_sum_a_b(2, 3);
-
-
-    // some tmp experiments with MP3 and DB
-    auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
-    dev::OverlayDB* m_db = new dev::OverlayDB(std::move(mem_db));
-    auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
-    assert(t->isNull());
-
-    t->init();
-
-    assert(!t->isNull());
-    assert(t->isEmpty());
-
-    string inp4hash("some input text 4 hash");
-    eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
-
-    TRACE_ENCLAVE("1");
-    auto hash = dev::h256(tx_hash.data(), dev::h256::ConstructFromPointer);
-    TRACE_ENCLAVE("2");
-    t->insert(hash, inp4hash);
-    TRACE_ENCLAVE("3");
-    assert(t->at(hash) == inp4hash);
-    TRACE_ENCLAVE("4");
-    t->remove(hash);
-    TRACE_ENCLAVE("5");
-    assert(t->isEmpty());
-
-    print_enc_sep(EncExec::END);
 }
 
 /*
@@ -101,161 +105,188 @@ void ecall_enclave_ecledger()
 */
 int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("Initializing EVM enclave.");
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("Initializing EVM enclave.");
 
-    oe_result_t ocall_status;
-    int ocall_ret, lib_ret;
+        oe_result_t ocall_status;
+        int ocall_ret, lib_ret;
 
-    //check whether sealed state does not exist; if yes, then just init from it
-    ocall_status = ocall_does_sealed_state_exist(&ocall_ret);
-    if (ocall_status != OE_OK) {
-        return ERR_STAT_FILE_INIT;
-    }
-
-    if (!ocall_ret) {
-        // sealed state file of E does not exist, so create it
-
-        EvmState_T* evm_state_unsealed = (EvmState_T*)malloc(sizeof(EvmState_T));
-        memset(evm_state_unsealed, 0, sizeof(EvmState_T));
-
-        // generate E's key under sig. scheme of PB and store it to evm state struct
-        if (0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)) {
-            free(evm_state_unsealed);
-            return ERR_KEYPAIR_GEN_FAILED;
-        }
-        evm_state_unsealed->pub.diskInits = 0;
-        uint8_t gsRoot[HASH_SIZE];
-        eevm::to_big_endian(dev::sha3(dev::RLPNull), gsRoot);
-        memcpy(evm_state_unsealed->pub.globStRoot, gsRoot, HASH_SIZE);  // compute root of empty MP3 global state
-
-        // store E's state in enclave memory
-        memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
-
-        // seal E state object
-        const size_t data_size = sizeof(EvmState_T);
-        sealed_data_t* sealed_data = NULL;
-        size_t sealed_data_size = 0;
-        lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                    (const unsigned char*)evm_state_unsealed, data_size,
-                                    &sealed_data, &sealed_data_size);
-        if (OE_OK != lib_ret) {
-            TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
-            return ERR_FAIL_SEAL_STATE;
+        //check whether sealed state does not exist; if yes, then just init from it
+        ocall_status = ocall_does_sealed_state_exist(&ocall_ret);
+        if (ocall_status != OE_OK) {
+            return ERR_STAT_FILE_INIT;
         }
 
-        TRACE_ENCLAVE("sizeof(EvmState_T) is %ld", data_size);
-        TRACE_ENCLAVE("sizeof(sealed_data_t) is %ld", sizeof(sealed_data_t));
-        TRACE_ENCLAVE("size of all sealed data that are written to HDD is %ld", sealed_data_size);
+        if (!ocall_ret) {
+            // sealed state file of E does not exist, so create it
 
-        // save sealed evm state to file, through OCALL
-        ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
-        free(sealed_data);
-        if (RET_SUCCESS != ocall_ret || ocall_status != OE_OK) {
-            TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
-            return ERR_CANNOT_SAVE_EVM_STATE;
-        }
-        _evm_initialized = true;  // update enclave memory
-        (*enc_pk) = _evm_state.sec.keypair.PK_PB;
+            EvmState_T* evm_state_unsealed = (EvmState_T*)malloc(sizeof(EvmState_T));
+            memset(evm_state_unsealed, 0, sizeof(EvmState_T));
 
-        print_enc_sep(EncExec::END);
-        return RET_SUCCESS_INIT_NEW_STATE;
-    } else {
-        // EVM state file exists, so initialize from it
-        size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + KEY_INFO_SIZE + MAX_PADDING;  // the last X Bytes are for keyinfo, TODO: check the precise size of key info
-        uint8_t* sealed_data = (uint8_t*)malloc(tmp_sealed_data_size);
-        ocall_status = ocall_load_evm_state(&ocall_ret, sealed_data, tmp_sealed_data_size);
-        if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
+            // generate E's key under sig. scheme of PB and store it to evm state struct
+            if (0 != generate_keypair_PB(&evm_state_unsealed->sec.keypair)) {
+                free(evm_state_unsealed);
+                return ERR_KEYPAIR_GEN_FAILED;
+            }
+            evm_state_unsealed->pub.diskInits = 0;
+            uint8_t gsRoot[HASH_SIZE];
+            eevm::to_big_endian(dev::sha3(dev::RLPNull), gsRoot);
+            memcpy(evm_state_unsealed->pub.globStRoot, gsRoot, HASH_SIZE);  // compute root of empty MP3 global state
+
+            // store E's state in enclave memory
+            memcpy(&_evm_state, evm_state_unsealed, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
+
+            // seal E state object
+            const size_t data_size = sizeof(EvmState_T);
+            sealed_data_t* sealed_data = NULL;
+            size_t sealed_data_size = 0;
+            lib_ret = _sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                        (const unsigned char*)evm_state_unsealed, data_size,
+                                        &sealed_data, &sealed_data_size);
+            if (OE_OK != lib_ret) {
+                TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
+                return ERR_FAIL_SEAL_STATE;
+            }
+
+            TRACE_ENCLAVE("sizeof(EvmState_T) is %ld", data_size);
+            TRACE_ENCLAVE("sizeof(sealed_data_t) is %ld", sizeof(sealed_data_t));
+            TRACE_ENCLAVE("size of all sealed data that are written to HDD is %ld", sealed_data_size);
+
+            // save sealed evm state to file, through OCALL
+            ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
             free(sealed_data);
-            TRACE_ENCLAVE("ocall_load_evm_state failed, %s", oe_result_str(ocall_status));
-            return ERR_CANNOT_LOAD_SEALED_STATE;
+            if (RET_SUCCESS != ocall_ret || ocall_status != OE_OK) {
+                TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
+                return ERR_CANNOT_SAVE_EVM_STATE;
+            }
+            _evm_initialized = true;  // update enclave memory
+            (*enc_pk) = _evm_state.sec.keypair.PK_PB;
+
+            print_enc_sep(EncExec::END);
+            return RET_SUCCESS_INIT_NEW_STATE;
+        } else {
+            // EVM state file exists, so initialize from it
+            size_t tmp_sealed_data_size = sizeof(sealed_data_t) + sizeof(EvmState_T) + KEY_INFO_SIZE + MAX_PADDING;  // the last X Bytes are for keyinfo, TODO: check the precise size of key info
+            uint8_t* sealed_data = (uint8_t*)malloc(tmp_sealed_data_size);
+            ocall_status = ocall_load_evm_state(&ocall_ret, sealed_data, tmp_sealed_data_size);
+            if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
+                free(sealed_data);
+                TRACE_ENCLAVE("ocall_load_evm_state failed, %s", oe_result_str(ocall_status));
+                return ERR_CANNOT_LOAD_SEALED_STATE;
+            }
+
+            sealed_data_t* hdr = (sealed_data_t*)sealed_data;
+
+            size_t sealed_data_size = hdr->encrypted_data_len;
+            size_t data_size = hdr->original_data_size;
+            unsigned char* data = NULL;
+
+            lib_ret = _sealer.unseal_data((sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
+            if (OE_OK != lib_ret) {
+                TRACE_ENCLAVE("unseal_data failed, %d", lib_ret);
+                return ERR_LOAD_EVM_STATE;
+            }
+
+            EvmState_T* st = (EvmState_T*)data;
+
+            st->pub.diskInits++;
+            memcpy(&_evm_state, data, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
+            _evm_initialized = true;
+
+            free(sealed_data);
+            free(data);
+
+            (*enc_pk) = _evm_state.sec.keypair.PK_PB;
+            print_enc_sep(EncExec::END);
+            return RET_SUCCESS_INIT_LOADED_STATE;
         }
-
-        sealed_data_t* hdr = (sealed_data_t*)sealed_data;
-
-        size_t sealed_data_size = hdr->encrypted_data_len;
-        size_t data_size = hdr->original_data_size;
-        unsigned char* data = NULL;
-
-        lib_ret = _sealer.unseal_data((sealed_data_t*)sealed_data, sealed_data_size, &data, &data_size);
-        if (OE_OK != lib_ret) {
-            TRACE_ENCLAVE("unseal_data failed, %d", lib_ret);
-            return ERR_LOAD_EVM_STATE;
-        }
-
-        EvmState_T* st = (EvmState_T*)data;
-
-        st->pub.diskInits++;
-        memcpy(&_evm_state, data, sizeof(EvmState_T));  // TODO: later do deep copy of err TXs
-        _evm_initialized = true;
-
-        free(sealed_data);
-        free(data);
-
-        (*enc_pk) = _evm_state.sec.keypair.PK_PB;
-        print_enc_sep(EncExec::END);
-        return RET_SUCCESS_INIT_LOADED_STATE;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
     }
 }
 
 int ecall_sync_evm_sealed_state_to_disk(void)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("syncing sealed state to disk.");
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("syncing sealed state to disk.");
 
-    int ocall_ret;
+        int ocall_ret;
 
-    // seal internal EVM state object which is held in memory
-    size_t data_size = sizeof(EvmState_T);
-    sealed_data_t* sealed_data = NULL;
-    size_t sealed_data_size = 0;
-    int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                    (unsigned char*)&_evm_state, data_size,
-                                    &sealed_data, &sealed_data_size);
-    if (OE_OK != lib_ret) {
-        TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
-        return ERR_FAIL_SEAL_STATE;
+        // seal internal EVM state object which is held in memory
+        size_t data_size = sizeof(EvmState_T);
+        sealed_data_t* sealed_data = NULL;
+        size_t sealed_data_size = 0;
+        int lib_ret = _sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
+                                        (unsigned char*)&_evm_state, data_size,
+                                        &sealed_data, &sealed_data_size);
+        if (OE_OK != lib_ret) {
+            TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
+            return ERR_FAIL_SEAL_STATE;
+        }
+
+        // save sealed evm state to file, through OCALL
+        auto ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
+        free(sealed_data);
+        if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
+            TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
+            return ERR_CANNOT_SAVE_EVM_STATE;
+        }
+        print_enc_sep(EncExec::END);
+        return 0;
+
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
     }
-
-    // save sealed evm state to file, through OCALL
-    auto ocall_status = ocall_save_evm_state(&ocall_ret, (const uint8_t*)sealed_data, sealed_data_size);
-    free(sealed_data);
-    if (RET_SUCCESS != ocall_ret || OE_OK != ocall_status) {
-        TRACE_ENCLAVE("sealed data were not saved on disk, %s", oe_result_str(ocall_status));
-        return ERR_CANNOT_SAVE_EVM_STATE;
-    }
-    print_enc_sep(EncExec::END);
-    return 0;
 }
 
 int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_size)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("reading public state.");
-    (*pub_evm_state) = _evm_state.pub;
-    print_enc_sep(EncExec::END);
-    return 0;
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("reading public state.");
+        (*pub_evm_state) = _evm_state.pub;
+        print_enc_sep(EncExec::END);
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
 }
 
 int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("setting operator's address.");
-    assert(pk_size == PK_SIZE_PB);
-    uint256_t opAddr = eevm::from_big_endian(operator_PK, eevm::ADDR_ETH_SIZE_B);
-    _ecl.operAddr = opAddr;
-    print_enc_sep(EncExec::END);
-    return 0;
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("setting operator's address.");
+        assert(pk_size == PK_SIZE_PB);
+        uint256_t opAddr = eevm::from_big_endian(operator_PK, eevm::ADDR_ETH_SIZE_B);
+        _ecl.operAddr = opAddr;
+        print_enc_sep(EncExec::END);
+        return 0;
+
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
 }
 
 
 int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("running TX with internal simplestate.");
-    int ret = _ecl.execute_tx_simplestate_internal(tx, code, code_size);
-    print_enc_sep(EncExec::END);
-    return ret;
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("running TX with internal simplestate.");
+        int ret = _ecl.execute_tx_simplestate_internal(tx, code, code_size);
+        print_enc_sep(EncExec::END);
+        return ret;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
 }
 
 
@@ -265,37 +296,42 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
                                       const uint8_t* mp3_values, const size_t* mp3_values_sizes, size_t mp3_values_sizes_size,
                                       const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("running TX with full MP3 copied.");
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("running TX with full MP3 copied.");
 
-    // 1) reconstruct the global MP3 state from host passed data
-    eevm::NormalGlobalState* gs;
-    int ret = eevm::NormalGlobalState::construct_full_state(&gs,
-                                                            mp3_keys, mp3_keys_size,
-                                                            mp3_values, mp3_values_sizes, mp3_values_sizes_size,
-                                                            storages, storages_sizes, storages_sizes_size);
-    if (ret != RET_SUCCESS)
-        return ERR_EVM_WRONG_FULL_STATE;
+        // 1) reconstruct the global MP3 state from host passed data
+        eevm::NormalGlobalState* gs;
+        int ret = eevm::NormalGlobalState::construct_full_state(&gs,
+                                                                mp3_keys, mp3_keys_size,
+                                                                mp3_values, mp3_values_sizes, mp3_values_sizes_size,
+                                                                storages, storages_sizes, storages_sizes_size);
+        if (ret != RET_SUCCESS)
+            return ERR_EVM_WRONG_FULL_STATE;
 
-    // 2) verify a consistency of the reconstructed global state with the last known value stored in E
-    // std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
-    // std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
-    if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
-        TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
-        delete gs;
-        return ERR_EVM_INCONSISTANT_STATE;
+        // 2) verify a consistency of the reconstructed global state with the last known value stored in E
+        // std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
+        // std::cerr << "_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(_evm_state.pub.globStRoot)) << "\n";
+        if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+            TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
+            delete gs;
+            return ERR_EVM_INCONSISTANT_STATE;
+        }
+        TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
+
+        // 3) Execute TX in E (while updating the protected global state)
+        ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
+
+        // 4) update the current root hash of the global MP3 state in E
+        memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+
+        delete gs;  // clear global state allocated before
+        print_enc_sep(EncExec::END);
+        return ret;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
     }
-    TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
-
-    // 3) Execute TX in E (while updating the protected global state)
-    ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
-
-    // 4) update the current root hash of the global MP3 state in E
-    memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
-
-    delete gs;  // clear global state allocated before
-    print_enc_sep(EncExec::END);
-    return ret;
 }
 
 
@@ -306,33 +342,38 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
                                          const uint8_t* db_data_aux, size_t db_data_aux_size,
                                          const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
 {
-    print_enc_sep(EncExec::START);
-    TRACE_ENCLAVE("running TX with partial MP3 copied.");
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("running TX with partial MP3 copied.");
 
-    // 1) reconstruct the global MP3 state from host passed data
-    eevm::NormalGlobalState* gs;
-    int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
-                                                               db_data, db_data_size,
-                                                               db_data_aux, db_data_aux_size,
-                                                               storages, storages_sizes, storages_sizes_size, accnts_of_storages);
-    if (ret != RET_SUCCESS)
-        return ERR_EVM_WRONG_PARTIAL_STATE;
+        // 1) reconstruct the global MP3 state from host passed data
+        eevm::NormalGlobalState* gs;
+        int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
+                                                                   db_data, db_data_size,
+                                                                   db_data_aux, db_data_aux_size,
+                                                                   storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+        if (ret != RET_SUCCESS)
+            return ERR_EVM_WRONG_PARTIAL_STATE;
 
-    // 2) verify a consistency of the reconstructed global state with the last known value stored in E
-    if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
-        TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
-        delete gs;
-        return ERR_EVM_INCONSISTANT_STATE;
+        // 2) verify a consistency of the reconstructed global state with the last known value stored in E
+        if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+            TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
+            delete gs;
+            return ERR_EVM_INCONSISTANT_STATE;
+        }
+        TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
+
+        // 3) Execute TX in E (while updating the protected global state)
+        ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
+
+        // 4) update the current root hash of the global MP3 state in E
+        memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+
+        delete gs;  // clear global state allocated before
+        print_enc_sep(EncExec::END);
+        return ret;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
     }
-    TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
-
-    // 3) Execute TX in E (while updating the protected global state)
-    ret = _ecl.execute_tx_mp3state_full(gs, tx, code, code_size);
-
-    // 4) update the current root hash of the global MP3 state in E
-    memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
-
-    delete gs;  // clear global state allocated before
-    print_enc_sep(EncExec::END);
-    return ret;
 }

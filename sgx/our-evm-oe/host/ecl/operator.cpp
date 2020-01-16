@@ -253,7 +253,6 @@ void Operator::_iterExps(Address& key)
         std::cout << fmt::format("\t[{}] {}\n", i++, acc.toString());
     }
     print_sep();
-    return;
 
     std::cout << "\n MP3 Full DB iterator:\n";
     i = 1;
@@ -682,7 +681,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                     continue;
                 }
             }
+
             auto addrLast = this->_createNRandomAccounts(n, initBal, enclave);
+
             sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
             this->_printGlobalState();
         } else if (0 == strncmp(command, "test erc", 8)) {
@@ -1076,6 +1077,9 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     // if origin and to exist then we need their trails
     if (m_ecl.m_gs.exists(tx->to)) {
         txs.push_back(tx->to);
+        auto as = m_ecl.m_gs.get(tx->to);
+        TRACE_HOST("Hash value of storage before dumping partial DB is in account: %s and computed in storage: %s.",
+                   to_hex_string(as.acc.get_stHash()).c_str(), to_hex_string(as.st.hash()).c_str());
     }
     if (m_ecl.m_gs.exists(tx->origin)) {
         txs.push_back(tx->origin);

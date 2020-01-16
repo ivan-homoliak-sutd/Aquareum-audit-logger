@@ -6,6 +6,10 @@
 
 #include "Common.h"
 #include "RLP.h"
+#include "SHA3.h"
+
+#include <sstream>
+#include <fmt/format_header_only.h>
 
 namespace dev
 {
@@ -115,5 +119,43 @@ inline std::string hexPrefixEncode(NibbleSlice _s1, NibbleSlice _s2, bool _leaf)
 {
 	return hexPrefixEncode(_s1.data, _s1.offset, _s2.data, _s2.offset, _leaf);
 }
+
+// Author: IH
+inline std::string RLP2MP3String(const RLP& rlp)
+    {
+        std::string mp3_data = "";
+
+        // std::cerr << "RLP |items| = %ld", rlp.itemCount();
+        if (2 == rlp.itemCount() && isLeaf(rlp)) {  // has 2 items
+            // append partial nibble
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            mp3_data += fmt::format("[Leaf]\t k={} | ", s.str());
+
+            // append data of entry
+            mp3_data += fmt::format("v={}\n", rlp[1].toString());
+
+        } else if (2 == rlp.itemCount()) {  //  extension node (or in a special case might be empty root node)
+            std::stringstream s;
+            s << dev::keyOf(rlp);
+            auto h = h256(rlp[1]);
+            mp3_data += fmt::format("[Extension] path={} | db_k={}\n", s.str(), h.hex());
+
+        } else if (17 == rlp.itemCount()) {  // branch node
+            mp3_data += "[Branch]\n";
+            int j = 0;
+            for (auto r : rlp) {
+                auto h = h256(r);
+                std::string idx = (j != 16) ? fmt::format("{}", j) : "val";
+                mp3_data += fmt::format("\t\t {} : {}\n", idx, h.hex());
+                j++;
+            }
+        } else {
+            assert(0 == rlp.itemCount());  // initial root
+            mp3_data += "[ROOT] is initialy empty";
+        }
+        auto h = sha3(rlp.data());
+        return fmt::format("db_k = {} => {}", h.hex(), mp3_data);
+    }
 
 }
