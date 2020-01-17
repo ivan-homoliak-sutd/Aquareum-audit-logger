@@ -228,9 +228,12 @@ eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_s
     return tx;
 }
 
+/////////////////////////////// TX EXECUTION ///////////////////////////////
+
+
 int ECLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
 {
-    debug_print("Executing Tx in HOST...");
+    TRACE_HOST("Executing Tx in HOST...");
 
     // 0) Check whether sender exists (Operator is an exception)
     if (tx->origin != this->operAddr && !m_gs.exists(tx->origin)) {
@@ -253,7 +256,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     if (EMPTY_CODE_OBJ == etx.get_code_ref()) {
         return this->_execute_transfer_tx(etx);
     }
-    debug_print("Executing CONTRACT in HOST...");
+    TRACE_HOST("Executing CONTRACT in HOST...");
 
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
     auto senderAccnt = m_gs.get(etx.origin);
@@ -359,7 +362,7 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     auto snderAcState = (etx.origin == this->operAddr && !m_gs.exists(etx.origin)) ? m_gs.create(etx.origin, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.origin);
 
     // 2) increment the nonce and adjust the balance of the sender
-    debug_print(fmt::format("Code size of sender account is {} ", snderAcState.acc.get_code_ref().size()));
+    TRACE_HOST("%s", fmt::format("Code size of sender account is {} ", snderAcState.acc.get_code_ref().size()));
     if (EMPTY_CODE_OBJ == snderAcState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         snderAcState.acc.set_nonce(snderAcState.acc.get_nonce() + 1);
     }

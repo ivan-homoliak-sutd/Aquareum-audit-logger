@@ -96,8 +96,11 @@ namespace eevm
     {
         TRACE_ME("Dumping PARTIAL DB of MP3...");
         size_t sum_size_data = 0;
-        unsigned i = 0;
+        // unsigned i = 0;
+
+#ifndef NDEBUG
         size_t size_data_before = db_data.size();
+#endif
 
         // handle root node
         auto cur_root_hash = m_accounts.root();
@@ -107,12 +110,12 @@ namespace eevm
             db_data.insert(db_data.end(), rlp_empty.data().begin(), rlp_empty.data().end());  // insert only RLP of db entry (hash can be computed later)
             sum_size_data += rlp_empty.data().size();
             db_keys.insert(cur_root_hash);
-            TRACE_ME("\t\t EmptyTrie, root node = %s", RLP2MP3String(rlp_empty).c_str());
+            // TRACE_ME("\t\t EmptyTrie, root node = %s", RLP2MP3String(rlp_empty).c_str());
         } else {
             // handle the initialized root, which is not included in the trail for some reason (maybe optimization... since it is the same for each node)
             auto root_value = db()->lookup(cur_root_hash);
             RLP root_rlp = RLP(root_value);
-            TRACE_ME("root_rlp.len = %ld", root_rlp.itemCount());
+            // TRACE_ME("root_rlp.len = %ld", root_rlp.itemCount());
 
             if (2 == root_rlp.itemCount() && isLeaf(root_rlp)) {  // do not add the root if it is the first leaf ever (it will be added below)
                 ;
@@ -120,7 +123,7 @@ namespace eevm
                 db_data.insert(db_data.end(), root_rlp.data().begin(), root_rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
                 sum_size_data += root_rlp.data().size();
                 db_keys.insert(cur_root_hash);
-                TRACE_ME("\t\t MP3 has more than 1 entries: %s", RLP2MP3String(root_rlp).c_str());
+                // TRACE_ME("\t\t MP3 has more than 1 entries: %s", RLP2MP3String(root_rlp).c_str());
             }
         }
 
@@ -132,12 +135,12 @@ namespace eevm
 
             // pass all nodes in the trail of the iterator and store unique ones
             auto& trail = it.get_trail();
-            TRACE_ME("[%d] trail.len = %ld", i++, trail.size());
+            // TRACE_ME("[%d] trail.len = %ld", i++, trail.size());
             for (auto& node : trail) {
                 RLP rlp = RLP(node.rlp);
                 h256 h = sha3(rlp.data());
 
-                TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp).c_str());
+                // TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp).c_str());
 
                 if (db_keys.end() == db_keys.find(h)) {                                   // check for duplicity
                     db_data.insert(db_data.end(), rlp.data().begin(), rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
@@ -146,10 +149,10 @@ namespace eevm
                 }
             }
             // TODO: remove
-            nlohmann::json j = nlohmann::json::parse((*it).second.toString());
-            SimpleAccount acc;
-            eevm::from_json(j, acc);
-            TRACE_ME("Exporting account = %s", acc.toString().c_str());
+            // nlohmann::json j = nlohmann::json::parse((*it).second.toString());
+            // SimpleAccount acc;
+            // eevm::from_json(j, acc);
+            // TRACE_ME("Exporting account = %s", acc.toString().c_str());
 
             // dump full storage of the recepient account
             this->_dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
@@ -231,12 +234,13 @@ namespace eevm
         acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
 
         size_t sum_data_size = 0, sum_aux_size = 0;
-        unsigned inserted_db_data_entries = 0, i = 0;
+        unsigned inserted_db_data_entries = 0;
+        unsigned i = 0;
 
         // 1) insert all passed RLP DB entries
         TRACE_ME("Inserting db_data to DB");
         while (sum_data_size < db_data_size) {
-            TRACE_ME("[%d] Data account is:", i++);
+            // TRACE_ME("[%d] Data account is:", i);
 
             // construct the full RLP of DB entry by parsing its length first
             RLP rlp_oneB = RLP(db_data + sum_data_size, 1, RLP::LaissezFaire);
@@ -250,21 +254,22 @@ namespace eevm
             RLP full_rlp = RLP(db_data + sum_data_size, full_rlp_size);
             h256 h = sha3(full_rlp.data());
 
-            TRACE_ME("\t %s", RLP2MP3String(full_rlp).c_str());
+            // TRACE_ME("\t %s", RLP2MP3String(full_rlp).c_str());
 
             // insert DB entry directly into DB without touching MP3 API
             (*gs)->db()->insert(h, (full_rlp.data()));
             sum_data_size += full_rlp_size;
             inserted_db_data_entries++;
+            i++;
         }
-        TRACE_ME("inserted_db_data_entries = %d\n", inserted_db_data_entries);
+        // TRACE_ME("inserted_db_data_entries = %d\n", inserted_db_data_entries);
         assert(sum_data_size == db_data_size);
 
         // 2) insert all passed auxiliary RLP DB entries
         TRACE_ME("Inserting aux data to DB");
         inserted_db_data_entries = 0, i = 0;
         while (sum_aux_size < db_data_aux_size) {
-            TRACE_ME("[%d] AUX: node is:", i++);
+            TRACE_ME("[%d] AUX: node is:", i);
             // construct full RLP of DB entry by parsing its length first
             RLP rlp_oneB = RLP(db_data_aux + sum_aux_size, 1, RLP::LaissezFaire);
             auto len_size = rlp_oneB.lengthSize();
@@ -281,8 +286,9 @@ namespace eevm
             (*gs)->db()->insert(h, (full_rlp.data()));
             sum_aux_size += full_rlp_size;
             inserted_db_data_entries++;
+            i++;
         }
-        TRACE_ME("inserted_db_aux_entries = %d\n", inserted_db_data_entries);
+        // TRACE_ME("inserted_db_aux_entries = %d\n", inserted_db_data_entries);
         assert(sum_aux_size == db_data_aux_size);
 
         // 3) insert all passed storages
@@ -292,19 +298,18 @@ namespace eevm
         for (unsigned i = 0; i < storages_sizes_size / sizeof(size_t); i++) {
             Address addr = from_big_endian(&(accnts_of_storages[ptr_addrs]));
             SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
-            TRACE_ME("[%d] Imported storage is %s, with size %ld and hash = %s", i, s->toString().c_str(), storages_sizes[i], to_hex_string(s->hash()).c_str());
-
+            // TRACE_ME("[%d] Imported storage is %s, with size %ld and hash = %s", i, s->toString().c_str(), storages_sizes[i], to_hex_string(s->hash()).c_str());
 
             // 3a) insert storage entry entry
-            auto orig_hash = s->hash();
+            auto computed_hash = s->hash();
             strgs.insert(std::make_pair(std::move(addr), std::move(*s)));
 
             // 3b) verify integrity of storages
             auto fetched = (*gs)->get(addr).acc.get_stHash();  // this can be done only after storage entry was inserted !!!
-            if (orig_hash != fetched) {                        // if accnt or storage does not exits => throw
+            if (computed_hash != fetched) {                        // if accnt or storage does not exits => throw
                 TRACE_ME("Mismatch of storage hash for addr = %s. Expected = %s, got %s",
                          address_to_hex_string(addr).c_str(),
-                         to_hex_string(orig_hash).c_str(),
+                         to_hex_string(computed_hash).c_str(),
                          to_hex_string(fetched).c_str());
                 return 1;
             }
@@ -319,8 +324,8 @@ namespace eevm
             return 2;
         }
 
-        TRACE_ME("Root of MP3 after importing DB is: %s", acnts.root().hex().c_str());
-        print_sep();
+        // TRACE_ME("Root of MP3 after importing DB is: %s", acnts.root().hex().c_str());
+        // print_sep();
         return 0;
     }
 

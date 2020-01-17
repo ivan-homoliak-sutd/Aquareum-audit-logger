@@ -17,6 +17,7 @@ ifeq ($(USE_GCC),)
 endif
 
 
+
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
 

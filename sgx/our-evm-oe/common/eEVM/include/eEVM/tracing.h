@@ -1,5 +1,7 @@
 // clang-format off
 
+#define NOOP
+
 #ifdef TRACING_ENABLED
 
     using c_charp = const char * const;
@@ -41,7 +43,7 @@
     #endif
 
 #else
-    #define TRACE_ENCLAVE(fmt, ...) (void)
-    #define TRACE_HOST(fmt, ...) (void)
-    #define TRACE_ME(fmt, ...) (void)
+    #define TRACE_ENCLAVE(fmt, ...) NOOP
+    #define TRACE_HOST(fmt, ...) NOOP
+    #define TRACE_ME(fmt, ...) NOOP
 #endif

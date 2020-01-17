@@ -254,7 +254,7 @@ namespace eevm
             vector<uint8_t> input,         // Take a copy here, then move it into context
             const uint256_t& call_value)
         {
-            TRACE_ME("started");
+            // TRACE_ME("started");
             // create the first context
             ExecResult result;
             auto rh = [&result](vector<uint8_t> output_) {
@@ -462,7 +462,7 @@ namespace eevm
         void dispatch()
         {
             const auto op = get_op();
-            TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
+            // TRACE_ME("dispatch opcode(%d)=%s", op, eevm::Disassembler::getOp(op).mnemonic);
             if (tr) {  // TODO: remove if from critical path
                 tr->add(ctxt->get_pc(), op, get_call_depth(), ctxt->s);
                 // tr->print_last_n(std::cout, 1);
@@ -1058,10 +1058,10 @@ namespace eevm
             const auto k = ctxt->s.pop();
             const auto v = ctxt->s.pop();
             if (!v) {
-                TRACE_ME("removing from storage...");
+                // TRACE_ME("removing from storage...");
                 ctxt->st.remove(k);
             } else {
-                TRACE_ME("dumping storage:\n %s", ctxt->st.toString().c_str());
+                // TRACE_ME("dumping storage:\n %s", ctxt->st.toString().c_str());
                 ctxt->st.store(k, v);
             }
         }
@@ -1168,8 +1168,8 @@ namespace eevm
 
         void log()
         {
-            TRACE_ME("log() started");
-            tr->print_last_n(std::cout, 1);
+            // TRACE_ME("log() started");
+            // tr->print_last_n(std::cout, 1);
 
             const uint8_t n = get_op() - LOG0;
             const auto offset = ctxt->s.pop64();
@@ -1179,15 +1179,14 @@ namespace eevm
             for (int i = 0; i < n; i++)
                 topics[i] = ctxt->s.pop();
 
-            TRACE_ME("log() topics addedd");
 
-            TRACE_ME("addr= %s", address_to_hex_string(ctxt->acc.get_address()).c_str());
+            // TRACE_ME("addr= %s", address_to_hex_string(ctxt->acc.get_address()).c_str());
 
             copy_from_mem(offset, size);
-            TRACE_ME("...");
+            // TRACE_ME("...");
 
             tx.log_handler.handle({ctxt->acc.get_address(), copy_from_mem(offset, size), topics});
-            TRACE_ME("log() done\n");
+            // TRACE_ME("log() done\n");
         }
 
         void blockhash()

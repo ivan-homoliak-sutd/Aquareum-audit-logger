@@ -4,6 +4,14 @@
 #include <stddef.h>
 #include <string>
 
+
+// switch ON or OFF tracing logs or info logs
+
+// #define TRACING_ENABLED
+
+// #define INFO_LOG_ENABLED
+
+
 #define POLICY_UNIQUE 1
 #define POLICY_PRODUCT 2
 
@@ -32,35 +40,27 @@ typedef struct _sealed_data_t {
 enum class EncExec { START,
                      END };
 
-inline void print_enc_sep(EncExec e)
-{
-    std::string tag = (e == EncExec::START) ? " ECALL START " : "  ECALL END  ";
-    char arrow = (e == EncExec::START) ? '>' : '<';
-    std::cout << std::string(PRINT_SEP_LEN / 2, arrow) << tag << std::string(PRINT_SEP_LEN / 2, arrow) << "\n";
-}
-
-
-// switch on or off tracing logs
-#define TRACING_ENABLED 1
+#define NOOP
 
 #ifdef TRACING_ENABLED
-#define TRACE_ENCLAVE(fmt, ...)             \
-    printf(                                 \
+#define TRACE_ENCLAVE(fmt, ...)              \
+    printf(                                  \
         ">\t[TRACE_ENC]: %s(%d): " fmt "\n", \
-        __FILE__,                           \
-        __LINE__,                           \
+        __FILE__,                            \
+        __LINE__,                            \
         ##__VA_ARGS__)
 
-#define TRACE_HOST(fmt, ...)             \
-    printf(                                 \
+#define TRACE_HOST(fmt, ...)                 \
+    printf(                                  \
         "\t[TRACE_HOST]: %s(%d): " fmt "\n", \
-        __FILE__,                           \
-        __LINE__,                           \
+        __FILE__,                            \
+        __LINE__,                            \
         ##__VA_ARGS__)
 
 
 #else
-#define TRACE_ENCLAVE(fmt, ...) (void)
+#define TRACE_ENCLAVE(fmt, ...) NOOP
+#define TRACE_HOST(fmt, ...) NOOP
 #endif
 
 #define ERROR_PRINT(fmt, ...)       \
@@ -72,6 +72,19 @@ inline void print_enc_sep(EncExec e)
     fprintf(stdout,                \
             "\t[INFO]: " fmt "\n", \
             ##__VA_ARGS__)
+
+
+
+inline void print_enc_sep(EncExec e)
+{
+#ifdef TRACING_ENABLED
+    std::string tag = (e == EncExec::START) ? " ECALL START " : "  ECALL END  ";
+    char arrow = (e == EncExec::START) ? '>' : '<';
+    std::cout << std::string(PRINT_SEP_LEN / 2, arrow) << tag << std::string(PRINT_SEP_LEN / 2, arrow) << "\n";
+#else
+    NOOP
+#endif
+}
 
 
 // errors shared by host and enclaves

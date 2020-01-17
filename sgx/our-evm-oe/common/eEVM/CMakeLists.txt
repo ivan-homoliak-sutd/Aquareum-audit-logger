@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 
 # causes EVM to print debug trace messages
-set(DEBUG ON)
+set(DEBUG OFF)
+set(ASSERTS OFF)
 
 ###################################################
 ## configure HUNTER first
@@ -98,6 +99,15 @@ message(STATUS " ")
 if(DEBUG)
   add_compile_definitions(TRACING_ENABLED)
   message(STATUS ">>> TRACING LOGS ENABLED <<<")
+  message(STATUS " ")
+endif()
+
+if(ASSERTS)
+  message(STATUS ">>> ASSERTS ARE ENABLED <<<")
+  message(STATUS " ")
+else()
+  add_compile_definitions(NDEBUG)
+  message(STATUS ">>> ASSERTS ARE DISABLED <<<")
   message(STATUS " ")
 endif()
 

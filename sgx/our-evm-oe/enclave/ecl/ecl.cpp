@@ -52,7 +52,9 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     TRACE_ENCLAVE("output as str: %s", response.c_str());
 
+#ifdef TRACING_ENABLED
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
+#endif
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
 
     // Sync all (foreign) account states modified by the eEVM processor.
@@ -148,12 +150,15 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
+
+#ifdef TRACING_ENABLED
     if (lh.logs.size())  // print LOG events emmitted in EVM
         TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
-    TRACE_ENCLAVE("output as str: %s", response.c_str());
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
+    TRACE_ENCLAVE("output as str: %s", response.c_str());
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(result_bi).c_str());
+#endif
 
     // 6) if deployment of contract was made, then update the code of the contract to contain the effect of execution
     if (contrDeployed) {

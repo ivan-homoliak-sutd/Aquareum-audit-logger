@@ -16,7 +16,7 @@ namespace eevm
     {
         const auto acc = accounts.find(addr);
         if (acc != accounts.cend())
-            return  SimpleAccountState(std::move(acc->second.first), acc->second.second);
+            return SimpleAccountState(std::move(acc->second.first), acc->second.second);
 
         return create(addr, 0, {});
     }
@@ -41,8 +41,12 @@ namespace eevm
 
     void SimpleGlobalState::insert(const StateEntry& p)
     {
+#ifdef NDEBUG
+        accounts.insert(std::make_pair(p.first.get_address(), p));
+#else
         const auto ib = accounts.insert(std::make_pair(p.first.get_address(), p));
         assert(ib.second);
+#endif
     }
 
     bool SimpleGlobalState::exists(const Address& addr)
