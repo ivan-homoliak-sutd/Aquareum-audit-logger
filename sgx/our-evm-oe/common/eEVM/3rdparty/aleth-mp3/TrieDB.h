@@ -40,8 +40,8 @@ namespace dev {
       public:
         using DB = _DB;
 
-        explicit GenericTrieDB(DB* _db = nullptr) : m_db(_db) {}
-        GenericTrieDB(DB* _db, h256 const& _root, Verification _v = Verification::Normal) { open(_db, _root, _v); }
+        explicit GenericTrieDB(DB* _db = nullptr) : m_db(_db), m_size(0) {}
+        GenericTrieDB(DB* _db, h256 const& _root, Verification _v = Verification::Normal): m_size(0) { open(_db, _root, _v); }
         ~GenericTrieDB() {}
 
         void open(DB* _db) { m_db = _db; }
@@ -89,7 +89,8 @@ namespace dev {
         void remove(bytesConstRef _key);
         bool contains(bytes const& _key) const { return contains(&_key); }
         bool contains(bytesConstRef _key) const { return !at(_key).empty(); }
-        void killNodeWrapper(RLP const& _d) { this->killNode(_d); } // IH: public access to direct deletion in DB.
+        unsigned long size() const { return m_size; }
+        // void killNodeWrapper(RLP const& _d) { this->killNode(_d); } // IH: public access to direct deletion in DB.
 
         class iterator {
           public:
@@ -394,6 +395,7 @@ namespace dev {
         // IH: main data of MP3
         h256 m_root;
         DB* m_db = nullptr;
+        unsigned long m_size;
     };
 
     template <class DB>
@@ -426,7 +428,7 @@ namespace dev {
         void insert(KeyType _k, bytesConstRef _value) { Generic::insert(bytesConstRef((byte const*)&_k, sizeof(KeyType)), _value); }
         void insert(KeyType _k, bytes const& _value) { insert(_k, bytesConstRef(&_value)); }
         void remove(KeyType _k) { Generic::remove(bytesConstRef((byte const*)&_k, sizeof(KeyType))); }
-        void killNodeWrapper(RLP const& _d) { Generic::killNodeWrapper(_d); } // IH: public access to direct deletion in DB.
+        // void killNodeWrapper(RLP const& _d) { Generic::killNodeWrapper(_d); } // IH: public access to direct deletion in DB.
 
         class iterator : public Generic::iterator {
           public:
@@ -455,137 +457,137 @@ namespace dev {
         return _out;
     }
 
-    // IH: this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
-    // However, when 20B addresses are used as keys, I do not believe it will help. Moreover, it adds a bit extra overhead for the lenght of the key.
-    template <class _DB>
-    class HashedGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
-        using Super = SpecificTrieDB<GenericTrieDB<_DB>, h256>;
+    // // IH: this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
+    // // However, when 20B addresses are used as keys, I do not believe it will help. Moreover, it adds a bit extra overhead for the lenght of the key.
+    // template <class _DB>
+    // class HashedGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
+    //     using Super = SpecificTrieDB<GenericTrieDB<_DB>, h256>;
 
-      public:
-        using DB = _DB;
+    //   public:
+    //     using DB = _DB;
 
-        HashedGenericTrieDB(DB* _db = nullptr) : Super(_db) {}
-        HashedGenericTrieDB(DB* _db, h256 _root, Verification _v = Verification::Normal) : Super(_db, _root, _v) {}
+    //     HashedGenericTrieDB(DB* _db = nullptr) : Super(_db) {}
+    //     HashedGenericTrieDB(DB* _db, h256 _root, Verification _v = Verification::Normal) : Super(_db, _root, _v) {}
 
-        using Super::init;
-        using Super::open;
-        using Super::setRoot;
+    //     using Super::init;
+    //     using Super::open;
+    //     using Super::setRoot;
 
-        /// True if the trie is uninitialised (i.e. that the DB doesn't contain the root node).
-        using Super::isNull;
-        /// True if the trie is initialised but empty (i.e. that the DB contains the root node which is empty).
-        using Super::isEmpty;
+    //     /// True if the trie is uninitialised (i.e. that the DB doesn't contain the root node).
+    //     using Super::isNull;
+    //     /// True if the trie is initialised but empty (i.e. that the DB contains the root node which is empty).
+    //     using Super::isEmpty;
 
-        using Super::db;
-        using Super::root;
+    //     using Super::db;
+    //     using Super::root;
 
-        using Super::check;
-        using Super::debugStructure;
-        using Super::leftOvers;
+    //     using Super::check;
+    //     using Super::debugStructure;
+    //     using Super::leftOvers;
 
-        std::string at(bytesConstRef _key) const { return Super::at(sha3(_key)); }
-        bool contains(bytesConstRef _key) const { return Super::contains(sha3(_key)); }
-        void insert(bytesConstRef _key, bytesConstRef _value) { Super::insert(sha3(_key), _value); }
-        void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
+    //     std::string at(bytesConstRef _key) const { return Super::at(sha3(_key)); }
+    //     bool contains(bytesConstRef _key) const { return Super::contains(sha3(_key)); }
+    //     void insert(bytesConstRef _key, bytesConstRef _value) { Super::insert(sha3(_key), _value); }
+    //     void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
 
-        // empty from the PoV of the iterator interface; still need a basic iterator impl though.
-        class iterator {
-          public:
-            using value_type = std::pair<bytesConstRef, bytesConstRef>;
+    //     // empty from the PoV of the iterator interface; still need a basic iterator impl though.
+    //     class iterator {
+    //       public:
+    //         using value_type = std::pair<bytesConstRef, bytesConstRef>;
 
-            iterator() {}
-            iterator(HashedGenericTrieDB const*) {}
-            iterator(HashedGenericTrieDB const*, bytesConstRef) {}
+    //         iterator() {}
+    //         iterator(HashedGenericTrieDB const*) {}
+    //         iterator(HashedGenericTrieDB const*, bytesConstRef) {}
 
-            iterator& operator++() { return *this; }
-            value_type operator*() const { return value_type(); }
-            value_type operator->() const { return value_type(); }
+    //         iterator& operator++() { return *this; }
+    //         value_type operator*() const { return value_type(); }
+    //         value_type operator->() const { return value_type(); }
 
-            bool operator==(iterator const&) const { return true; }
-            bool operator!=(iterator const&) const { return false; }
+    //         bool operator==(iterator const&) const { return true; }
+    //         bool operator!=(iterator const&) const { return false; }
 
-            value_type at() const { return value_type(); }
-        };
-        iterator begin() const { return iterator(); }
-        iterator end() const { return iterator(); }
-        iterator lower_bound(bytesConstRef) const { return iterator(); }
-    };
+    //         value_type at() const { return value_type(); }
+    //     };
+    //     iterator begin() const { return iterator(); }
+    //     iterator end() const { return iterator(); }
+    //     iterator lower_bound(bytesConstRef) const { return iterator(); }
+    // };
 
 
-    // IH: similarly as in the previous one, this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
-    // Additionally, this class maintains mapping of hashed keys to orig keys themselves (stored at persistant DB).
-    //
-    // Hashed & Hash-key mapping
-    template <class _DB>
-    class FatGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
-        using Super = SpecificTrieDB<GenericTrieDB<_DB>, h256>;
+    // // IH: similarly as in the previous one, this class just hashes the key before insertion (likely to ensure even distribution of the MP3).
+    // // Additionally, this class maintains mapping of hashed keys to orig keys themselves (stored at persistant DB).
+    // //
+    // // Hashed & Hash-key mapping
+    // template <class _DB>
+    // class FatGenericTrieDB : private SpecificTrieDB<GenericTrieDB<_DB>, h256> {
+    //     using Super = SpecificTrieDB<GenericTrieDB<_DB>, h256>;
 
-      public:
-        using DB = _DB;
-        FatGenericTrieDB(DB* _db = nullptr) : Super(_db) {}
-        FatGenericTrieDB(DB* _db, h256 _root, Verification _v = Verification::Normal) : Super(_db, _root, _v) {}
+    //   public:
+    //     using DB = _DB;
+    //     FatGenericTrieDB(DB* _db = nullptr) : Super(_db) {}
+    //     FatGenericTrieDB(DB* _db, h256 _root, Verification _v = Verification::Normal) : Super(_db, _root, _v) {}
 
-        using Super::check;
-        using Super::db;
-        using Super::debugStructure;
-        using Super::init;
-        using Super::isEmpty;
-        using Super::isNull;
-        using Super::leftOvers;
-        using Super::open;
-        using Super::root;
-        using Super::setRoot;
-        using Super::killNodeWrapper;
+    //     using Super::check;
+    //     using Super::db;
+    //     using Super::debugStructure;
+    //     using Super::init;
+    //     using Super::isEmpty;
+    //     using Super::isNull;
+    //     using Super::leftOvers;
+    //     using Super::open;
+    //     using Super::root;
+    //     using Super::setRoot;
+    //     using Super::killNodeWrapper;
 
-        std::string at(bytesConstRef _key) const { return Super::at(sha3(_key)); }
-        bool contains(bytesConstRef _key) const { return Super::contains(sha3(_key)); }
-        void insert(bytesConstRef _key, bytesConstRef _value) {
-            h256 hash = sha3(_key);              // IH: I do not like that the key is not used directly in FatDB
-            Super::insert(hash, _value);
-            Super::db()->insertAux(hash, _key); // IH: translation from hashed key to original keys
-        }
+    //     std::string at(bytesConstRef _key) const { return Super::at(sha3(_key)); }
+    //     bool contains(bytesConstRef _key) const { return Super::contains(sha3(_key)); }
+    //     void insert(bytesConstRef _key, bytesConstRef _value) {
+    //         h256 hash = sha3(_key);              // IH: I do not like that the key is not used directly in FatDB
+    //         Super::insert(hash, _value);
+    //         Super::db()->insertAux(hash, _key); // IH: translation from hashed key to original keys
+    //     }
 
-        void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
+    //     void remove(bytesConstRef _key) { Super::remove(sha3(_key)); }
 
-        // iterates over <key, value> pairs
-        class iterator : public GenericTrieDB<_DB>::iterator {
-          public:
-            using Super = typename GenericTrieDB<_DB>::iterator;
+    //     // iterates over <key, value> pairs
+    //     class iterator : public GenericTrieDB<_DB>::iterator {
+    //       public:
+    //         using Super = typename GenericTrieDB<_DB>::iterator;
 
-            iterator() {}
-            iterator(FatGenericTrieDB const* _trie) : Super(_trie) {}
+    //         iterator() {}
+    //         iterator(FatGenericTrieDB const* _trie) : Super(_trie) {}
 
-            typename Super::value_type at() const {
-                auto hashed = Super::at();
-                m_key = static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
-                return std::make_pair(&m_key, std::move(hashed.second));
+    //         typename Super::value_type at() const {
+    //             auto hashed = Super::at();
+    //             m_key = static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
+    //             return std::make_pair(&m_key, std::move(hashed.second));
 
-            }
+    //         }
 
-          private:
-            mutable bytes m_key;
-        };
-        iterator begin() const { return iterator(); }
-        iterator end() const { return iterator(); }
+    //       private:
+    //         mutable bytes m_key;
+    //     };
+    //     iterator begin() const { return iterator(); }
+    //     iterator end() const { return iterator(); }
 
-        // iterates over <hashedKey, value> pairs
-        class HashedIterator : public GenericTrieDB<_DB>::iterator {
-          public:
-            using Super = typename GenericTrieDB<_DB>::iterator;
+    //     // iterates over <hashedKey, value> pairs
+    //     class HashedIterator : public GenericTrieDB<_DB>::iterator {
+    //       public:
+    //         using Super = typename GenericTrieDB<_DB>::iterator;
 
-            HashedIterator() {}
-            HashedIterator(FatGenericTrieDB const* _trie) : Super(_trie) {}
-            HashedIterator(FatGenericTrieDB const* _trie, bytesConstRef _hashedKey) : Super(_trie, _hashedKey) {}
+    //         HashedIterator() {}
+    //         HashedIterator(FatGenericTrieDB const* _trie) : Super(_trie) {}
+    //         HashedIterator(FatGenericTrieDB const* _trie, bytesConstRef _hashedKey) : Super(_trie, _hashedKey) {}
 
-            bytes key() const {
-                auto hashed = Super::at();
-                return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
-            }
-        };
-        HashedIterator hashedBegin() const { return HashedIterator(this); }
-        HashedIterator hashedEnd() const { return HashedIterator(); }
-        HashedIterator hashedLowerBound(h256 const& _hashedKey) const { return HashedIterator(this, _hashedKey.ref()); }
-    };
+    //         bytes key() const {
+    //             auto hashed = Super::at();
+    //             return static_cast<FatGenericTrieDB const*>(Super::m_that)->db()->lookupAux(h256(hashed.first));
+    //         }
+    //     };
+    //     HashedIterator hashedBegin() const { return HashedIterator(this); }
+    //     HashedIterator hashedEnd() const { return HashedIterator(); }
+    //     HashedIterator hashedLowerBound(h256 const& _hashedKey) const { return HashedIterator(this, _hashedKey.ref()); }
+    // };
 
 
 
@@ -938,6 +940,7 @@ namespace dev {
         if (rootValue.size() < 32)
             forceKillNode(m_root);
         m_root = forceInsertNode(&b);
+        m_size++;
     }
 
     template <class DB>
@@ -1075,6 +1078,8 @@ namespace dev {
                 forceKillNode(m_root);
             m_root = forceInsertNode(&b);
         }
+        m_size--;
+        assert(m_size >= 0);
     }
 
     template <class DB>
@@ -1216,6 +1221,9 @@ namespace dev {
     template <class DB>
     bytes GenericTrieDB<DB>::remove(RLP const& _orig) {
         killNode(_orig);
+
+        m_size--;
+        assert(m_size >= 0);
 
         assert(_orig.isList() && (_orig.itemCount() == 2 || _orig.itemCount() == 17));
         if (_orig.itemCount() == 2)

@@ -184,8 +184,8 @@ void Operator::_printGlobalState(unsigned max = 1000)
             break;
         }
     }
-    if (i == max) {
-        std::cout << "... some accounts were omitted ... \n";
+    if (i - 1 == max) {
+        std::cout << fmt::format("... {} accounts were omitted ... \n", this->m_ecl.m_gs.getAccounts().size() - (max - 1));
     }
     eevm::print_sep();
 }
