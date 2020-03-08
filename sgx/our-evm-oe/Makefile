@@ -3,6 +3,9 @@
 
 .PHONY: all build clean run simulate host enc
 
+
+RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
+
 all: build
 
 build:
@@ -13,7 +16,7 @@ clean:
 	$(MAKE) -C enclave clean
 	$(MAKE) -C host clean
 
-run: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+run: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 run:
 	host/ecledger_host ./enclave/ecledger_enc.signed
 
@@ -24,12 +27,12 @@ enc:
 	$(MAKE) -C enclave
 
 
-debug: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 debug:
 	valgrind host/ecledger_host ./enclave/ecledger_enc.signed
 
 
-sim: export LD_LIBRARY_PATH=:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+sim: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 sim:
 	host/ecledger_host ./enclave/ecledger_enc.signed --simulate
 

@@ -43,10 +43,10 @@ namespace eevm
           : m_accounts(
                 new OverlayDB(std::move(
                     std::unique_ptr<db::DatabaseFace>(
-                        new db::MemoryDB()))))  // MemoryDB is just a surrogate for the real persistant DB
+                        new db::MemoryDB()))))  // MemoryDB is (currently) just a surrogate for the real persistant DB
         {
             if (init)
-                m_accounts.init();  // create empty node into MP3
+                m_accounts.init();  // create empty node and insert it into MP3
         };
 
         ~NormalGlobalState() = default;

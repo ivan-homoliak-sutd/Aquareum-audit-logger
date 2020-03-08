@@ -75,6 +75,30 @@ enclave {
             [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
         );
 
+        public int ecall_run_many_txs_mp3state_partial(
+            [user_check] const uint8_t* txs_in_batch,            
+            size_t txs_size,            
+
+            [user_check] const uint8_t* codes_in_batch,
+            [in, size=codes_sizes_size] const size_t * codes_sizes,
+            size_t codes_sizes_size,                        
+
+            [in, size=root_size] const uint8_t* gs_root_h,
+            size_t root_size,
+
+            /* IH: we do not need to verify the following user_check data since DB would be inconsisten when tampering => E would fail  */
+            [user_check] const uint8_t* db_data,    // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+            size_t db_data_size,
+            [user_check] const uint8_t* db_data_aux,  // RLP of auxiliary data needed for account creation and update
+            size_t db_data_aux_size,
+
+            /* IH: user_check storages need to be verified against accounts in MP3 (constructed from the previous)  */
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size,
+            [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
+        );
+
     };
 
 

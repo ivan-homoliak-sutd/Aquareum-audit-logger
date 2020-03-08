@@ -98,11 +98,15 @@ namespace ecl
         ContrDefinition _parseDefinitionFile(const std::string& contract_path);
         eevm::Address _createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
         void _testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc);
-        void _testBulkNativePayments(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt);
+        void _testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt);    
+        void _testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize);
 
         int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
+        
+        int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
+        int _dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
 
         void _iterExps(eevm::Address& key);
         void _printTrailOfMP3Leaf(Address& key);

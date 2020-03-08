@@ -446,14 +446,15 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t call # [...]" << "\t call endpoint # of selected destination contract with parameters '...'.\n"
                       << "\t pay a [b]"    << "\t pay amount 'a' to address 'b' [default=active destination].\n"
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
+                      << "\t vars"         << "\t display defined variables \n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
-                      << "\t mode [m]"         << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"
+                      << "\t mode [m]"         << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
 
                       << "\n"
                       << "Hardcoded testing:\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
                       << "\t test erc [a]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract [default=10].\n"
-                      << "\t test pay [a]"     << "\t execute 'a' native payment transfer TXs (among 5 random accounts) [default=10].\n"
+                      << "\t test pay [a] [b]" << "\t execute 'a' native payment transfer TXs (among 5 random accounts), proceessed in batches of size 'b' [default a=10, b=10].\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\t iter [a]"     << "\t experimennts with MP3 iterator.\n"
@@ -475,6 +476,12 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::cout << "All loaded definitions:\n";
             for (auto& d : m_contracts) {
                 std::cout << fmt::format("\t [{}] Definition of contract on addr = {}:\n {}\n", ++i, to_hex_string(d.first), d.second.toString());
+            }
+
+        } else if (0 == strcmp(command, "vars")) {
+            std::cout << "\tAll defined shell variables:\n";
+            for (auto& v : sh_vars) {
+                std::cout << fmt::format("\t\t {} = {}\n", v.first, v.second);
             }
 
         } else if (0 == strcmp(command, "contracts")) {
@@ -725,13 +732,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
         } else if (0 == strncmp(command, "test pay", 8)) {
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {2, 3}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {2, 3, 4}, &tokens, &tokenCnt))
                 continue;
 
             uint accntsCount = 5;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
+            uint b = 10;           // default number of TXs in one batch that is processed by E
 
-            if (tokenCnt == 3) {
+            if (tokenCnt == 3 || tokenCnt == 4) {
                 try {
                     auto it = tokens->begin();
                     std::advance(it, 2);
@@ -740,16 +748,32 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                     std::cerr << "Invalid argument\n";
                     continue;
                 }
+                if (tokenCnt == 4) {
+                    try {
+                        auto it = tokens->begin();
+                        std::advance(it, 3);
+                        b = std::stoul(*it);
+                    } catch (const std::invalid_argument& ia) {
+                        std::cerr << "Invalid argument\n";
+                        continue;
+                    }
+                }
             }
             if (n < 10) {
                 std::cerr << "The minimum number of TXs is 10.\n";
+                continue;
+            }
+            if (b < 1) {
+                std::cerr << "The minimal size of the batch is 1.\n";
                 continue;
             }
             if (m_accounts.size() < accntsCount) {
                 error_print(fmt::format("The minimal number of normal accounts (current = {}) needs to be at least {}", m_accounts.size(), accntsCount));
                 continue;
             }
-            this->_testBulkNativePayments(enclave, n, accntsCount);
+            // this->_testBulkNativePayments_1by1(enclave, n, accntsCount); // TODO: compare this with the following
+            this->_testBulkNativePayments_batched(enclave, n, accntsCount, b);
+
 
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
@@ -1014,7 +1038,7 @@ void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint account
 /**
  * Execute 'numberOfTx' native payment TXs that transfer native tokens among 'accountsCnt' normal accounts.
  */
-void Operator::_testBulkNativePayments(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt)
+void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt)
 {
     u256 output_u256;
 
@@ -1042,7 +1066,7 @@ void Operator::_testBulkNativePayments(oe_enclave_t* enclave, uint numberOfTx, u
         uint destIdx = std::rand() % accountsCnt;
         SimpleAccountState to_as = getAccount(selectedAccnts[destIdx]);
 
-        uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add amount of ERC20 tokens
+        uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
 
         eevm::Code emptyFunc = {0u};
         eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(
@@ -1056,6 +1080,77 @@ void Operator::_testBulkNativePayments(oe_enclave_t* enclave, uint numberOfTx, u
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
 
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
+
+    // print the final balances
+    std::cout << fmt::format("The final balances are:\n");
+    for (uint i = 0; i < accountsCnt; i++) {
+        SimpleAccountState as = getAccount(selectedAccnts[i]);
+        std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), (uint64_t)as.acc.get_balance());
+    }
+}
+
+/**
+ * Execute 'numberOfTx' native payment TXs that transfer native tokens among 'accountsCnt' normal accounts.
+ * It batches TXs before passing it to Enclave to batch of size 'batchSize'.
+ */
+void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize)
+{
+    assert(batchSize >= 1);
+
+    // select accountsCnt accounts, where the 1st one is the owner
+    std::vector<eevm::Address> selectedAccnts;
+    for (auto it = m_accounts.begin(); it != m_accounts.end() && selectedAccnts.size() < accountsCnt; ++it) {
+        selectedAccnts.push_back(it->first);
+    }
+
+    // execute TXs in batches of size batchSize
+    auto start_t = chrono::steady_clock::now();
+
+
+    std::vector<eevm::PersistantTransaction*> txs_in_batch;
+
+    for (uint i = 0; i < numberOfTx; i++) {
+        // select random origin who has some funds
+        uint j;
+        Account::Nonce origin_nonce;
+        uint256_t origin_balance;
+        do {
+            j = uint(std::rand() % accountsCnt);
+            SimpleAccountState origin_as = getAccount(selectedAccnts[j]);
+            origin_balance = origin_as.acc.get_balance();
+            origin_nonce = origin_as.acc.get_nonce();
+        } while (origin_balance == u256(0u));
+
+        // select random destination
+        uint destIdx = std::rand() % accountsCnt;
+        SimpleAccountState to_as = getAccount(selectedAccnts[destIdx]);
+
+        uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
+
+        eevm::Code emptyFunc = {0u};
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(
+            m_accounts[selectedAccnts[j]], selectedAccnts[destIdx], {}, emptyFunc, origin_nonce, value);
+
+        // extend the batch or dispatch TXs from batch if the batch is full already
+        if (txs_in_batch.size() < batchSize) {
+            txs_in_batch.push_back(tx);
+        } else {  // the batch is full, so dispatch all TXs
+            if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
+                exit(1);
+            txs_in_batch.clear();
+        }
+    }
+
+    // resolve remaining TXs in the last (non-full) batch
+    if (txs_in_batch.size() != 0) {
+        if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
+            exit(1);
+        txs_in_batch.clear();
+    }
+
+    auto end_t = chrono::steady_clock::now();
+    auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
 
     // print the final balances
@@ -1137,6 +1232,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 
 /**
  * The point of interaction with the Enclave. Store the first 32B of the result into 'output_u256'
+ * Processes just a single TX.
  */
 int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
 {
@@ -1161,6 +1257,121 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 }
 
 /**
+ * The point of interaction with the Enclave. Store the first 32B of the result into 'output_u256'
+ * Processes batched TXs.
+ */
+int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+{
+    int ret;
+    switch (this->m_ecl.m_mode) {
+        case ECLedger::MODE::PartialStateTransfer:
+            ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch);
+            break;
+        default:
+            std::cerr << "Unsupported mode: " << static_cast<int>(this->m_ecl.m_mode) << "\n";
+            exit(1);
+    }
+    return ret;
+}
+
+/**
+ * Executes many TXs in Enclave, while it dumps only partial MP3 state to Enclave. [fast]
+ */
+int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+{
+    int ret;
+
+    // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
+    std::set<h256> db_keys;            // this is a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'db_data' vector
+    std::vector<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
+
+    std::vector<uint8_t> txs_persistant;  // data of all TXs in batch (except their codes)
+    size_t txs_persistant_size = 0;       // size of the previous vector
+
+    std::vector<uint8_t> codes;       // data codes
+    std::vector<size_t> codes_sizes;  // vectorized sizes of the codes
+    size_t codes_sizes_size = 0;      // size of the previous vector
+
+    std::vector<uint8_t> db_data;         // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
+    std::vector<uint8_t> storages;        // \/== storages of all accounts
+    std::vector<uint8_t> acnts_storages;  // \/== addresses of accounts related to dumped storages
+    std::vector<size_t> storages_sizes;   // vectorized sizes of the storages
+    size_t storages_sizes_size = 0;       // size of the previous vector
+
+    for (auto tx : txs_in_batch) {
+        // if 'origin' and 'to' exist then we need their trails in MP3
+        if (m_ecl.m_gs.exists(tx->to)) {
+            addrs.push_back(tx->to);
+            auto as = m_ecl.m_gs.get(tx->to);
+            // TRACE_HOST("Hash value of storage before dumping partial DB is in account: %s and computed in storage: %s.", to_hex_string(as.acc.get_stHash()).c_str(), to_hex_string(as.st.hash()).c_str());
+        }
+        if (m_ecl.m_gs.exists(tx->origin)) {
+            addrs.push_back(tx->origin);
+        }
+
+        // copy data of a current TX and its code
+        PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)tx;
+        txs_persistant.insert(txs_persistant.end(), (uint8_t*)ptx, (uint8_t*)ptx + sizeof(PersistantTxProxy_T));
+        codes.insert(codes.end(), tx->code.begin(), tx->code.end());
+        codes_sizes.push_back(tx->code.size());
+    }
+    txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
+    codes_sizes_size = codes_sizes.size();
+    m_ecl.m_gs.dump_partial_db(addrs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
+
+    // store root
+    h256 root_orig = m_ecl.m_gs.root();
+
+    // 2) Execute TXs in Host one by one (and log all newly created accounts and their trails)
+    std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
+    m_ecl.m_gs.startLookupLogging(&db_keys, &db_data_aux);
+
+    for (auto& tx : txs_in_batch) {
+        uint256_t output_u256;
+        ret = this->m_ecl.executeTX(tx, output_u256);
+        if (ret != RET_SUCCESS) {  // this updates global account state in the host
+            error_print("Error when executing TX in HOST.");
+            return ret;
+        }
+    }
+    unsigned cntLookups = m_ecl.m_gs.finishLookupLogging();
+    info_print(fmt::format("The number of auxiliary entries fetched from DB is {}.", cntLookups));
+
+    info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
+                           db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + db_data_aux.size() + sumVectST(storages_sizes)));
+    info_print(fmt::format("Size of code passed to E is {}", sumVectST(codes_sizes)));
+
+
+    // 3) Execute all TXs from batch in Enclave
+    oe_result_t ecall_ret = ecall_run_many_txs_mp3state_partial(enclave, &ret,
+                                                                (const uint8_t*)txs_persistant.data(), txs_persistant_size,
+                                                                (const uint8_t*)codes.data(), codes_sizes.data(), codes_sizes_size,
+                                                                (const uint8_t*)root_orig.data(), 32u,
+                                                                (const uint8_t*)db_data.data(), db_data.size(),
+                                                                (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
+                                                                (const uint8_t*)storages.data(), storages_sizes.data(),
+                                                                storages_sizes_size, (const uint8_t*)acnts_storages.data());
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when executing batch of TXs in ENCLAVE.");
+        return ret;
+    }
+
+    // 5) Fetch the updated global state of E
+    PublicSealedData_T pub_evm_state;
+    ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+    if (ecall_ret != OE_OK && is_error(ret)) {
+        error_print("Failed to read the state of enclave.");
+        return ret;
+    }
+
+    // 6) Compare E's state to host's state
+    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ecl.m_gs.root());
+    info_print(">> State in Host and Enclave match! <<");
+    return RET_SUCCESS;
+}
+
+/**
  * Executes one TX in enclave, while it dumps only partial MP3 state to enclave. [fast]
  */
 int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
@@ -1168,24 +1379,24 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     int ret;
 
     // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
-    std::set<h256> db_keys;          // this a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'data' vector
-    std::vector<eevm::Address> txs;  // addresses whose trails we need for partial state
+    std::set<h256> db_keys;            // this a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'data' vector
+    std::vector<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
 
-    // if origin and to exist then we need their trails
+    // if 'origin' and 'to' exist then we need their trails in MP3
     if (m_ecl.m_gs.exists(tx->to)) {
-        txs.push_back(tx->to);
+        addrs.push_back(tx->to);
         auto as = m_ecl.m_gs.get(tx->to);
         // TRACE_HOST("Hash value of storage before dumping partial DB is in account: %s and computed in storage: %s.", to_hex_string(as.acc.get_stHash()).c_str(), to_hex_string(as.st.hash()).c_str());
     }
     if (m_ecl.m_gs.exists(tx->origin)) {
-        txs.push_back(tx->origin);
+        addrs.push_back(tx->origin);
     }
     std::vector<uint8_t> db_data;         // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
     std::vector<uint8_t> storages;        // \/== storages of all accounts
     std::vector<uint8_t> acnts_storages;  // \/== addresses of accounts related to dumped storages
     std::vector<size_t> storages_sizes;
     size_t storages_sizes_size = 0;
-    m_ecl.m_gs.dump_partial_db(txs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
+    m_ecl.m_gs.dump_partial_db(addrs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
 
     // store root
     h256 root_orig = m_ecl.m_gs.root();

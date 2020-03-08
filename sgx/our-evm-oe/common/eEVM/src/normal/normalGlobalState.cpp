@@ -21,7 +21,7 @@ namespace eevm
         m_accounts.remove(h256(addr));
     }
 
-    // It does NOT creates a new account state if it does not exist! This is different from original eEVM proposal, so the processor might fail in some cases.
+    // It does NOT creates a new account state if it does not exist! This is different from original eEVM proposal, so the processor might fail in some eEVM test cases.
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
         TRACE_ME("get addr: %s ", address_to_hex_string(addr).c_str());
@@ -86,7 +86,7 @@ namespace eevm
     }
 
     /**
-     * It dumps 'partial' global state of MP3 related to all transactions in txs. It uses iteration trails of MP3 to build this partial state.
+     * It dumps 'partial' global state of MP3 related to all addresses in addrs_to_process. It uses iteration trails of MP3 to build this partial state.
      * The results is stored into 'data'
      */
     void NormalGlobalState::dump_partial_db(std::vector<Address>& addrs_to_process,
@@ -217,7 +217,7 @@ namespace eevm
 
     /**
      * Constructs partial NormalGlobalState object from parameters passed. (called from enclave)
-     * Note that also integrity of copied storages is verified here, since they are passed to as [user_check]
+     * Note that also integrity of copied storages is verified here, since they are passed to E as [user_check]
      */
     int NormalGlobalState::construct_partial_state(NormalGlobalState** gs, const uint8_t* gs_root_h,
                                                    const uint8_t* db_data, size_t db_data_size,
@@ -228,7 +228,7 @@ namespace eevm
         TRACE_ME("Constructing partial state");
 
         *gs = new NormalGlobalState(false);
-        auto& acnts = (*gs)->getAccounts();  // IMPORTANT: in this function is not valid to access addressed that were not created yet! Only accounts from db_data are valid.
+        auto& acnts = (*gs)->getAccounts();  // IMPORTANT: in this function is not valid to access addresses that were not created yet! Only accounts from db_data are valid.
         auto& strgs = (*gs)->getStorages();
         h256 root = h256(gs_root_h, h256::ConstructFromPointer);
         acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
