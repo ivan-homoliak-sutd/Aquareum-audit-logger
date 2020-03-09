@@ -185,7 +185,8 @@ void Operator::_printGlobalState(unsigned max = 1000)
         }
     }
     if (i - 1 == max) {
-        std::cout << fmt::format("... {} accounts were omitted ... \n", this->m_ecl.m_gs.getAccounts().size() - (max - 1));
+        // std::cout << fmt::format("... {} accounts were omitted ... \n", this->m_ecl.m_gs.getAccounts().size() - (max - 1)); // IH: this is still buggy
+        std::cout << fmt::format("... some accounts were omitted ... \n");
     }
     eevm::print_sep();
 }
@@ -453,8 +454,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\n"
                       << "Hardcoded testing:\n"
                       << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
-                      << "\t test erc [a]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract [default=10].\n"
-                      << "\t test pay [a] [b]" << "\t execute 'a' native payment transfer TXs (among 5 random accounts), proceessed in batches of size 'b' [default a=10, b=10].\n"
+                      << "\t test erc [a][b]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract, proceessed in batches of size 'b' [default a=10, b=10].\n"
+                      << "\t test pay [a][b]" << "\t execute 'a' native payment transfer TXs (among 5 random accounts), proceessed in batches of size 'b' [default a=10, b=10].\n"
                       << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\t iter [a]"     << "\t experimennts with MP3 iterator.\n"
@@ -700,13 +701,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             this->_printGlobalState();
         } else if (0 == strncmp(command, "test erc", 8)) {
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {2, 3}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {2, 3, 4}, &tokens, &tokenCnt))
                 continue;
 
             uint accntsCount = 5;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
+            uint b = 10;           // default number of TXs in one batch that is processed by E
 
-            if (tokenCnt == 3) {
+            if (tokenCnt == 3 || tokenCnt == 4) {
                 try {
                     auto it = tokens->begin();
                     std::advance(it, 2);
@@ -715,9 +717,23 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                     std::cerr << "Invalid argument\n";
                     continue;
                 }
+                if (tokenCnt == 4) {
+                    try {
+                        auto it = tokens->begin();
+                        std::advance(it, 3);
+                        b = std::stoul(*it);
+                    } catch (const std::invalid_argument& ia) {
+                        std::cerr << "Invalid argument\n";
+                        continue;
+                    }
+                }
             }
             if (n < 10) {
                 std::cerr << "The minimum number of TXs is 10.\n";
+                continue;
+            }
+            if (b < 1) {
+                std::cerr << "The minimal size of the batch is 1.\n";
                 continue;
             }
             if (m_contracts.end() == m_contracts.find(sh_to) || m_contracts[sh_to].name != "ERC20") {
@@ -728,7 +744,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print(fmt::format("The minimal number of normal accounts (current = {}) needs to be at least {}", m_accounts.size(), accntsCount));
                 continue;
             }
-            this->_testBulkERC(enclave, n, accntsCount, sh_to);
+            // this->_testBulkERC_1by1(enclave, n, accntsCount, sh_to);
+            this->_testBulkERC_batched(enclave, n, accntsCount, sh_to, b);
 
         } else if (0 == strncmp(command, "test pay", 8)) {
             uint tokenCnt;
@@ -961,7 +978,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
  * Execute 'numberOfTx' TXs that transfer ERC20 tokens among 'accountsCnt' normal accounts through interaction with address 'erc'.
  * Note that function execute additional 'accountsCnt' TXs to get balances of accounts at the begining.
  */
-void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc)
+void Operator::_testBulkERC_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc)
 {
     u256 output_u256;
     auto def = m_contracts[erc];
@@ -1036,56 +1053,96 @@ void Operator::_testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint account
 }
 
 /**
- * Execute 'numberOfTx' native payment TXs that transfer native tokens among 'accountsCnt' normal accounts.
+ * Execute 'numberOfTx' TXs that transfer ERC20 tokens among 'accountsCnt' normal accounts through interaction with address 'erc'.
+ * Transactions are batched according to 'batchSize' parameter.
+ * Note that function execute additional 'accountsCnt' TXs to get balances of accounts at the begining.
  */
-void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt)
+void Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize)
 {
+    assert(batchSize >= 1);
     u256 output_u256;
+    auto def = m_contracts[erc];
 
-    // select accountsCnt accounts, where the 1st one is the owner
+    // select accountsCnt accounts, where the 1st one is the owner of contract called
     std::vector<eevm::Address> selectedAccnts;
+    std::vector<Account::Nonce> nonces;  // nonces also need tracking alike balances
+    selectedAccnts.push_back(def.owner);
     for (auto it = m_accounts.begin(); it != m_accounts.end() && selectedAccnts.size() < accountsCnt; ++it) {
+        if (it->first == def.owner)  // owner was already added
+            continue;
         selectedAccnts.push_back(it->first);
     }
 
-    // execute TXs one by one
-    auto start_t = chrono::steady_clock::now();
-    for (uint i = 0; i < numberOfTx; i++) {
-        // select random origin who has some funds
-        uint j;
-        Account::Nonce origin_nonce;
-        uint256_t origin_balance;
-        do {
-            j = uint(std::rand() % accountsCnt);
-            SimpleAccountState origin_as = getAccount(selectedAccnts[j]);
-            origin_balance = origin_as.acc.get_balance();
-            origin_nonce = origin_as.acc.get_nonce();
-        } while (origin_balance == u256(0u));
+    // remember balances in the cache
+    std::vector<u256> balances;
+    for (uint i = 0; i < accountsCnt; i++) {
+        auto epbin = def.getEpBinByName("balanceOf(address)");
 
-        // select random destination
-        uint destIdx = std::rand() % accountsCnt;
+        std::vector<u256> parsedParams;  // add address parameter
+        parsedParams.push_back(selectedAccnts[i]);
 
-        uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
-
-        eevm::Code emptyFunc = {0u};
-        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(
-            m_accounts[selectedAccnts[j]], selectedAccnts[destIdx], {}, emptyFunc, origin_nonce, value);
+        auto oper = getAccount(def.owner).acc;  // get O's account state
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[def.owner], erc, parsedParams, epbin, oper.get_nonce(), 0);
 
         if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
             exit(1);
 
+        nonces.push_back(oper.get_nonce() + 1);
+        balances.push_back(output_u256);
         delete tx;
     }
+
+    // execute TXs in batches
+    auto start_t = chrono::steady_clock::now();
+    std::vector<eevm::PersistantTransaction*> txs_in_batch;
+    for (uint i = 0; i < numberOfTx; i++) {
+        auto epbin = def.getEpBinByName("transfer(address,uint256)");
+
+        // select random origin who has some funds at ERC20 contract
+        uint j;
+        do {
+            j = uint(std::rand() % accountsCnt);
+        } while (balances[j] == u256(0u));
+
+        uint destIdx = std::rand() % accountsCnt;
+        auto to = selectedAccnts[destIdx];
+
+        std::vector<u256> parsedParams;
+        parsedParams.push_back(to);                       // add receiver of ERC20 tokens
+        auto value = get_random_uint256() % balances[j];  // add amount of ERC20 tokens
+        parsedParams.push_back(value);
+
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(m_accounts[selectedAccnts[j]], erc, parsedParams, epbin, nonces[j], 0);
+
+        // dispatch TXs from batch if the batch is full already
+        if (txs_in_batch.size() == batchSize) {
+            if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
+                exit(1);
+            txs_in_batch.clear();
+        }
+        txs_in_batch.push_back(tx);
+
+        // adjust balances in our cache
+        balances[j] -= value;
+        balances[destIdx] += value;
+        nonces[j] += 1;
+    }
+    
+    // resolve remaining TXs in the last (non-full) batch
+    if (txs_in_batch.size() != 0) {
+        if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
+            exit(1);        
+    }
+    
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
 
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
 
     // print the final balances
-    std::cout << fmt::format("The final balances are:\n");
+    std::cout << fmt::format("The final balances of ERC {} contract are:\n", to_hex_string(erc));
     for (uint i = 0; i < accountsCnt; i++) {
-        SimpleAccountState as = getAccount(selectedAccnts[i]);
-        std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), (uint64_t)as.acc.get_balance());
+        std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), to_hex_string(balances[i]));
     }
 }
 
@@ -1149,12 +1206,65 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
     // resolve remaining TXs in the last (non-full) batch
     if (txs_in_batch.size() != 0) {
         if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
-            exit(1);
-        txs_in_batch.clear();
+            exit(1);        
     }
 
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
+
+    // print the final balances
+    std::cout << fmt::format("The final balances are:\n");
+    for (uint i = 0; i < accountsCnt; i++) {
+        SimpleAccountState as = getAccount(selectedAccnts[i]);
+        std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), (uint64_t)as.acc.get_balance());
+    }
+}
+
+/**
+ * Execute 'numberOfTx' native payment TXs that transfer native tokens among 'accountsCnt' normal accounts.
+ */
+void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt)
+{
+    u256 output_u256;
+
+    // select accountsCnt accounts, where the 1st one is the owner
+    std::vector<eevm::Address> selectedAccnts;
+    for (auto it = m_accounts.begin(); it != m_accounts.end() && selectedAccnts.size() < accountsCnt; ++it) {
+        selectedAccnts.push_back(it->first);
+    }
+
+    // execute TXs one by one
+    auto start_t = chrono::steady_clock::now();
+    for (uint i = 0; i < numberOfTx; i++) {
+        // select random origin who has some funds
+        uint j;
+        Account::Nonce origin_nonce;
+        uint256_t origin_balance;
+        do {
+            j = uint(std::rand() % accountsCnt);
+            SimpleAccountState origin_as = getAccount(selectedAccnts[j]);
+            origin_balance = origin_as.acc.get_balance();
+            origin_nonce = origin_as.acc.get_nonce();
+        } while (origin_balance == u256(0u));
+
+        // select random destination
+        uint destIdx = std::rand() % accountsCnt;
+
+        uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
+
+        eevm::Code emptyFunc = {0u};
+        eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(
+            m_accounts[selectedAccnts[j]], selectedAccnts[destIdx], {}, emptyFunc, origin_nonce, value);
+
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            exit(1);
+
+        delete tx;
+    }
+    auto end_t = chrono::steady_clock::now();
+    auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
+
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
 
     // print the final balances

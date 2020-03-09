@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.12)
 
 
 # causes EVM to print debug trace messages
-set(DEBUG ON)
-set(ASSERTS ON)
+set(DEBUG OFF)
+set(ASSERTS OFF)
 
 ###################################################
 ## configure HUNTER first

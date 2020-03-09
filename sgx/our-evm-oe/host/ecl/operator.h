@@ -97,7 +97,8 @@ namespace ecl
 
         ContrDefinition _parseDefinitionFile(const std::string& contract_path);
         eevm::Address _createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
-        void _testBulkERC(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc);
+        void _testBulkERC_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc);
+        void _testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize);
         void _testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt);    
         void _testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize);
 
