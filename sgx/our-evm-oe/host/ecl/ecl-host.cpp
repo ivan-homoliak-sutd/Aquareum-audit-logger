@@ -362,7 +362,7 @@ int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
     auto snderAcState = (etx.origin == this->operAddr && !m_gs.exists(etx.origin)) ? m_gs.create(etx.origin, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.origin);
 
     // 2) increment the nonce and adjust the balance of the sender
-    TRACE_HOST("%s", fmt::format("Code size of sender account is {} ", snderAcState.acc.get_code_ref().size()));
+    TRACE_HOST("%s", fmt::format("Code size of sender account is {} ", snderAcState.acc.get_code_ref().size()).c_str());
     if (EMPTY_CODE_OBJ == snderAcState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         snderAcState.acc.set_nonce(snderAcState.acc.get_nonce() + 1);
     }

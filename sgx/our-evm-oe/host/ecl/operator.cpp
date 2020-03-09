@@ -1064,7 +1064,6 @@ void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOf
 
         // select random destination
         uint destIdx = std::rand() % accountsCnt;
-        SimpleAccountState to_as = getAccount(selectedAccnts[destIdx]);
 
         uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
 
@@ -1100,16 +1099,20 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
 
     // select accountsCnt accounts, where the 1st one is the owner
     std::vector<eevm::Address> selectedAccnts;
+    std::vector<u256> balances;          // current balances need tracking since we batch and do not update account states immediatelly
+    std::vector<Account::Nonce> nonces;  // nonces also need tracking alike balances
     for (auto it = m_accounts.begin(); it != m_accounts.end() && selectedAccnts.size() < accountsCnt; ++it) {
         selectedAccnts.push_back(it->first);
+
+        SimpleAccountState as = getAccount(it->first);
+        uint256_t balance = as.acc.get_balance();
+        balances.push_back(balance);
+        nonces.push_back(as.acc.get_nonce());
     }
 
     // execute TXs in batches of size batchSize
     auto start_t = chrono::steady_clock::now();
-
-
     std::vector<eevm::PersistantTransaction*> txs_in_batch;
-
     for (uint i = 0; i < numberOfTx; i++) {
         // select random origin who has some funds
         uint j;
@@ -1117,29 +1120,30 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
         uint256_t origin_balance;
         do {
             j = uint(std::rand() % accountsCnt);
-            SimpleAccountState origin_as = getAccount(selectedAccnts[j]);
-            origin_balance = origin_as.acc.get_balance();
-            origin_nonce = origin_as.acc.get_nonce();
+            origin_balance = balances[j];
+            origin_nonce = nonces[j];
         } while (origin_balance == u256(0u));
 
         // select random destination
         uint destIdx = std::rand() % accountsCnt;
-        SimpleAccountState to_as = getAccount(selectedAccnts[destIdx]);
-
         uint64_t value = static_cast<uint64_t>(get_random_uint256() % origin_balance);  // add value of native token
 
         eevm::Code emptyFunc = {0u};
         eevm::PersistantTransaction* tx = this->m_ecl.createCallFunctionTX(
             m_accounts[selectedAccnts[j]], selectedAccnts[destIdx], {}, emptyFunc, origin_nonce, value);
 
-        // extend the batch or dispatch TXs from batch if the batch is full already
-        if (txs_in_batch.size() < batchSize) {
-            txs_in_batch.push_back(tx);
-        } else {  // the batch is full, so dispatch all TXs
+        // dispatch TXs from batch if the batch is full already
+        if (txs_in_batch.size() == batchSize) {
             if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
                 exit(1);
             txs_in_batch.clear();
         }
+        txs_in_batch.push_back(tx);
+
+        // adjust balances and nonces in our cache
+        balances[j] -= value;
+        balances[destIdx] += value;
+        nonces[j] += 1;
     }
 
     // resolve remaining TXs in the last (non-full) batch
@@ -1220,7 +1224,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
         }
 
         eevm::AccountState accntState = this->m_ecl.m_gs.get(acc.addr);
-        TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()));
+        TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
 
         m_accounts[acc.addr] = acc;
@@ -1282,8 +1286,8 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
     int ret;
 
     // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
-    std::set<h256> db_keys;            // this is a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'db_data' vector
-    std::vector<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
+    std::set<h256> db_keys;         // this is a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'db_data' vector
+    std::set<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
 
     std::vector<uint8_t> txs_persistant;  // data of all TXs in batch (except their codes)
     size_t txs_persistant_size = 0;       // size of the previous vector
@@ -1301,12 +1305,12 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
     for (auto tx : txs_in_batch) {
         // if 'origin' and 'to' exist then we need their trails in MP3
         if (m_ecl.m_gs.exists(tx->to)) {
-            addrs.push_back(tx->to);
+            addrs.insert(tx->to);
             auto as = m_ecl.m_gs.get(tx->to);
             // TRACE_HOST("Hash value of storage before dumping partial DB is in account: %s and computed in storage: %s.", to_hex_string(as.acc.get_stHash()).c_str(), to_hex_string(as.st.hash()).c_str());
         }
         if (m_ecl.m_gs.exists(tx->origin)) {
-            addrs.push_back(tx->origin);
+            addrs.insert(tx->origin);
         }
 
         // copy data of a current TX and its code
@@ -1316,8 +1320,9 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
         codes_sizes.push_back(tx->code.size());
     }
     txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
-    codes_sizes_size = codes_sizes.size();
+    codes_sizes_size = codes_sizes.size() * sizeof(size_t);
     m_ecl.m_gs.dump_partial_db(addrs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
+    assert(txs_persistant.size() == txs_persistant_size);
 
     // store root
     h256 root_orig = m_ecl.m_gs.root();
@@ -1345,7 +1350,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
     // 3) Execute all TXs from batch in Enclave
     oe_result_t ecall_ret = ecall_run_many_txs_mp3state_partial(enclave, &ret,
                                                                 (const uint8_t*)txs_persistant.data(), txs_persistant_size,
-                                                                (const uint8_t*)codes.data(), codes_sizes.data(), codes_sizes_size,
+                                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
                                                                 (const uint8_t*)root_orig.data(), 32u,
                                                                 (const uint8_t*)db_data.data(), db_data.size(),
                                                                 (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
@@ -1379,17 +1384,17 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
     int ret;
 
     // 1) Dump partial global state (i.e., MP3 DB entries). Note that storages are dumped as full entries.
-    std::set<h256> db_keys;            // this a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'data' vector
-    std::vector<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
+    std::set<h256> db_keys;         // this a temporary list of all keys (i.e., hashes of RLP) in exported partial DB, which should avoid duplicity in 'data' vector
+    std::set<eevm::Address> addrs;  // addresses whose trails in MP3 we need for partial state
 
     // if 'origin' and 'to' exist then we need their trails in MP3
     if (m_ecl.m_gs.exists(tx->to)) {
-        addrs.push_back(tx->to);
+        addrs.insert(tx->to);
         auto as = m_ecl.m_gs.get(tx->to);
         // TRACE_HOST("Hash value of storage before dumping partial DB is in account: %s and computed in storage: %s.", to_hex_string(as.acc.get_stHash()).c_str(), to_hex_string(as.st.hash()).c_str());
     }
     if (m_ecl.m_gs.exists(tx->origin)) {
-        addrs.push_back(tx->origin);
+        addrs.insert(tx->origin);
     }
     std::vector<uint8_t> db_data;         // all dumped DB entries will be stored here as consecutive RLPs (sizes are encoded in RLP)
     std::vector<uint8_t> storages;        // \/== storages of all accounts

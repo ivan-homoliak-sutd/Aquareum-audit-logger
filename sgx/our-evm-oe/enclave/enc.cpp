@@ -379,7 +379,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
 }
 
 int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
-                                        const uint8_t* codes, const size_t* codes_sizes, size_t codes_sizes_size,
+                                        const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
                                         const uint8_t* gs_root_h, size_t root_size,
                                         const uint8_t* db_data, size_t db_data_size,
                                         const uint8_t* db_data_aux, size_t db_data_aux_size,
@@ -408,12 +408,12 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
 
         // 3) Execute TX in E (while updating the protected global state)
         size_t codes_offset = 0;
-        for (size_t i = 0; i < txs_size; i++) {
+        for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
             ret = _ecl.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i]);
             codes_offset += codes_sizes[i];
         }
-        assert(codes_offset == codes_sizes_size);
+        assert(codes_offset == codes_sum_size);
 
         // 4) update the current root hash of the global MP3 state in E
         memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);

@@ -89,7 +89,7 @@ namespace eevm
      * It dumps 'partial' global state of MP3 related to all addresses in addrs_to_process. It uses iteration trails of MP3 to build this partial state.
      * The results is stored into 'data'
      */
-    void NormalGlobalState::dump_partial_db(std::vector<Address>& addrs_to_process,
+    void NormalGlobalState::dump_partial_db(std::set<Address>& addrs_to_process,
                                             std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
                                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes,
                                             size_t& storages_sizes_size, std::vector<uint8_t>& acnts_storages)
