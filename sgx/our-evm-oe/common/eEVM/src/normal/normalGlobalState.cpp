@@ -21,7 +21,8 @@ namespace eevm
         m_accounts.remove(h256(addr));
     }
 
-    // It does NOT creates a new account state if it does not exist! This is different from original eEVM proposal, so the processor might fail in some eEVM test cases.
+    // It does NOT create a new account state if it does not exist! 
+    // This is different from original eEVM proposal, so the processor might fail in some eEVM test cases.
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
         TRACE_ME("get addr: %s ", address_to_hex_string(addr).c_str());

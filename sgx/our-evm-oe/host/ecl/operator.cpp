@@ -150,10 +150,13 @@ void Operator::_printEvmState(PublicSealedData_T& es)
          << "\t SK_O = " << to_hex_str((const unsigned char*)&this->SK_O, ECC_SK_SIZE) << "\n"
          << "\t ADDR of O = " << eevm::address_to_hex_string(this->m_ecl.operAddr) << "\n";
 
-    cout << fmt::format("\t hdrLast[{}] = ", es.idCurrent) << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
-         << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"
+    cout << fmt::format("\t block [{}]:\n", es.idCurrent)
+        //  << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
+         << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"         
          << "\t globStRoot = " << to_hex_str(es.globStRoot, HASH_SIZE) << "\t(the actual global state root in E; not flushed to PB)\n"
-         << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
+         << "\t txsRoot  = " << to_hex_str(es.txsRoot, HASH_SIZE) << "\t(Merkle Root of TXs in the last block processed by E)\n"
+         << "\t rcpsRoot  = " << to_hex_str(es.rcpsRoot, HASH_SIZE) << "\t(Merkle Root of TX receipts in the last block processed by E)\n"
+        //  << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
          << "\t diskInits = " << es.diskInits << "\n";
 
     eevm::print_sep();
@@ -1127,13 +1130,13 @@ void Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint
         balances[destIdx] += value;
         nonces[j] += 1;
     }
-    
+
     // resolve remaining TXs in the last (non-full) batch
     if (txs_in_batch.size() != 0) {
         if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
-            exit(1);        
+            exit(1);
     }
-    
+
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
 
@@ -1168,8 +1171,8 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
     }
 
     // execute TXs in batches of size batchSize
-    auto start_t = chrono::steady_clock::now();
     std::vector<eevm::PersistantTransaction*> txs_in_batch;
+    double sum_time = 0;
     for (uint i = 0; i < numberOfTx; i++) {
         // select random origin who has some funds
         uint j;
@@ -1191,8 +1194,11 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
 
         // dispatch TXs from batch if the batch is full already
         if (txs_in_batch.size() == batchSize) {
+            auto start_t = chrono::steady_clock::now();
             if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
                 exit(1);
+            auto end_t = chrono::steady_clock::now();
+            sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
             txs_in_batch.clear();
         }
         txs_in_batch.push_back(tx);
@@ -1205,13 +1211,14 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
 
     // resolve remaining TXs in the last (non-full) batch
     if (txs_in_batch.size() != 0) {
+        auto start_t = chrono::steady_clock::now();
         if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
-            exit(1);        
+            exit(1);
+        auto end_t = chrono::steady_clock::now();
+        sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
     }
 
-    auto end_t = chrono::steady_clock::now();
-    auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
-    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, numberOfTx / (sum_time / 1000.0));
 
     // print the final balances
     std::cout << fmt::format("The final balances are:\n");

@@ -24,17 +24,18 @@ typedef struct {
     secp256k1_pubkey PK_PB;          // public key (i.e., unsigned char [64])
 } KeyPairPB_T;
 
-typedef struct {
-    ErrTx_T** items;     // for performance reasons maybe this could be a pointer denoting a dynamic array
-    unsigned int count;  // the number of err TXs currently cached
-} ErrTxsCache_T;
+// typedef struct {
+//     ErrTx_T** items;     // for performance reasons maybe this could be a pointer denoting a dynamic array
+//     unsigned int count;  // the number of err TXs currently cached
+// } ErrTxsCache_T;
 
 typedef struct {
-    unsigned char hdrLast[HASH_SIZE];     // the last header created by E
-    unsigned char logRootPB[HASH_SIZE];   // the last root of L flushed to PB
+    unsigned char logRootPB[HASH_SIZE];   // the last root of L flushed to PB    
     unsigned char globStRoot[HASH_SIZE];  // the last MP3 root of global state
-    unsigned int idCurrent;               // the current version of L (not flushed to PB)
-    ErrTxsCache_T txsErrCache;            // the cache of erroneous Txs
+    unsigned char txsRoot[HASH_SIZE];     // the Merkle root of all TXs passed for execution to E
+    unsigned char rcpsRoot[HASH_SIZE];    // the Merkle root of all receipt related to execution of TXs
+    unsigned int idCurrent;               // the current version of L (not flushed to PB). TODO: maybe increase to bigint.
+    // ErrTxsCache_T txsErrCache;            // the cache of erroneous Txs
     unsigned int diskInits;               // counts the number of how many times was enclave initialized from seald state stored at disk
 } PublicSealedData_T;
 
@@ -42,7 +43,7 @@ typedef struct {
     KeyPairPB_T keypair;
 } SecretSealedData_T;
 
-typedef struct {  // used as persested object in the sealed storage
+typedef struct {  // used as persisted object in the sealed storage
     PublicSealedData_T pub;
     SecretSealedData_T sec;
 } EvmState_T;

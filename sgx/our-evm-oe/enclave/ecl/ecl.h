@@ -5,6 +5,7 @@
 #include "eEVM/simple/simpleglobalstate.h"
 #include "eEVM/transaction.h"
 #include "signing.h"
+#include "merkle-tree.h"
 
 class ECLedger {
 public:
@@ -26,7 +27,7 @@ public:
 
     int execute_tx_simplestate_internal(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size);
 
-    int execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size);
+    int32_t execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes = NULL);
 
 private:
     int _execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx);

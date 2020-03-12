@@ -70,9 +70,10 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 }
 
 /**
- * Considers the full MP3 global state transferred from the host part here.
+ * Considers the full MP3 global state transferred from the host part here
+ * but also works for partial state, unless some DB entires are not missing.
  */
-int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size)
+int32_t ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -95,21 +96,31 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
                   etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                   eevm::to_hex_string(etx.to).c_str());
 
-    // 2a) If no code is present in TX, execute just simple transfer
+    // 2) Verify signature of TX
+    auto inp4hash = etx.asDataForHash();
+    eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
+    if (txs_hashes) // no return before this point (we save TX hash here)
+        txs_hashes->add(txHash);  // save the hash of TX for later aggregation
+    if (!this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature, txHash.data(), etx.origin)) {
+        TRACE_ENCLAVE("Signature verifiation of a TX failed.");
+        return ERROR_SIGNATURE_VERIFY_FAIL;
+    }
+
+    // 3a) If no code is present in TX, execute just simple transfer
     if (EMPTY_CODE_OBJ == etx.get_code_ref()) {
         return this->_execute_transfer_tx(gs, etx);
     }
     // TODO: ensure that in production, Operator can create only simple accounts (without code) to avoid "inflation" bugs from constructors
     // assert(etx.origin != this->operAddr);
 
-    // 2b) If some code is present, then (deploy contract if does not exist and) execute TX with the code
+    // 3b) If some code is present, then (deploy contract if does not exist and) execute TX with the code
     auto senderAccnt = gs->get(etx.origin);
     bool contrDeployed = false;
 
     eevm::SimpleAccountState* contrState;
     if (!gs->exists(etx.to)) {
         auto expectedAddr = eevm::generate_address(etx.origin, senderAccnt.acc.get_nonce());
-        if (etx.to != expectedAddr) {  // check correct address derivation from sender's addr and nonce
+        if (etx.to != expectedAddr) {  // check correct address derivation from sender's addr and her nonce
             TRACE_ENCLAVE("Contract address does not match the sender's address and his nonce");
             return ERR_EVM_WRONG_CONTR_ADDR;
         }
@@ -123,7 +134,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         contrState = new eevm::SimpleAccountState(std::move(cs));
     }
 
-    // 3) update the balance of sender before we execute the code (to avoid inflation bugs)
+    // 4) update the balance of sender before we execute the code (to avoid inflation bugs)
     auto senderBalBefore = senderAccnt.acc.get_balance();  // TODO: check whether EEVM is not doing it !!!
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = gs->getStorages().at(etx.origin);
@@ -132,7 +143,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
         assert(senderAccntUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
-    // 4) Create processor & Run code of TX
+    // 5) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // processor will fill this list if needed, and then we need to sync to MP3 gs
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs, updated_accounts);
@@ -141,7 +152,7 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     // Use empty input for contract deployment
     eevm::ExecResult e = p.run(etx, etx.origin, *contrState, (contrDeployed) ? EMPTY_CODE_OBJ : etx.code, etx.value, &tr);
 
-    // 5) Check the response
+    // 6) Check the response
     if (e.er != eevm::ExitReason::returned) {
         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
         tr.print_last_n(std::cout, 10);
@@ -160,16 +171,16 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(result_bi).c_str());
 #endif
 
-    // 6) if deployment of contract was made, then update the code of the contract to contain the effect of execution
+    // 7) if deployment of contract was made, then update the code of the contract to contain the effect of execution
     if (contrDeployed) {
         contrState->acc.set_code(std::move(e.output));
     }
 
-    // 7) update the storage hash (and nonce) of the account of contract called. Note that nonce was already modified by processor.
+    // 8) update the storage hash (and nonce) of the account of contract called. Note that nonce of MP3 was already modified by processor.
     contrState->acc.set_stHash(contrState->st.hash());
     gs->update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
-    // 8) Sync all (foreign) account states modified by the eEVM processor.
+    // 9) (if any) Sync all foreign account states modified by the eEVM processor (i.e., external contract calls)
     for (auto& i : updated_accounts) {
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
@@ -195,14 +206,6 @@ int ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTx
 int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
 {
     TRACE_ENCLAVE("Simple transfer");
-
-    // 1) Verify signature of TX
-    auto inp4hash = etx.asDataForHash();
-    eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
-    if (!this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature, txHash.data(), etx.origin)) {
-        TRACE_ENCLAVE("Signature verifiation of a TX failed.");
-        return ERROR_SIGNATURE_VERIFY_FAIL;
-    }
 
     // allow account creation for operator (if it does not exist)
     auto accnState = (etx.origin == this->operAddr && !gs->exists(etx.origin)) ? gs->create(etx.origin, 0u, EMPTY_CODE_OBJ) : gs->get(etx.origin);

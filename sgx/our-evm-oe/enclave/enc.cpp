@@ -12,6 +12,7 @@
 #include "common.h"
 #include "data_types.h"
 #include "ecl/ecl.h"
+#include "merkle-tree.h"
 #include "sealing/sealing.h"
 #include "signing.h"
 
@@ -378,6 +379,9 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
     }
 }
 
+/**
+ * This function prcesses TXs in batches and thus creates the blocks.
+ */
 int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
                                         const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
                                         const uint8_t* gs_root_h, size_t root_size,
@@ -391,32 +395,52 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
 
         // 1) reconstruct the global MP3 state from host passed data
         eevm::NormalGlobalState* gs;
-        int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
-                                                                   db_data, db_data_size,
-                                                                   db_data_aux, db_data_aux_size,
-                                                                   storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+        int32_t ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
+                                                                       db_data, db_data_size,
+                                                                       db_data_aux, db_data_aux_size,
+                                                                       storages, storages_sizes, storages_sizes_size, accnts_of_storages);
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
-        if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+        if ((gs->getAccounts().root()) != eevm::from_big_endian(_evm_state.pub.globStRoot)) {  // operator parenthesis (h256) converts to underlying object
             TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
             delete gs;
             return ERR_EVM_INCONSISTANT_STATE;
         }
         TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
 
-        // 3) Execute TX in E (while updating the protected global state)
+        // 3) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
+        MerkleTreeArray txs_hashes;
+        MerkleTreeArray rcps_hashes;
         for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
-            ret = _ecl.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i]);
+            ret = _ecl.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);            
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));                
+                rcps_hashes.add(rcpHash);                
+            }
             codes_offset += codes_sizes[i];
         }
         assert(codes_offset == codes_sum_size);
+        TRACE_ENCLAVE("5");
 
-        // 4) update the current root hash of the global MP3 state in E
+
+        // 4) Update the current root hash of the global MP3 state in E
         memcpy(&_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+
+        // 5) Compute and store the Merkle root of TXs
+        dev::h256 txsRoot = txs_hashes.computeRoot();
+        memcpy(&_evm_state.pub.txsRoot, txsRoot.begin(), HASH_SIZE);
+
+        // 6) Compute and store Merkle root of receipts (i.e., return codes)
+        dev::h256 rcpsRoot = rcps_hashes.computeRoot();
+        memcpy(&_evm_state.pub.rcpsRoot, rcpsRoot.begin(), HASH_SIZE);
+
+        // 7) Increment ID of the current block
+        _evm_state.pub.idCurrent++;
+
 
         delete gs;  // clear global state allocated before
         print_enc_sep(EncExec::END);

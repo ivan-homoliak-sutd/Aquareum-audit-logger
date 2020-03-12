@@ -43,6 +43,7 @@ namespace eevm
         intx::be::unsafe::store(out, v);
     }
 
+    // TODO: check whether this can work in-situ for Merkle Tree aggregation case.
     inline void keccak_256(
         const unsigned char* input,
         unsigned int inputByteLen,
