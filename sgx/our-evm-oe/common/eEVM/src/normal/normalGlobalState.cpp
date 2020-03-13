@@ -21,7 +21,7 @@ namespace eevm
         m_accounts.remove(h256(addr));
     }
 
-    // It does NOT create a new account state if it does not exist! 
+    // It does NOT create a new account state if it does not exist!
     // This is different from original eEVM proposal, so the processor might fail in some eEVM test cases.
     SimpleAccountState NormalGlobalState::get(const Address& addr)
     {
@@ -111,49 +111,39 @@ namespace eevm
             db_data.insert(db_data.end(), rlp_empty.data().begin(), rlp_empty.data().end());  // insert only RLP of db entry (hash can be computed later)
             sum_size_data += rlp_empty.data().size();
             db_keys.insert(cur_root_hash);
-            // TRACE_ME("\t\t EmptyTrie, root node = %s", RLP2MP3String(rlp_empty).c_str());
+            TRACE_ME("\t\t EmptyTrie, root node = %s", RLP2MP3String(rlp_empty).c_str());
         } else {
             // handle the initialized root, which is not included in the trail for some reason (maybe optimization... since it is the same for each node)
             auto root_value = db()->lookup(cur_root_hash);
             RLP root_rlp = RLP(root_value);
-            // TRACE_ME("root_rlp.len = %ld", root_rlp.itemCount());
+            TRACE_ME("root_rlp.len = %ld", root_rlp.itemCount());
 
-            if (2 == root_rlp.itemCount() && isLeaf(root_rlp)) {  // do not add the root if it is the first leaf ever (it will be added below)
-                ;
-            } else {                                                                            // it is a branch
-                db_data.insert(db_data.end(), root_rlp.data().begin(), root_rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
-                sum_size_data += root_rlp.data().size();
-                db_keys.insert(cur_root_hash);
-                // TRACE_ME("\t\t MP3 has more than 1 entries: %s", RLP2MP3String(root_rlp).c_str());
-            }
+            db_data.insert(db_data.end(), root_rlp.data().begin(), root_rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
+            sum_size_data += root_rlp.data().size();
+            db_keys.insert(cur_root_hash);
+            TRACE_ME("\t\t Initialized Root: %s", RLP2MP3String(root_rlp).c_str());
         }
-
 
         // the standard case
         for (auto& addr : addrs_to_process) {
             assert(exists(addr));
-            auto it = m_accounts.lower_bound(addr);  // get iterator to the current account in MP3
+            std::vector<RLP> node_trail;                                     // RLPs of DB nodes
+            int ret = m_accounts.buildTrail(h256(addr).ref(), &node_trail);  // build trail of current account of MP3
+            if (0 != ret) {
+                TRACE_ME("\t\t Error when building trail.");
+            }
 
-            // pass all nodes in the trail of the iterator and store unique ones
-            auto& trail = it.get_trail();
-            // TRACE_ME("[%d] trail.len = %ld", i++, trail.size());
-            for (auto& node : trail) {
-                RLP rlp = RLP(node.rlp);
-                h256 h = sha3(rlp.data());
+            // pass all nodes in the trail and store unique ones
+            for (auto& rlp_node : node_trail) {
+                h256 h = sha3(rlp_node.data());
+                TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp_node).c_str());
 
-                // TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp).c_str());
-
-                if (db_keys.end() == db_keys.find(h)) {                                   // check for duplicity
-                    db_data.insert(db_data.end(), rlp.data().begin(), rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
-                    sum_size_data += rlp.data().size();
+                if (db_keys.end() == db_keys.find(h)) {                                             // check for duplicity
+                    db_data.insert(db_data.end(), rlp_node.data().begin(), rlp_node.data().end());  // insert only RLP of db entry (hash can be computed later)
+                    sum_size_data += rlp_node.data().size();
                     db_keys.insert(h);
                 }
             }
-            // TODO: remove
-            // nlohmann::json j = nlohmann::json::parse((*it).second.toString());
-            // SimpleAccount acc;
-            // eevm::from_json(j, acc);
-            // TRACE_ME("Exporting account = %s", acc.toString().c_str());
 
             // dump full storage of the recepient account
             this->_dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
@@ -164,6 +154,82 @@ namespace eevm
         assert(sum_size_data == db_data.size() - size_data_before);
     }
 
+    //    /**
+    //      * It dumps 'partial' global state of MP3 related to all addresses in addrs_to_process. It uses iteration trails of MP3 to build this partial state.
+    //      * The results is stored into 'data'
+    //      */
+    //     void NormalGlobalState::dump_partial_db(std::set<Address>& addrs_to_process,
+    //                                             std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
+    //                                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes,
+    //                                             size_t& storages_sizes_size, std::vector<uint8_t>& acnts_storages)
+    //     {
+    //         TRACE_ME("Dumping PARTIAL DB of MP3...");
+    //         size_t sum_size_data = 0;
+    //         // unsigned i = 0;
+
+    // #ifndef NDEBUG
+    //         size_t size_data_before = db_data.size();
+    // #endif
+
+    //         // handle root node
+    //         auto cur_root_hash = m_accounts.root();
+    //         if (EmptyTrie == cur_root_hash) {  //empty MP3
+    //             auto r = dev::rlp("");
+    //             RLP rlp_empty = RLP(r);
+    //             db_data.insert(db_data.end(), rlp_empty.data().begin(), rlp_empty.data().end());  // insert only RLP of db entry (hash can be computed later)
+    //             sum_size_data += rlp_empty.data().size();
+    //             db_keys.insert(cur_root_hash);
+    //             TRACE_ME("\t\t EmptyTrie, root node = %s", RLP2MP3String(rlp_empty).c_str());
+    //         } else {
+    //             // handle the initialized root, which is not included in the trail for some reason (maybe optimization... since it is the same for each node)
+    //             auto root_value = db()->lookup(cur_root_hash);
+    //             RLP root_rlp = RLP(root_value);
+    //             TRACE_ME("root_rlp.len = %ld", root_rlp.itemCount());
+
+    //             if (2 == root_rlp.itemCount() && isLeaf(root_rlp)) {  // do not add the root if it is the first leaf ever (it will be added below)
+    //                 ;
+    //             } else {                                                                            // it is a branch
+    //                 db_data.insert(db_data.end(), root_rlp.data().begin(), root_rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
+    //                 sum_size_data += root_rlp.data().size();
+    //                 db_keys.insert(cur_root_hash);
+    //                 // TRACE_ME("\t\t MP3 has more than 1 entries: %s", RLP2MP3String(root_rlp).c_str());
+    //             }
+    //         }
+
+    //         // the standard case (orig version with lower_bound iterator)
+    //         for (auto& addr : addrs_to_process) {
+    //             assert(exists(addr));
+    //             auto it = m_accounts.lower_bound(addr);  // get iterator to the current account in MP3
+
+    //             // pass all nodes in the trail of the iterator and store unique ones
+    //             auto& trail = it.get_trail();
+    //             // TRACE_ME("[%d] trail.len = %ld", i++, trail.size());
+    //             for (auto& node : trail) {
+    //                 RLP rlp = RLP(node.rlp);
+    //                 h256 h = sha3(rlp.data());
+
+    //                 // TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp).c_str());
+
+    //                 if (db_keys.end() == db_keys.find(h)) {                                   // check for duplicity
+    //                     db_data.insert(db_data.end(), rlp.data().begin(), rlp.data().end());  // insert only RLP of db entry (hash can be computed later)
+    //                     sum_size_data += rlp.data().size();
+    //                     db_keys.insert(h);
+    //                 }
+    //             }
+    //             // TODO: remove
+    //             // nlohmann::json j = nlohmann::json::parse((*it).second.toString());
+    //             // SimpleAccount acc;
+    //             // eevm::from_json(j, acc);
+    //             // TRACE_ME("Exporting account = %s", acc.toString().c_str());
+
+    //             // dump full storage of the recepient account
+    //             this->_dump_single_storage(addr, storages, storages_sizes, storages_sizes_size);
+    //             uint8_t addr_as_be[ADDR_SIZE_B];
+    //             to_big_endian(addr, addr_as_be);
+    //             acnts_storages.insert(acnts_storages.end(), addr_as_be, addr_as_be + ADDR_SIZE_B);
+    //         }
+    //         assert(sum_size_data == db_data.size() - size_data_before);
+    //     }
 
     /**
      * It dumps the full MP3 state of accounts and their storages into several references.
@@ -307,7 +373,7 @@ namespace eevm
 
             // 3b) verify integrity of storages
             auto fetched = (*gs)->get(addr).acc.get_stHash();  // this can be done only after storage entry was inserted !!!
-            if (computed_hash != fetched) {                        // if accnt or storage does not exits => throw
+            if (computed_hash != fetched) {                    // if accnt or storage does not exits => throw
                 TRACE_ME("Mismatch of storage hash for addr = %s. Expected = %s, got %s",
                          address_to_hex_string(addr).c_str(),
                          to_hex_string(computed_hash).c_str(),

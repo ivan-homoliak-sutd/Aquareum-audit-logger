@@ -210,12 +210,12 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     // allow account creation for operator (if it does not exist)
     auto accnState = (etx.origin == this->operAddr && !gs->exists(etx.origin)) ? gs->create(etx.origin, 0u, EMPTY_CODE_OBJ) : gs->get(etx.origin);
 
-    // 2) Increment the nonce and the balance of the sender
+    // 1) Increment the nonce and the balance of the sender
     if (EMPTY_CODE_OBJ == accnState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code is empty
         TRACE_ENCLAVE("--incrementing nonce");
         accnState.acc.set_nonce(accnState.acc.get_nonce() + 1);
     }
-    // 3) check ballance
+    // 2) check ballance
     auto& code = accnState.acc.get_code_ref();
     if (etx.origin != this->operAddr && (etx.value > accnState.acc.get_balance())) {
         TRACE_ENCLAVE("The account %s does not have enough balance.", eevm::address_to_hex_string(etx.origin).c_str());
@@ -228,7 +228,7 @@ int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     auto accSndUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
     assert(accSndUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
 
-    // 4) add value to the target account
+    // 3) add value to the target account
     auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // create target account if it does not exist
     auto& storage = gs->getStorages().at(etx.to);                                                         // just copy the old storage
     auto recvBalanceBefore = recvAcState.acc.get_balance();

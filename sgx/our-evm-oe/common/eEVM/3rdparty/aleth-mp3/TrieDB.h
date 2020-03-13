@@ -88,7 +88,9 @@ namespace dev {
         void remove(bytes const& _key) { remove(&_key); }
         void remove(bytesConstRef _key);
         bool contains(bytes const& _key) const { return contains(&_key); }
-        bool contains(bytesConstRef _key) const { return !at(_key).empty(); }
+        bool contains(bytesConstRef _key) const { return !at(_key).empty(); }        
+        int buildTrail(bytes const& _key, std::vector<RLP>* trail) const { return buildTrail(&_key, trail); }          
+        int buildTrail(bytesConstRef _key, std::vector<RLP>* trail) const;           
         unsigned long size() const { return m_size; }
         // void killNodeWrapper(RLP const& _d) { this->killNode(_d); } // IH: public access to direct deletion in DB.
 
@@ -950,9 +952,8 @@ namespace dev {
 
     template <class DB>
     std::string GenericTrieDB<DB>::atAux(RLP const& _here, NibbleSlice _key) const {
-        if (_here.isEmpty() || _here.isNull())
-            // not found.
-            return std::string();
+        if (_here.isEmpty() || _here.isNull())            
+            return std::string(); // not found.
 
         // #ifdef ENCLAVE_BUILD
             // std::cerr << "atAux(): " << RLP2MP3String(_here) << " with partial key = " << _key << "\n";
@@ -980,6 +981,51 @@ namespace dev {
             else
                 return atAux(n.isList() ? n : RLP(node(n.toHash<h256>())), _key.mid(1)); // mid(1) creates new NibbleSlice, but 1 nibble shorter
         }
+    }
+
+    /**
+    * It is required for partial state transition to E
+    * Author: IH
+    */     
+    template <class DB>
+    int GenericTrieDB<DB>::buildTrail(bytesConstRef _key, std::vector<RLP>* trail) const{
+                
+        RLP here = RLP(node(m_root));
+        auto key = NibbleSlice(_key);
+        // trail->push_back(here); // do not insert root
+
+        while(true){
+            if (here.isEmpty() || here.isNull())            
+                return 1; // not found.
+            
+            unsigned itemCount = here.itemCount();
+            assert(here.isList() && (itemCount == 2 || itemCount == 17));
+            if (itemCount == 2) {
+                auto k = keyOf(here);
+                if (key == k && isLeaf(here)){ // reached leaf and it's the searched node!                
+                    trail->push_back(here);   
+                    return 0;             
+                } else if (key.contains(k) && !isLeaf(here)){
+                    // not yet at leaf and it might yet be us. onwards...
+                    trail->push_back(here);                    
+                    here = here[1].isList() ? here[1] : RLP(node(here[1].toHash<h256>()));
+                    key = key.mid(k.size());
+                } else                    
+                    return 1; // not us.
+            } else {                 // itemCount == 17
+                if (key.size() == 0){
+                    trail->push_back(here);
+                    return 0;
+                }
+                auto n = here[key[0]];
+                if (n.isEmpty())
+                    return 1;
+                else{
+                    here = n.isList() ? n : RLP(node(n.toHash<h256>()));
+                    key = key.mid(1); // mid(1) creates new NibbleSlice, but 1 nibble shorter
+                }                    
+            }
+        }               
     }
 
     template <class DB>
