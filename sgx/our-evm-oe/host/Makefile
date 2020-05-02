@@ -31,7 +31,7 @@ EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
 EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
-	-L$(SECP256_LIB_DIR) -lsecp256k1 \
+	-L$(SECP256_LIB_DIR) -lsecp256k1 -lssl -lcrypto \
 	-L$(CXX_LIB_DIR) -lstdc++ -lc
 	# -L$(INTX_LIB_DIR) -lintx
 

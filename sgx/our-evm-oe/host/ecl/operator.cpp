@@ -151,12 +151,12 @@ void Operator::_printEvmState(PublicSealedData_T& es)
          << "\t ADDR of O = " << eevm::address_to_hex_string(this->m_ecl.operAddr) << "\n";
 
     cout << fmt::format("\t block [{}]:\n", es.idCurrent)
-        //  << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
-         << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"         
+         //  << to_hex_str(es.hdrLast, HASH_SIZE) << "\t(the last header created by E)\n"
+         << "\t logRootPB  = " << to_hex_str(es.logRootPB, HASH_SIZE) << "\t(the last root of L flushed to PB)\n"
          << "\t globStRoot = " << to_hex_str(es.globStRoot, HASH_SIZE) << "\t(the actual global state root in E; not flushed to PB)\n"
          << "\t txsRoot  = " << to_hex_str(es.txsRoot, HASH_SIZE) << "\t(Merkle Root of TXs in the last block processed by E)\n"
          << "\t rcpsRoot  = " << to_hex_str(es.rcpsRoot, HASH_SIZE) << "\t(Merkle Root of TX receipts in the last block processed by E)\n"
-        //  << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
+         //  << "\t |txsErrCache| = " << es.txsErrCache.count << "\n"
          << "\t diskInits = " << es.diskInits << "\n";
 
     eevm::print_sep();
@@ -393,6 +393,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
     sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
     sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
+    sh_vars["$REPEAT"] = "50";                        // the number of test repetitions for statistical evaluation of mean and std dev
 
 
     while (true) {
@@ -710,6 +711,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             uint accntsCount = 5;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
             uint b = 10;           // default number of TXs in one batch that is processed by E
+            uint repetitions;
 
             if (tokenCnt == 3 || tokenCnt == 4) {
                 try {
@@ -747,8 +749,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print(fmt::format("The minimal number of normal accounts (current = {}) needs to be at least {}", m_accounts.size(), accntsCount));
                 continue;
             }
+            try {
+                repetitions = std::stoul(sh_vars["$REPEAT"]);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "The variable $REPEAT is not an integer.\n";
+                continue;
+            }
             // this->_testBulkERC_1by1(enclave, n, accntsCount, sh_to);
-            this->_testBulkERC_batched(enclave, n, accntsCount, sh_to, b);
+            this->_testBulkERC_batched_repeated(enclave, n, accntsCount, sh_to, b, repetitions);
 
         } else if (0 == strncmp(command, "test pay", 8)) {
             uint tokenCnt;
@@ -758,6 +766,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             uint accntsCount = 5;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
             uint b = 10;           // default number of TXs in one batch that is processed by E
+            uint repetitions;
 
             if (tokenCnt == 3 || tokenCnt == 4) {
                 try {
@@ -791,8 +800,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print(fmt::format("The minimal number of normal accounts (current = {}) needs to be at least {}", m_accounts.size(), accntsCount));
                 continue;
             }
+            try {
+                repetitions = std::stoul(sh_vars["$REPEAT"]);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "The variable $REPEAT is not an integer.\n";
+                continue;
+            }
             // this->_testBulkNativePayments_1by1(enclave, n, accntsCount); // TODO: compare this with the following
-            this->_testBulkNativePayments_batched(enclave, n, accntsCount, b);
+            this->_testBulkNativePayments_batched_repeated(enclave, n, accntsCount, b, repetitions);
 
 
         } else if (0 == strcmp(command, "test")) {
@@ -1056,11 +1071,31 @@ void Operator::_testBulkERC_1by1(oe_enclave_t* enclave, uint numberOfTx, uint ac
 }
 
 /**
+ * Repeat and statistically evaluate results of function "_testBulkNativePayments_batched_repeated"
+ */
+void Operator::_testBulkERC_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize, uint repetitions)
+{    
+    vector<double> items;
+    double sum = 0.0;
+    for (uint i = 0; i < repetitions; i++) {
+        std::cout << fmt::format("\t Iteration [{}/{}]\n", i + 1, repetitions);
+        auto item = this->_testBulkERC_batched(enclave, numberOfTx, accountsCnt, erc, batchSize);
+        items.push_back(item);
+        sum += item;
+
+        double mean = sum / items.size();
+        double std = stddev(items);
+        std::cout << fmt::format("\t After {} repetitions: AVG = {} | STDDEV = {}\n", i, mean, std);
+        eevm::print_sep();
+    }
+}
+
+/**
  * Execute 'numberOfTx' TXs that transfer ERC20 tokens among 'accountsCnt' normal accounts through interaction with address 'erc'.
  * Transactions are batched according to 'batchSize' parameter.
  * Note that function execute additional 'accountsCnt' TXs to get balances of accounts at the begining.
  */
-void Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize)
+double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize)
 {
     assert(batchSize >= 1);
     u256 output_u256;
@@ -1140,12 +1175,34 @@ void Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
 
-    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, numberOfTx / (ms / 1000.0));
+    double ret = numberOfTx / (ms / 1000.0);
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, ret);
 
     // print the final balances
     std::cout << fmt::format("The final balances of ERC {} contract are:\n", to_hex_string(erc));
     for (uint i = 0; i < accountsCnt; i++) {
         std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), to_hex_string(balances[i]));
+    }
+    return ret;
+}
+
+/**
+ * Repeat and statistically evaluate results of function "_testBulkNativePayments_batched_repeated"
+ */
+void Operator::_testBulkNativePayments_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize, uint repetitions)
+{    
+    vector<double> items;
+    double sum = 0.0;
+    for (uint i = 0; i < repetitions; i++) {
+        std::cout << fmt::format("\t Iteration [{}/{}]\n", i + 1, repetitions);
+        auto item = this->_testBulkNativePayments_batched(enclave, numberOfTx, accountsCnt, batchSize);
+        items.push_back(item);
+        sum += item;
+
+        double mean = sum / items.size();
+        double std = stddev(items);
+        std::cout << fmt::format("\t After {} repetitions: AVG = {} | STDDEV = {}\n", i, mean, std);
+        eevm::print_sep();
     }
 }
 
@@ -1153,7 +1210,7 @@ void Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint
  * Execute 'numberOfTx' native payment TXs that transfer native tokens among 'accountsCnt' normal accounts.
  * It batches TXs before passing it to Enclave to batch of size 'batchSize'.
  */
-void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize)
+double Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize)
 {
     assert(batchSize >= 1);
 
@@ -1218,7 +1275,8 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
         sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
     }
 
-    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, numberOfTx / (sum_time / 1000.0));
+    double ret = numberOfTx / (sum_time / 1000.0);
+    std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, ret);
 
     // print the final balances
     std::cout << fmt::format("The final balances are:\n");
@@ -1226,6 +1284,7 @@ void Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint numbe
         SimpleAccountState as = getAccount(selectedAccnts[i]);
         std::cout << fmt::format("\t {} => {}\n", address_to_hex_string(selectedAccnts[i]), (uint64_t)as.acc.get_balance());
     }
+    return ret;
 }
 
 /**

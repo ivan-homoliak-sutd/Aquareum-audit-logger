@@ -98,9 +98,11 @@ namespace ecl
         ContrDefinition _parseDefinitionFile(const std::string& contract_path);
         eevm::Address _createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);
         void _testBulkERC_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc);
-        void _testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize);
+        double _testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize);
+        void _testBulkERC_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize, uint repetitions);
         void _testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt);    
-        void _testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize);
+        double _testBulkNativePayments_batched(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize);
+        void _testBulkNativePayments_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize, uint repetitions);
 
         int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);

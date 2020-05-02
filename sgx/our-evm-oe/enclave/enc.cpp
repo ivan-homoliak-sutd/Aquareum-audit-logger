@@ -15,6 +15,8 @@
 #include "merkle-tree.h"
 #include "sealing/sealing.h"
 #include "signing.h"
+// #include "stacktrace.h"
+
 
 // eEVM imports
 #include "aleth-mp3/database/MemoryDB.h"
@@ -447,6 +449,8 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
         return ret;
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
+        // auto s = backtrace();
+        // std::cerr << "backtrace(): \n" << s << '\n';
         return ERR_EXCEPTION;
     }
 }

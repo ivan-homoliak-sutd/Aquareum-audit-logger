@@ -125,7 +125,7 @@ inline std::string RLP2MP3String(const RLP& rlp)
     {
         std::string mp3_data = "";
 
-        // std::cerr << "RLP |items| = %ld", rlp.itemCount();
+        // std::cerr << "RLP |items| = " << rlp.itemCount() << "\n";
         if (2 == rlp.itemCount() && isLeaf(rlp)) {  // has 2 items
             // append partial nibble
             std::stringstream s;
