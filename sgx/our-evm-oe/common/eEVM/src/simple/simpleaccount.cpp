@@ -91,8 +91,8 @@ namespace eevm
         // std::cerr << "\t SimpleAccount::toString(): " << this->toString() << "\n";
         // std::cerr << "\t SimpleAccount::asJsonBytes: " << j.dump() << "\n";
 
-        auto s = std::string(j.dump());  // TODO: move?
-        output.assign(s.begin(), s.end());
+        std::string s = std::string(j.dump());  // TODO: move?
+        output.insert(output.begin(), s.begin(), s.end());
         return output;
     }
 

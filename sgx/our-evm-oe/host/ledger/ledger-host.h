@@ -119,7 +119,7 @@ struct OperAccount {
     }
 };
 
-class ECLedger {
+class AQLedger {
 public:
     enum class MODE {
         FullStateMaintained = 0,
@@ -136,7 +136,7 @@ public:
     eevm::Address operAddr;
 
 
-    inline ECLedger(ECC* e)
+    inline AQLedger(ECC* e)
       : m_ecc(e), m_mode(MODE::PartialStateTransfer){};
 
     PersistantTransaction* createHelloWorldTX(OperAccount& sender,

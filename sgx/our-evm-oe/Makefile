@@ -18,7 +18,7 @@ clean:
 
 run: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 run:
-	host/ecledger_host ./enclave/ecledger_enc.signed
+	host/aqledger_host ./enclave/aqledger_enc.signed
 
 host:
 	$(MAKE) -C host
@@ -29,10 +29,10 @@ enc:
 
 debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 debug:
-	valgrind host/ecledger_host ./enclave/ecledger_enc.signed
+	valgrind host/aqledger_host ./enclave/aqledger_enc.signed
 
 
 sim: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
 sim:
-	host/ecledger_host ./enclave/ecledger_enc.signed --simulate
+	host/aqledger_host ./enclave/aqledger_enc.signed --simulate
 

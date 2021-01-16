@@ -63,13 +63,14 @@ namespace eevm
         // the updated entry does not need to be removed !!!
 
         // a) standard removal of node in MP3
-        // m_accounts.remove(h256(addr));  // TODO: IH replace remove for direct delecting from DB by forceKillNode. There is no need to update the MP3
+        // m_accounts.remove(h256(addr));  // TODO: IH: replace "remove" for direct deleting from DB by forceKillNode. There is no need to update the MP3
 
         // b) removal only from DB
         // std::string rlpStrOld = m_accounts.at(h256(addr));
         // m_accounts.killNodeWrapper(dev::RLP(rlpStrOld));
 
         insert(p);
+        TRACE_ME("x");
         assert(m_accounts.contains(h256(addr)));
         return get(addr);
     }
@@ -80,10 +81,15 @@ namespace eevm
         auto addr = _p.first.get_address();
 
         std::vector<uint8_t> value;
-        m_accounts.insert(h256(addr), _p.first.asJsonBytes(value));
+        TRACE_ME("1");
+        _p.first.asJsonBytes(value);
+        TRACE_ME("11");
+        m_accounts.insert(h256(addr), value); // IH: here is a BUG
+        TRACE_ME("2");
         assert(m_accounts.contains(h256(addr)));
 
         m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
+        TRACE_ME("3");
     }
 
     /**
@@ -339,19 +345,23 @@ namespace eevm
             TRACE_ME("[%d] AUX: node is:", i);
             // construct full RLP of DB entry by parsing its length first
             RLP rlp_oneB = RLP(db_data_aux + sum_aux_size, 1, RLP::LaissezFaire);
+            TRACE_ME("1");
             auto len_size = rlp_oneB.lengthSize();
-            // TRACE_ME("len_size = %d ", len_size);
+            TRACE_ME("len_size = %d ", len_size);
             RLP rlp_len = RLP(db_data_aux + sum_aux_size, 1 + len_size, RLP::LaissezFaire);
+            TRACE_ME("2");
             size_t full_rlp_size = 1 + len_size + rlp_len.length();
+            TRACE_ME("3");
 
             // construct key & value of DB entry
             RLP full_rlp = RLP(db_data_aux + sum_aux_size, full_rlp_size);
+            TRACE_ME("4");
             h256 h = sha3(full_rlp.data());
-            TRACE_ME("\t %s", RLP2MP3String(full_rlp).c_str());
-
+            // TRACE_ME("\t %s", RLP2MP3String(full_rlp).c_str());
+            
             // insert DB entry directly into DB without touching MP3 API
             (*gs)->db()->insert(h, (full_rlp.data()));
-            sum_aux_size += full_rlp_size;
+            sum_aux_size += full_rlp_size;            
             inserted_db_data_entries++;
             i++;
         }

@@ -3,11 +3,12 @@
 
 enclave {
     include "data_types.h"
+    from "openenclave/edl/sgx/cpu.edl" import *;
 
     // define ECALLs
     trusted {
 
-        public void ecall_enclave_ecledger(); // TODO: drop later
+        public void ecall_enclave_aqledger(); // TODO: drop later
 
         public int ecall_initialize_evm(
             [out, size=enc_pk_size] secp256k1_pubkey* enc_pk,
@@ -106,7 +107,7 @@ enclave {
     // define OCALLs
     untrusted {
 
-        void ocall_host_ecledger(); // TODO: drop later
+        void ocall_host_aqledger(); // TODO: drop later
 
         int ocall_save_evm_state(
             [in, size=sealed_size] const uint8_t* sealed_data,
