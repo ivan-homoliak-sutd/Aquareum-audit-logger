@@ -393,7 +393,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
     sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
     sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
-    sh_vars["$REPEAT"] = "50";                        // the number of test repetitions for statistical evaluation of mean and std dev
+    sh_vars["$REPEAT"] = "30";                        // the number of test repetitions for statistical evaluation of mean and std dev
 
 
     while (true) {

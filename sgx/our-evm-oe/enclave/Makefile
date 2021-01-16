@@ -64,7 +64,7 @@ all:
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
-	oeedger8r ../ecledger.edl --trusted
+	oeedger8r ../ecledger.edl --trusted --search-path $(OE_SDK_INCLUDE)
 	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
 	$(CXX) -c -Wall -Werror $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -DENCLAVE_BUILD -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC) -c -Wall -Werror $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
