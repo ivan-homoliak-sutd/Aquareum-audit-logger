@@ -1,5 +1,4 @@
-#include "ecl-host.h"
-// #include "ecledger_u.h"
+#include "ledger-host.h"
 
 #include "common.h"
 #include "data_types.h"
@@ -104,7 +103,7 @@ void append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
 
 /////////////////// Transaction creation ///////////////////
 
-eevm::PersistantTransaction* ECLedger::createHelloWorldTX(OperAccount& sender, size_t nonce)
+eevm::PersistantTransaction* AQLedger::createHelloWorldTX(OperAccount& sender, size_t nonce)
 {
     // Deterministically compute address for contract from nonce and address of sender
     std::vector<uint8_t> raw_address(20);
@@ -119,7 +118,7 @@ eevm::PersistantTransaction* ECLedger::createHelloWorldTX(OperAccount& sender, s
     return tx;
 }
 
-eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
+eevm::PersistantTransaction* AQLedger::createSumTx(int a, int b,
                                                    secp256k1_pubkey& PK_sender,
                                                    uint8_t* SK_sender,
                                                    size_t nonce)
@@ -146,7 +145,7 @@ eevm::PersistantTransaction* ECLedger::createSumTx(int a, int b,
 }
 
 // NOTE: it supports only 32B uint arguments of a constructor
-eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition& contract_definition,
+eevm::PersistantTransaction* AQLedger::createDeploymentTX(const ContrDefinition& contract_definition,
                                                           OperAccount& sender,
                                                           size_t nonce,
                                                           uint64_t value)
@@ -173,7 +172,7 @@ eevm::PersistantTransaction* ECLedger::createDeploymentTX(const ContrDefinition&
     return tx;
 }
 
-eevm::PersistantTransaction* ECLedger::createCallFunctionTX(const OperAccount& sender,
+eevm::PersistantTransaction* AQLedger::createCallFunctionTX(const OperAccount& sender,
                                                             const eevm::Address to,
                                                             const std::vector<u256> params,
                                                             const Bytes& function_hex_ptr,
@@ -194,7 +193,7 @@ eevm::PersistantTransaction* ECLedger::createCallFunctionTX(const OperAccount& s
 }
 
 
-eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_sender,
+eevm::PersistantTransaction* AQLedger::createIncCounterTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender)
 {
     // Construct address for sender using his PK
@@ -216,7 +215,7 @@ eevm::PersistantTransaction* ECLedger::createIncCounterTX(secp256k1_pubkey& PK_s
     return tx;
 }
 
-eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
+eevm::PersistantTransaction* AQLedger::createNewAccountTX(secp256k1_pubkey& PK_sender,
                                                           uint8_t* SK_sender,
                                                           const Address& newAddr,
                                                           unsigned initBalance,
@@ -231,7 +230,7 @@ eevm::PersistantTransaction* ECLedger::createNewAccountTX(secp256k1_pubkey& PK_s
 /////////////////////////////// TX EXECUTION ///////////////////////////////
 
 
-int ECLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
+int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
 {
     TRACE_HOST("Executing Tx in HOST...");
 
@@ -345,7 +344,7 @@ int ECLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     return RET_SUCCESS;
 }
 
-int ECLedger::_execute_transfer_tx(eevm::Transaction& etx)
+int AQLedger::_execute_transfer_tx(eevm::Transaction& etx)
 {
     TRACE_HOST("Simple transfer");
 

@@ -35,7 +35,7 @@ Enclave_Cpp_Files := \
 	../common/signing-PB/signing.cpp \
 	sealing/sealing.cpp \
 	sealing/keys.cpp \
-	ecl/ecl.cpp
+	ledger/aq_ledger.cpp
 
 Enclave_Include_Paths := \
 	-I$(OE_SDK_INCLUDE) \
@@ -64,17 +64,17 @@ all:
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
-	oeedger8r ../ecledger.edl --trusted --search-path $(OE_SDK_INCLUDE)
-	# oeedger8r ../ecledger.edl --trusted --trusted-dir ../common
+	oeedger8r ../aqledger.edl --trusted --search-path $(OE_SDK_INCLUDE)
+	# oeedger8r ../aqledger.edl --trusted --trusted-dir ../common
 	$(CXX) -c -Wall -Werror $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -DENCLAVE_BUILD -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
-	$(CC) -c -Wall -Werror $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 ecledger_t.c -o ecledger_t.o
-	$(CXX) -std=$(CXX_STANDARD) -o ecledger_enc ecledger_t.o enc.o signing.o sealing.o keys.o ecl.o $(EEVM_OBJECTS) $(Enclave_Link_Flags)
+	$(CC) -c -Wall -Werror $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 aqledger_t.c -o aqledger_t.o
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_enc aqledger_t.o enc.o signing.o sealing.o keys.o aq_ledger.o $(EEVM_OBJECTS) $(Enclave_Link_Flags)
 
 sign:
-	oesign sign -e ecledger_enc -c ecledger.conf -k private.pem
+	oesign sign -e aqledger_enc -c aqledger.conf -k private.pem
 
 clean:
-	rm -f enc.o ecledger_enc ecledger.signed private.pem public.pem ecl.o ecledger_t.o ecledger_t.h ecledger_t.c ecledger_args.h ../data/*
+	rm -f enc.o aqledger_enc aqledger.signed private.pem public.pem aq_ledger.o aqledger_t.o aqledger_t.h aqledger_t.c aqledger_args.h ../data/*
 
 keys:
 	openssl genrsa -out private.pem -3 3072

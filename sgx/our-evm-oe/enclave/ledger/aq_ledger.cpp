@@ -1,5 +1,5 @@
-#include "ecl.h"
-#include "ecledger_t.h"
+#include "aq_ledger.h"
+#include "aqledger_t.h"
 
 #include "common.h"
 #include "data_types.h"
@@ -13,7 +13,7 @@
 /**
  * This is only tmp method since it fully maintains global state within the enclave.
  */
-int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
+int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
                                               const uint8_t* code,
                                               size_t code_size)
 {
@@ -71,9 +71,9 @@ int ECLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 
 /**
  * Considers the full MP3 global state transferred from the host part here
- * but also works for partial state, unless some DB entires are not missing.
+ * but also works for partial state, unless some DB entries are missing.
  */
-int32_t ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes)
+int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -203,7 +203,7 @@ int32_t ECLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     return RET_SUCCESS;
 }
 
-int ECLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
+int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
 {
     TRACE_ENCLAVE("Simple transfer");
 
@@ -267,7 +267,7 @@ std::vector<uint8_t> create_bytecode(const std::string& s)
     return code;
 }
 
-int ECLedger::execute_hello_world()
+int AQLedger::execute_hello_world()
 {
     // Create random addresses for sender and contract
     std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
@@ -365,7 +365,7 @@ std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_
     return code;
 }
 
-int ECLedger::execute_sum_a_b(int a, int b)
+int AQLedger::execute_sum_a_b(int a, int b)
 {
     // Validate args, read verbose option
     bool verbose = true;

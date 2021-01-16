@@ -9,8 +9,8 @@
 #include <sys/stat.h>
 
 #include "common.h"
-#include "ecl/operator.h"
-#include "ecledger_u.h"
+#include "ledger/operator.h"
+#include "aqledger_u.h"
 #include "utils.h"
 
 #define FILE_SEALED_STORAGE_EVM "./data/sealed-storage-evm.seal"
@@ -20,7 +20,7 @@
 ////////////////////
 
 using namespace std;
-using namespace ecl;
+using namespace aql;
 
 int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
     ofstream file(FILE_SEALED_STORAGE_EVM, ios::out | ios::binary);
@@ -50,7 +50,7 @@ int ocall_does_sealed_state_exist(void) {
     return 1;
 }
 
-void ocall_host_ecledger() {
+void ocall_host_aqledger() {
     fprintf(stdout, "Enclave called into host to print: Hello World!\n");
 }
 
@@ -95,9 +95,9 @@ int main(int argc, const char* argv[]) {
         return ret;
 
     // Create the enclave
-    result = oe_create_ecledger_enclave(argv[1], OE_ENCLAVE_TYPE_SGX, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
+    result = oe_create_aqledger_enclave(argv[1], OE_ENCLAVE_TYPE_SGX, flags, NULL, 0, &enclave); // could be also OE_ENCLAVE_TYPE_SGX
     if (OE_OK != result) {
-        ERROR_PRINT("oe_create_ecledger_enclave(): %s", oe_result_str(result));
+        ERROR_PRINT("oe_create_aqledger_enclave(): %s", oe_result_str(result));
         goto exit;
     }
     info_print("SGX successfully initialized.");

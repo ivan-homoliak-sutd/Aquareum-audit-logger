@@ -7,19 +7,19 @@
 #include "signing.h"
 #include "merkle-tree.h"
 
-class ECLedger {
+class AQLedger {
 public:
     ECC ecc;  // ECC signing and verification
 
     eevm::Address operAddr;
 
-    inline ECLedger()
+    inline AQLedger()
     {
         ecc = ECC();
     }
 
     // TODO: drop later
-    eevm::SimpleGlobalState simple_gs;  // the simple global state that is internal to the enclace (i.e., only tmp/testing object)
+    eevm::SimpleGlobalState simple_gs;  // the simple global state that is internal to the enclave (i.e., it is only temporary object)
 
     // TODO: drop the following 2 (they are just temporary)
     int execute_hello_world(void);

@@ -24,6 +24,7 @@ CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 CXX_STANDARD := c++1z
 CXX_LIB_DIR := /usr/lib/x86_64-linux-gnu/
 
+OE_SDK_INCLUDE := /opt/openenclave/include/
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
 # INTX_LIB_DIR := ./libs/intx/build/lib/intx/
@@ -37,8 +38,8 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 
 Host_Cpp_Files := \
 	utils.cpp \
-	./ecl/operator.cpp \
-	./ecl/ecl-host.cpp \
+	./ledger/operator.cpp \
+	./ledger/ledger-host.cpp \
 	../common/signing-PB/signing.cpp \
 	host.cpp
 
@@ -59,10 +60,10 @@ Host_Include_Paths := \
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
-	oeedger8r ../ecledger.edl --untrusted
+	oeedger8r ../aqledger.edl --untrusted --search-path $(OE_SDK_INCLUDE)
 	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
-	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) ecledger_u.c
-	$(CXX) -std=$(CXX_STANDARD) -o ecledger_host ecledger_u.o host.o utils.o operator.o ecl-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
-	rm -f ecledger_host host.o ecledger_u.o ecledger_u.c ecledger_u.h ecledger_args.h
+	rm -f aqledger_host host.o aqledger_u.o aqledger_u.c aqledger_u.h aqledger_args.h
