@@ -1,0 +1,8 @@
+*_args.h
+*.pem
+*.signed
+host/ecledger_host
+enclave/ecledger_enc
+sealed-storage-evm.seal
+data
+vgcore.*

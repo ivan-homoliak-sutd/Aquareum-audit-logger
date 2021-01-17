@@ -1,0 +1,128 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+enclave {
+    include "data_types.h"
+    from "openenclave/edl/sgx/cpu.edl" import *;
+
+    // define ECALLs
+    trusted {
+
+        public void ecall_enclave_aqledger(); // TODO: drop later
+
+        public int ecall_initialize_evm(
+            [out, size=enc_pk_size] secp256k1_pubkey* enc_pk,
+            size_t enc_pk_size
+        );
+
+        public int ecall_read_pub_state(
+            [out, size=evm_state_size_pub] PublicSealedData_T* evm_state_pub,
+            size_t evm_state_size_pub
+        );
+
+        public int ecall_set_operator_address(
+            [in, size=pk_size] uint8_t* operator_PK,
+            size_t pk_size
+        );
+
+        public int ecall_sync_evm_sealed_state_to_disk(void);
+
+        public int ecall_run_single_tx_simplestate(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size
+        );
+
+        public int ecall_run_single_tx_mp3state_full(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size,
+
+            [in, size=mp3_keys_size] const uint8_t* mp3_keys, // each key in the array has constant size
+            size_t mp3_keys_size,
+
+            [user_check] const uint8_t* mp3_values, // each value (Account) in the array has variable size that is determined in the follow up parameter
+            [in, size=mp3_values_sizes_size] const size_t * mp3_values_sizes,
+            size_t mp3_values_sizes_size,
+
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size
+        );
+
+        public int ecall_run_single_tx_mp3state_partial(
+            [in, size=tx_size] PersistantTxProxy_T* tx,
+            size_t tx_size,
+
+            [in, size=code_size] const uint8_t* code,
+            size_t code_size,
+
+            [in, size=root_size] const uint8_t* gs_root_h,
+            size_t root_size,
+
+            /* IH: we do not need to verify the following user_check data since DB would be inconsisten when tampering => E would fail  */
+            [user_check] const uint8_t* db_data,    // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+            size_t db_data_size,
+            [user_check] const uint8_t* db_data_aux,  // RLP of auxiliary data needed for account creation and update
+            size_t db_data_aux_size,
+
+            /* IH: user_check storages need to be verified against accounts in MP3 (constructed from the previous)  */
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size,
+            [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
+        );
+
+        public int ecall_run_many_txs_mp3state_partial(
+            [in, size=txs_size] const uint8_t* txs_in_batch,            
+            size_t txs_size,            
+
+            [in, size=codes_sum_size] const uint8_t* codes_in_batch,
+            size_t codes_sum_size,
+            [in, size=codes_sizes_size] const size_t * codes_sizes,
+            size_t codes_sizes_size,                        
+
+            [in, size=root_size] const uint8_t* gs_root_h,
+            size_t root_size,
+
+            /* IH: we do not need to verify the following user_check data since DB would be inconsisten when tampering => E would fail  */
+            [user_check] const uint8_t* db_data,    // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
+            size_t db_data_size,
+            [user_check] const uint8_t* db_data_aux,  // RLP of auxiliary data needed for account creation and update
+            size_t db_data_aux_size,
+
+            /* IH: user_check storages need to be verified against accounts in MP3 (constructed from the previous)  */
+            [user_check] const uint8_t* storages, // each value (SimpleStorage) in the array has variable size that is determined in the follow up parameter
+            [in, size=storages_sizes_size] const size_t * storages_sizes,
+            size_t storages_sizes_size,
+            [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
+        );
+
+    };
+
+
+    // define OCALLs
+    untrusted {
+
+        void ocall_host_aqledger(); // TODO: drop later
+
+        int ocall_save_evm_state(
+            [in, size=sealed_size] const uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+        int ocall_load_evm_state(
+            [out, size=sealed_size]uint8_t* sealed_data,
+            size_t sealed_size
+        );
+
+        int ocall_does_sealed_state_exist(void);
+
+    };
+
+};
+
+
