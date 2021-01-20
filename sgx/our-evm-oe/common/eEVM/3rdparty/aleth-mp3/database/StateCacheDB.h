@@ -9,8 +9,24 @@
 
 namespace dev
 {
+// IH: added for better storage management within enclave
+class StorageStats {        
+    public:
+        StorageStats () {
+            size_main_data = 0;
+            size_aux_data = 0;
+            size_main_keys = 0;      
+            size_aux_keys = 0;   
+        }
+                
+        unsigned size_main_data;      
+        unsigned size_aux_data;      
+        unsigned size_main_keys;      
+        unsigned size_aux_keys;      
+};
+
 class StateCacheDB {
-    friend class EnforceRefs;
+    friend class EnforceRefs;    
 
 public:
     StateCacheDB() {}
@@ -38,12 +54,14 @@ public:
 
     h256Hash keys() const;
 
+    StorageStats m_stats;
+
 protected:
 #if DEV_GUARDED_DB
     mutable SharedMutex x_this;
 #endif
-    std::unordered_map<h256, std::pair<std::string, unsigned>> m_main; // IH: second uint is #_inserted counter
-    std::unordered_map<h256, std::pair<bytes, bool>> m_aux; // IH: this is reverse mapping of hashed key to the key (i.e., address) (bool flag indicates active|deleted)
+    std::unordered_map<h256, std::pair<std::string, unsigned>> m_main; // IH: second unsigned int is #_inserted counter
+    std::unordered_map<h256, std::pair<bytes, bool>> m_aux; // IH: this is reverse mapping of hashed key to the key (i.e., address) (bool flag indicates active|deleted)            
 
     mutable bool m_enforceRefs = false;
 };

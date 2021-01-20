@@ -6,3 +6,8 @@ enclave/ecledger_enc
 sealed-storage-evm.seal
 data
 vgcore.*
+GPATH
+GRTAGS
+GTAGS
+
+

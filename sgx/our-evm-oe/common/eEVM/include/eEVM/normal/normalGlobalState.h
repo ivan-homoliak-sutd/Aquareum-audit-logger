@@ -61,7 +61,7 @@ namespace eevm
         inline OverlayDB* db() { return dynamic_cast<OverlayDB*>(m_accounts.db()); }
         inline const h256& root() { return m_accounts.root(); }
 
-        inline void commitPersDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB
+        inline void commitPersDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB | should be called only in HOST, not enclave
 
         AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
         AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;

@@ -66,4 +66,4 @@ build:
 	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
-	rm -f aqledger_host host.o aqledger_u.o aqledger_u.c aqledger_u.h aqledger_args.h
+	rm -f aqledger_host *.o aqledger_u.c aqledger_u.h aqledger_args.h

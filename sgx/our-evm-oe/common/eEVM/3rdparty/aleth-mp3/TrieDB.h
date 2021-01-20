@@ -990,17 +990,25 @@ namespace dev {
     template <class DB>
     int GenericTrieDB<DB>::buildTrail(bytesConstRef _key, std::vector<RLP>* trail) const{
                 
-        RLP here = RLP(node(m_root));
+        RLP here = RLP(node(root())); // descend, starting by root
         auto key = NibbleSlice(_key);
         // trail->push_back(here); // do not insert root
+        std::cerr << "root = " << root().hex() << "\n";            
+        auto root_value = db()->lookup(root());
+        RLP root_rlp = RLP(root_value);
+        std::cerr << "root_rlp = " << RLP2MP3String(root_rlp) << "\n";            
 
         while(true){
-            if (here.isEmpty() || here.isNull())            
+            if (here.isNull() || here.isEmpty())            
                 return 1; // not found.
             
-            unsigned itemCount = here.itemCount();
-            assert(here.isList() && (itemCount == 2 || itemCount == 17));
-            if (itemCount == 2) {
+            unsigned itemCount = here.itemCount();            
+            std::cerr << "itemCount = " << itemCount << " and here.isList = " << here.isList() << "\n";            
+            std::cerr << "here = " << RLP2MP3String(here) << "\n";            
+            std::cerr << "here = " << here.toString() << "\n";
+            
+            assert(here.isList() && (itemCount == 2 || itemCount == 17)); // IH: this makes problems with partial state  
+            if (itemCount == 2) {  // (i.e., extension node or leaf)
                 auto k = keyOf(here);
                 if (key == k && isLeaf(here)){ // reached leaf and it's the searched node!                
                     trail->push_back(here);   
@@ -1012,7 +1020,7 @@ namespace dev {
                     key = key.mid(k.size());
                 } else                    
                     return 1; // not us.
-            } else {                 // itemCount == 17
+            } else {                 // itemCount == 17 (i.e., branch node)
                 if (key.size() == 0){
                     trail->push_back(here);
                     return 0;

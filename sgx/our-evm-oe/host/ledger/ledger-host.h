@@ -125,6 +125,7 @@ public:
         FullStateMaintained = 0,
         FullStateTransfer,
         PartialStateTransfer,
+        PartialStateTransferCaching,
     };
 
     NormalGlobalState m_gs;  // the full global state of the ECL ledger

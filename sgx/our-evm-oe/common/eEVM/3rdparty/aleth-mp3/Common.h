@@ -16,6 +16,8 @@
 #define noexcept throw()
 #endif
 
+#define HASH_SIZE 32
+
 // #ifdef __INTEL_COMPILER
 // #pragma warning(disable:3682) //call through incomplete class
 // #endif

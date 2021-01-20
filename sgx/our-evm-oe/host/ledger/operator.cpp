@@ -453,7 +453,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
                       << "\t vars"         << "\t\t display defined variables \n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
-                      << "\t mode [m]"         << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
+                      << "\t mode [m]"     << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
+                      << "\t mem"          << "\t prints enclave memory stats about global state\n"                      
 
                       << "\n"
                       << "Hardcoded testing:\n"
@@ -474,6 +475,16 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Failed to read the state of enclave.");
             }
             this->_printEvmState(pub_evm_state);
+    
+        } else if (0 == strcmp(command, "mem")) {
+            // dump memory stats about global state stored within the enclave (i.e., database size)            
+            std::cout << "Enclave memory for gs:\n";
+            auto db_stats =  m_ledger.m_gs.db()->m_stats;
+                        
+            unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;            
+            std::cout << fmt::format("\t main data = {}:\n \t main keys= {}\n ", db_stats.size_main_data, db_stats.size_main_keys);
+            std::cout << fmt::format("\t aux data  = {}:\n \t aux keys = {}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);                        
+            std::cout << fmt::format("\t total = {}\n", total);
 
         } else if (0 == strcmp(command, "defs")) {
             // dump definitions

@@ -54,8 +54,8 @@ int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 
 #ifdef TRACING_ENABLED
     const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
-#endif
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+#endif    
 
     // Sync all (foreign) account states modified by the eEVM processor.
     for (auto& i : updated_accounts) {

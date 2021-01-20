@@ -74,7 +74,7 @@ sign:
 	oesign sign -e aqledger_enc -c aqledger.conf -k private.pem
 
 clean:
-	rm -f enc.o aqledger_enc aqledger.signed private.pem public.pem aq_ledger.o aqledger_t.o aqledger_t.h aqledger_t.c aqledger_args.h ../data/*
+	rm -f *.o aqledger_enc aqledger.signed private.pem public.pem aqledger_t.h aqledger_t.c aqledger_args.h ../data/*
 
 keys:
 	openssl genrsa -out private.pem -3 3072

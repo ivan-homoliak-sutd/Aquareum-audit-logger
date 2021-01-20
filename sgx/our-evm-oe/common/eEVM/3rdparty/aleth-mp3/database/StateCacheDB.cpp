@@ -72,11 +72,15 @@ void StateCacheDB::insert(h256 const& _h, bytesConstRef _v) {
     if (it != m_main.end()) {
         it->second.first = _v.toString(); // IH: (root should also be recomputed)
         it->second.second++;
-    } else
+    } else {
         m_main[_h] = make_pair(_v.toString(), 1);
+        m_stats.size_main_data += m_main[_h].first.size() + sizeof(unsigned); // +8B for counter
+        m_stats.size_main_keys += HASH_SIZE;
+    }
 }
 
-// IH: kill might not delete the node, only decrease #_inserted counter !!
+// IH: kill might not delete the node, only decrease #_inserted counter !!! 
+// This is important when updating MP3 - some nodes might be deleted and added below ??
 bool StateCacheDB::kill(h256 const& _h) {
 #if DEV_GUARDED_DB
     ReadGuard l(x_this);
@@ -112,6 +116,8 @@ void StateCacheDB::insertAux(h256 const& _h, bytesConstRef _v) {
     WriteGuard l(x_this);
 #endif
     m_aux[_h] = make_pair(_v.toBytes(), true);
+    m_stats.size_aux_data += m_aux[_h].first.size() + sizeof(bool); // +1B for bool indicator
+    m_stats.size_aux_keys += HASH_SIZE;
 }
 
 
@@ -124,15 +130,21 @@ void StateCacheDB::purge() {
     for (auto it = m_main.begin(); it != m_main.end();)
         if (it->second.second)
             ++it;
-        else
+        else{            
+            m_stats.size_main_data -= it->second.first.size() + sizeof(unsigned); // +8B for counter
+            m_stats.size_main_keys -= HASH_SIZE;
             it = m_main.erase(it);
+        }
 
     // purge m_aux
     for (auto it = m_aux.begin(); it != m_aux.end();)
         if (it->second.second)
             ++it;
-        else
+        else {
+            m_stats.size_aux_data -= it->second.first.size() + sizeof(bool); // +1B for counter
+            m_stats.size_aux_keys -= HASH_SIZE;
             it = m_aux.erase(it);
+        }
 }
 
 h256Hash StateCacheDB::keys() const {
