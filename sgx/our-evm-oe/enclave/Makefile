@@ -9,19 +9,27 @@ ifeq ($(C_COMPILER), gcc)
         USE_GCC = true
 endif
 
-# ifeq ($(USE_GCC),)
-#         CC = clang-7
-#         CXX = clang++-7
-#         C_COMPILER=clang
-#         CXX_COMPILER=clang++
-# endif
-
 ifeq ($(USE_GCC),)
         CC = gcc
         CXX = g++
         C_COMPILER = gcc
         CXX_COMPILER = g++
 endif
+
+CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(COMPILER) --variable=${OE_CRYPTO_LIB}libs)
+
+ifeq ($(LVI_MITIGATION), ControlFlow)
+        ifeq ($(LVI_MITIGATION_BINDIR),)
+                $(error LVI_MITIGATION_BINDIR is not set)
+        endif
+        # Only run once.
+        ifeq (,$(findstring $(LVI_MITIGATION_BINDIR),$(CC)))
+                CC := $(LVI_MITIGATION_BINDIR)/$(CC)
+        endif
+        COMPILER := $(COMPILER)-lvi-cfg
+        CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(COMPILER) --variable=${OE_CRYPTO_LIB}libslvicfg)
+endif
+
 
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/

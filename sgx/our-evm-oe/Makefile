@@ -3,6 +3,8 @@
 
 .PHONY: all build clean run simulate host enc
 
+OE_CRYPTO_LIB := mbedtls
+export OE_CRYPTO_LIB
 
 RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
 
