@@ -1,6 +1,27 @@
 
-## UBUNTU dependecies:
+## General installation guide 
+    1) Build ./common/ stuff: 
+        a) secp256k1, 
+             $ sudo apt-get install build-essential
+             $ sudo apt-get install libltdl7 libtool       
+            ./autogen.sh            
+            ./configure --with-bignum=no  --enable-module-recovery
+            make
+            make check
+
+        b) eEVM (cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave)
+            $ mkdir build
+            $ mkdir build-host
+            $ cd build 
+            $ cmake ..
+
+
+    2) Build host and enclave in by make
+
+
+## UBUNTU dependecies for AQ ledger:
     sudo apt-get install libssl-dev
+    sudo apt-get install libboost-dev
 
 
 ## Since there are collision in names of c++/C headers in OpenEnclave, I had to drop a few C++ headers from 

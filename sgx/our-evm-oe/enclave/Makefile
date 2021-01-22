@@ -9,13 +9,19 @@ ifeq ($(C_COMPILER), gcc)
         USE_GCC = true
 endif
 
-ifeq ($(USE_GCC),)
-        CC = clang-7
-        CXX = clang++-7
-        C_COMPILER=clang
-        CXX_COMPILER=clang++
-endif
+# ifeq ($(USE_GCC),)
+#         CC = clang-7
+#         CXX = clang++-7
+#         C_COMPILER=clang
+#         CXX_COMPILER=clang++
+# endif
 
+ifeq ($(USE_GCC),)
+        CC = gcc
+        CXX = g++
+        C_COMPILER = gcc
+        CXX_COMPILER = g++
+endif
 
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/

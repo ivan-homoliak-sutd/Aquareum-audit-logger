@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
+# !!! cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave
 
 # causes EVM to print debug trace messages
 set(DEBUG OFF)
