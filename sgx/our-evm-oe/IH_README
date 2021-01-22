@@ -1,5 +1,9 @@
 
 ## General installation guide 
+    0) Build and install open enclave into /opt/openenclave
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/SGX1GettingStarted.md
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/LinuxInstallInfo.md
+    
     1) Build ./common/ stuff: 
         a) secp256k1, 
              $ sudo apt-get install build-essential
@@ -14,6 +18,7 @@
             $ mkdir build-host
             $ cd build 
             $ cmake ..
+            -- note that once in a while (especialy for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
 
 
     2) Build host and enclave in by make
