@@ -16,7 +16,7 @@ ifeq ($(USE_GCC),)
         CXX_COMPILER = g++
 endif
 
-CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(COMPILER) --variable=${OE_CRYPTO_LIB}libs)
+CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(CXX_COMPILER) --variable=${OE_CRYPTO_LIB}libs)
 
 ifeq ($(LVI_MITIGATION), ControlFlow)
         ifeq ($(LVI_MITIGATION_BINDIR),)
