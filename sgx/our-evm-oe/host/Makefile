@@ -11,11 +11,12 @@ ifeq ($(C_COMPILER), gcc)
 endif
 
 ifeq ($(USE_GCC),)
-        CC = clang-7
-        CXX = clang++-7
-        C_COMPILER=clang
-        CXX_COMPILER=clang++
+        CC = gcc
+        CXX = g++
+        C_COMPILER = gcc
+        CXX_COMPILER = g++
 endif
+
 
 CXX_FLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --cflags)
 CXX_LDFLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --libs)
