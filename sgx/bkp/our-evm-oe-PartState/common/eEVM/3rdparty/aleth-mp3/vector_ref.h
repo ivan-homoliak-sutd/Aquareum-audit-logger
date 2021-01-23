@@ -19,6 +19,7 @@ namespace dev
 
 /**
  * A modifiable reference to an existing object or vector in memory.
+ * IH: this is just a view object - does not contain its own data, therefore copy constructors make only a shallow copy !
  */
 template <class _T>
 class vector_ref
@@ -68,6 +69,7 @@ public:
 	template <class T> bool overlapsWith(vector_ref<T> _t) const { void const* f1 = data(); void const* t1 = data() + size(); void const* f2 = _t.data(); void const* t2 = _t.data() + _t.size(); return f1 < t2 && t1 > f2; }
 	/// Copies the contents of this vector_ref to the contents of @a _t, up to the max size of @a _t.
 	void copyTo(vector_ref<typename std::remove_const<_T>::type> _t) const { if (overlapsWith(_t)) memmove(_t.data(), m_data, std::min(_t.size(), m_count) * sizeof(_T)); else memcpy(_t.data(), m_data, std::min(_t.size(), m_count) * sizeof(_T)); }
+	// void copyTo(vector_ref<_T> _t) const { if (overlapsWith(_t)) memmove(_t.data(), m_data, std::min(_t.size(), m_count) * sizeof(_T)); else memcpy(_t.data(), m_data, std::min(_t.size(), m_count) * sizeof(_T)); }
 	/// Copies the contents of this vector_ref to the contents of @a _t, and zeros further trailing elements in @a _t.
 	void populate(vector_ref<typename std::remove_const<_T>::type> _t) const { copyTo(_t); memset(_t.data() + m_count, 0, std::max(_t.size(), m_count) - m_count); }
 	/// Securely overwrite the memory.

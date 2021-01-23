@@ -89,8 +89,12 @@ namespace dev {
         void remove(bytesConstRef _key);
         bool contains(bytes const& _key) const { return contains(&_key); }
         bool contains(bytesConstRef _key) const { return !at(_key).empty(); }        
-        int buildTrail(bytes const& _key, std::vector<RLP>* trail) const { return buildTrail(&_key, trail); }          
-        int buildTrail(bytesConstRef _key, std::vector<RLP>* trail) const;           
+        int buildTrail(bytes const& _key, std::vector<std::string> * trail) const { 
+            std::cerr << "\t\t --size of trail = " << trail->size() << "\n";
+            std::cerr << "\t\t --trail[0] = " << RLP2MP3String(RLP(trail[0])) << "\n";
+            return buildTrail(&_key, trail); 
+        }          
+        int buildTrail(bytesConstRef _key, std::vector<std::string> * trail) const;           
         unsigned long size() const { return m_size; }
         // void killNodeWrapper(RLP const& _d) { this->killNode(_d); } // IH: public access to direct deletion in DB.
 
@@ -626,7 +630,7 @@ namespace dev {
         assert(b.key.size());
         assert(!(b.key[0] & 0x10)); // should be an integer number of bytes (i.e. not an odd number of nibbles).
 
-        RLP rlp(b.rlp);
+        RLP rlp( b.rlp);
         return std::make_pair(bytesConstRef(b.key).cropped(1),  rlp[rlp.itemCount() == 2 ? 1 : 16].payload());
     }
 
@@ -947,7 +951,7 @@ namespace dev {
 
     template <class DB>
     std::string GenericTrieDB<DB>::at(bytesConstRef _key) const {
-        return atAux(RLP(node(m_root)), _key);
+        return atAux(RLP((const std::string)node(m_root)), _key);
     }
 
     template <class DB>
@@ -968,7 +972,7 @@ namespace dev {
                 return _here[1].toString();
             else if (_key.contains(k) && !isLeaf(_here))
                 // not yet at leaf and it might yet be us. onwards...
-                return atAux(_here[1].isList() ? _here[1] : RLP(node(_here[1].toHash<h256>())), _key.mid(k.size()));
+                return atAux(_here[1].isList() ? _here[1] : RLP((const std::string)node(_here[1].toHash<h256>())), _key.mid(k.size()));
             else
                 // not us.
                 return std::string();
@@ -979,52 +983,94 @@ namespace dev {
             if (n.isEmpty())
                 return std::string();
             else
-                return atAux(n.isList() ? n : RLP(node(n.toHash<h256>())), _key.mid(1)); // mid(1) creates new NibbleSlice, but 1 nibble shorter
+                return atAux(n.isList() ? n : RLP((const std::string)node(n.toHash<h256>())), _key.mid(1)); // mid(1) creates new NibbleSlice, but 1 nibble shorter
         }
     }
 
     /**
-    * It is required for partial state transition to E
+    * It is required for partial state transition to E.
+    * Trail can be built for arbitrary key in MP3 (even for extension and branch nodes)
     * Author: IH
     */     
     template <class DB>
-    int GenericTrieDB<DB>::buildTrail(bytesConstRef _key, std::vector<RLP>* trail) const{
+    int GenericTrieDB<DB>::buildTrail(bytesConstRef _key, std::vector<std::string> * trail) const{
                 
-        RLP here = RLP(node(m_root));
-        auto key = NibbleSlice(_key);
-        // trail->push_back(here); // do not insert root
+        RLP here = RLP((const std::string) node(m_root));
+        NibbleSlice key = NibbleSlice(_key);        
 
+        std::cerr << "root = " << root().hex() << "\n";            
+        std::string const root_value = db()->lookup(root());
+        RLP root_rlp = RLP(root_value);
+        std::cerr << "root_rlp = " << RLP2MP3String(root_rlp) << "\n";            
+
+        std::vector<std::string> fetchedRlpStrs; // this is to have persistent memoery that cannot be destroyed/moved by the compiler
+
+        int idx = 0;
         while(true){
-            if (here.isEmpty() || here.isNull())            
+            if (here.isNull() || here.isEmpty())            
                 return 1; // not found.
             
-            unsigned itemCount = here.itemCount();
+            unsigned itemCount = here.itemCount();            
+            std::stringstream ss;
+            ss << key;
+            std::cerr << "MP3: itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";            
+            std::cerr << "MP3: here = " << RLP2MP3String(here) << "\n";                        
+            std::cerr << "MP3: remaining key = " << ss.str() << "\n";                        
+                        
             assert(here.isList() && (itemCount == 2 || itemCount == 17));
             if (itemCount == 2) {
                 auto k = keyOf(here);
                 if (key == k && isLeaf(here)){ // reached leaf and it's the searched node!                
-                    trail->push_back(here);   
+                    trail->push_back(std::move(here.asRawString()));
+                    std::cerr << "MP3-LEAF trail before return = " << RLP2MP3String(RLP((*trail)[0])) << "\n";               
                     return 0;             
                 } else if (key.contains(k) && !isLeaf(here)){
-                    // not yet at leaf and it might yet be us. onwards...
-                    trail->push_back(here);                    
-                    here = here[1].isList() ? here[1] : RLP(node(here[1].toHash<h256>()));
+                    
+                    trail->push_back(std::move(here.asRawString()));                                          
+
+                    // not yet at leaf and it might yet be us. onwards... (i.e., extension node)                    
+                    // std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
+                    auto lh = here[1].toHash<h256>();
+                    // std::cerr << "MP3-EXT: here[1].toHash<h256>() = " << lh  << "\n";                                        
+                    std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
+                    // std::cerr << "MP3-EXT node(lh) =" << db()->lookup(lh) << "\n";
+                    fetchedRlpStrs.push_back(db()->lookup(lh));
+                    // auto tmp = RLP(s);
+                    // std::cerr << "MP3-EXT 1)"  << RLP2MP3String(tmp) << "\n";                                        
+                    // std::cerr << "MP3-EXT 1.1)"  << tmp << "\n";                                                                                
+                                        
+                    // update here and key with the values of the next item in trail (i.e. below)
+                    here = RLP( *(fetchedRlpStrs.end() - 1) ); // here[1].isList() ? here[1] : RLP(s); // ????  - why isList?                
+                    // std::cerr << "MP3-EXT: 2) next here = " << RLP2MP3String(here) << "\n";                    
+                    std::cerr << "MP3-EXT: next here = " << here << "\n";   
+                    std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
+                    
                     key = key.mid(k.size());
+
+                    std::cerr << "MP3-EXT: next here = " << here << "\n";   
+                    std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
+
                 } else                    
                     return 1; // not us.
-            } else {                 // itemCount == 17
+            } else {                 // itemCount == 17                
                 if (key.size() == 0){
-                    trail->push_back(here);
+                    trail->push_back(std::move(here.asRawString()));
                     return 0;
                 }
                 auto n = here[key[0]];
+                std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";
                 if (n.isEmpty())
                     return 1;
-                else{
-                    here = n.isList() ? n : RLP(node(n.toHash<h256>()));
+                else{                                                                      
+                    fetchedRlpStrs.push_back(db()->lookup(n.toHash<h256>()));
+                    std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";                                                                                 
+                    here = RLP( *(fetchedRlpStrs.end() - 1)); // n.isList() ? n : RLP(s); // ???? IH  - why isList?
+                    std::cerr << "MP3-BRANCH next here: "  << RLP2MP3String(here) << "\n";        
                     key = key.mid(1); // mid(1) creates new NibbleSlice, but 1 nibble shorter
                 }                    
             }
+            std::cerr << "-------------------------" << "\n";
+            idx++;
         }               
     }
 
@@ -1130,7 +1176,7 @@ namespace dev {
 
     template <class DB>
     bool GenericTrieDB<DB>::isTwoItemNode(RLP const& _n) const {
-        return (_n.isData() && RLP(node(_n.toHash<h256>())).itemCount() == 2) || (_n.isList() && _n.itemCount() == 2);
+        return (_n.isData() && RLP((const std::string)node(_n.toHash<h256>())).itemCount() == 2) || (_n.isList() && _n.itemCount() == 2);
     }
 
     // IH: get either 1) data of the current node (if it is list) OR 2) fetch the node from DB if it is RLP of hash (i.e., the case of an extension node)
@@ -1229,7 +1275,7 @@ namespace dev {
     template <class DB>
     bool GenericTrieDB<DB>::deleteAtAux(RLPStream& _out, RLP const& _orig, NibbleSlice _k) {
 
-        bytes b = _orig.isEmpty() ? bytes() : deleteAt(_orig.isList() ? _orig : RLP(node(_orig.toHash<h256>())), _k);
+        bytes b = _orig.isEmpty() ? bytes() : deleteAt(_orig.isList() ? _orig : RLP((const std::string)node(_orig.toHash<h256>())), _k);
 
         if (!b.size()) // not found - no change.
             return false;

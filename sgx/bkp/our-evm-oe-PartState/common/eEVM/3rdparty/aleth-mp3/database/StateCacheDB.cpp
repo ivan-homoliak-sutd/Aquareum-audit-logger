@@ -44,8 +44,12 @@ std::string StateCacheDB::lookup(h256 const& _h) const {
 #endif
     auto it = m_main.find(_h);
     if (it != m_main.end()) {
-        if (!m_enforceRefs || it->second.second > 0)
+        if (!m_enforceRefs || it->second.second > 0){
+            // auto rlp = RLP(it->second.first); // IH: debug
+            // std::cerr << "DB state cache - found: " <<  dev::RLP2MP3String(rlp) <<  "\n";             
             return it->second.first;
+        }
+            
         else
             std::cerr << "Lookup required for value with refcount == 0. This is probably a critical trie issue: " << _h << "\n";
     }

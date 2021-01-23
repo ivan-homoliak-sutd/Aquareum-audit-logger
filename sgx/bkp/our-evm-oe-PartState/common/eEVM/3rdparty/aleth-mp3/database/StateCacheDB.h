@@ -6,6 +6,7 @@
 #include "Common.h"
 // #include "Log.h"
 #include "RLP.h"
+#include "TrieCommon.h"
 
 namespace dev
 {

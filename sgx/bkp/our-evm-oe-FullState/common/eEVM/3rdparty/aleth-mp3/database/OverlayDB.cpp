@@ -116,7 +116,7 @@ std::string OverlayDB::lookup(h256 const& _h) const
     // 1) search in cache
     std::string ret = StateCacheDB::lookup(_h);
     if (!ret.empty() || !m_db)
-        return ret;
+        return ret;    
 
     // 2) if not successfull, search in peristant DB
     return m_db->lookup(toSlice(_h));

@@ -83,7 +83,11 @@ inline std::ostream& operator<<(std::ostream& _out, NibbleSlice const& _m)
 
 inline bool isLeaf(RLP const& _twoItem)
 {
-	assert(_twoItem.isList() && _twoItem.itemCount() == 2);
+	// IH: I replaced assert for condition
+	// assert(_twoItem.isList() && _twoItem.itemCount() == 2);
+	if (!_twoItem.isList() || _twoItem.itemCount() != 2)
+		return false;
+	
 	auto pl = _twoItem[0].payload();
 	return (pl[0] & 0x20) != 0; // IH bit 0x20 in HPE encodes whether a node is leaf (=true) or not
 }

@@ -48,7 +48,7 @@ class RLP
 {
 public:
     /// Conversion flags
-    enum
+    enum ConversionEnum
     {
         AllowNonCanon = 1,
         ThrowOnFail = 4,
@@ -76,8 +76,29 @@ public:
     /// Construct a node to read RLP data in the string.
     explicit RLP(std::string const& _s, Strictness _st = VeryStrict): RLP(bytesConstRef((byte const*)_s.data(), _s.size()), _st) {}
 
+    //IH: default copy constructor DOES NOT copy data deeply since RLP contains byteConstRefs vars which are only managing references of other data !!    
+    RLP(const RLP &) = default;  // IH: important for assignments and function parameter passing by value/movable
+
+    // RLP(RLP &&) = delete; // move constructor
+
+    /// Disable construction from rvalue
+    RLP(bytes const &&) = delete;    
+
+    /// IH: Disable construction from rvalue string - equally important as the previous one - causing compiler errors to avoid using it !!
+    RLP(std::string &&) = delete; // IH: this avoids construction from non-const strings (which results in undesirable compiler optimization - copy elision of other wrapping objects)
+
     /// The bare data of the RLP.
     bytesConstRef data() const { return m_data; }
+
+    std::string asRawString() {
+        const unsigned char * d = data().data();
+        std::string s = std::string(d, d + data().count());
+        return s;
+    }
+
+    bytesConstRef dataOfLastAccessed() const { return m_lastItem; }
+    size_t endOfLastAccessed() const { return m_lastEnd; }
+    size_t idxOfLastAccessed() const { return m_lastIndex; }    
 
     /// @returns true if the RLP is non-null.
     explicit operator bool() const { return !isNull(); }
@@ -313,17 +334,14 @@ public:
     size_t actualSize() const;
 
 
-    //IH: I made publis these two since I need to read RLP data with unknown size
+    //IH: I made public these two since I need to read RLP data with unknown size
     /// @returns the amount of bytes used to encode the length of the data. Valid for all types.
     unsigned lengthSize() const { if (isData() && m_data[0] > c_rlpDataIndLenZero) return m_data[0] - c_rlpDataIndLenZero; if (isList() && m_data[0] > c_rlpListIndLenZero) return m_data[0] - c_rlpListIndLenZero; return 0; }
 
     /// @returns the size in bytes of the payload, as given by the RLP as opposed to as inferred from m_data.
     size_t length() const;
 
-
-private:
-    /// Disable construction from rvalue
-    explicit RLP(bytes const&&) {}
+private:    
 
     /// Throws if is non-canonical data (i.e. single byte done in two bytes that could be done in one).
     void requireGood() const;
