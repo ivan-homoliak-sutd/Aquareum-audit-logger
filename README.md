@@ -1,17 +1,46 @@
-# Setup notes
 
--install the packages in ./bin directory
+# Instalation of Aquareum (AQ) ledger
 
-# Execution notes
+## SGX ENCLAVE (trusted computig part)
+    0) Build and install open enclave into /opt/openenclave
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/SGX1GettingStarted.md
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/LinuxInstallInfo.md
 
-Before running any SGX application, the SDK library must be accessible through envirnoment variables:
+    1) Build ./common/ stuff:
+        a) secp256k1,
+             $ sudo apt-get install build-essential
+             $ sudo apt-get install libltdl7 libtool
+            ./autogen.sh
+            ./configure --with-bignum=no  --enable-module-recovery
+            make
+            make check
 
--after the execution of ./bin/sgx-driver-for-ubuntu18  it is enough to run: $source ./sgxsdk/envirnoment
+        b) eEVM (cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave)
+            $ mkdir build
+            $ mkdir build-host
+            $ cd build
+            $ cmake ..
+            -- note that once in a while (especialy for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
 
 
-# Common problems:
+    2) Build host and enclave
+        a) UBUNTU dependecies for AQ ledger:
+            sudo apt-get install libssl-dev
+            sudo apt-get install libboost-dev
 
-## during compilation of apps:
-/usr/bin/ld: cannot find -lsgx_tstdcxx
+        b) Set up 'RepoDir' variable in Makefile:
+            RepoDir := {INSTALL_DIR}/centralized-ledger-impl/
 
- Solution: libsgx_tstdcxx.a is old and was replaced by libsgx_tcxx.a; update -l param to -lsgx_tcxx
+        c) Build AQ ledger
+            . /opt/openenclave/share/openenclave/openenclaverc
+            $ make
+
+    3) Run AQ ledger
+        $ make run
+
+
+## Smart contract part
+  TODO
+
+## Client SW
+  TODO

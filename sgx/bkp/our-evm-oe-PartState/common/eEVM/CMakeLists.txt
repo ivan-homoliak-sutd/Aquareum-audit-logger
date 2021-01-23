@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.12)
 
+#IH: 
+# !!! cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave
+# Once in a while - especialy for linker not found errors, rerun pkg-config below and update flags!!
 
 # causes EVM to print debug trace messages
-set(DEBUG ON)
-set(ASSERTS ON)
+set(DEBUG OFF)
+set(ASSERTS OFF)
 
 ###################################################
 ## configure HUNTER first
@@ -58,24 +61,27 @@ SET(OE_SDK_CXX_INCLUDES
   # "/usr/lib/gcc/x86_64-linux-gnu/7/include"
 )
 
-# Obtanined by: $ pkg-config oeenclave-g++ --libs
+# IH: Obtanined by: $ pkg-config oeenclave-g++ --libs
 SET(CXX_ENCLAVE_LINK_FLAGS
-  "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
+  "-nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now -Wl,-gc-sections -loeenclave -loelibcxx -loelibc -loesyscall -loecore"
 )
+# OLD one: "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
 
-# Obtanined by: $ pkg-config oehost-g++ --libs
+# IH: Obtanined by: $ pkg-config oehost-g++ --libs
 SET(CXX_HOST_LINK_FLAGS
-  "-rdynamic -Wl,-z,noexecstack"
+  "-Wl,-z,noexecstack -loehost -ldl -lpthread -lssl -lcrypto"
 )
+# OLD one: "-rdynamic -Wl,-z,noexecstack"
 
-# Obtanined by: $ pkg-config oeenclave-g++ --cflags
+# IH:  Obtanined by: $ pkg-config oeenclave-g++ --cflags
 SET(CXX_ENCLAVE_COMPILE_FLAGS
-  "-DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
+  "-DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fstack-protector-strong -fno-omit-frame-pointer -ffunction-sections -fdata-sections"
 )
+#OLD one: -DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
 
-# Obtanined by: $ pkg-config oehost-g++ --cflags
+# IH: Obtanined by: $ pkg-config oehost-g++ --cflags
 SET(CXX_HOST_COMPILE_FLAGS
-  "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
+  "-fstack-protector-strong -D_FORTIFY_SOURCE=2"  
 )
 
 if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")

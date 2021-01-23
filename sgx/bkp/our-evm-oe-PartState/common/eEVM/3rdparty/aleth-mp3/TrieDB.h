@@ -90,8 +90,8 @@ namespace dev {
         bool contains(bytes const& _key) const { return contains(&_key); }
         bool contains(bytesConstRef _key) const { return !at(_key).empty(); }        
         int buildTrail(bytes const& _key, std::vector<std::string> * trail) const { 
-            std::cerr << "\t\t --size of trail = " << trail->size() << "\n";
-            std::cerr << "\t\t --trail[0] = " << RLP2MP3String(RLP(trail[0])) << "\n";
+            // std::cerr << "\t\t --size of trail = " << trail->size() << "\n";
+            // std::cerr << "\t\t --trail[0] = " << RLP2MP3String(RLP(trail[0])) << "\n";
             return buildTrail(&_key, trail); 
         }          
         int buildTrail(bytesConstRef _key, std::vector<std::string> * trail) const;           
@@ -995,13 +995,14 @@ namespace dev {
     template <class DB>
     int GenericTrieDB<DB>::buildTrail(bytesConstRef _key, std::vector<std::string> * trail) const{
                 
-        RLP here = RLP((const std::string) node(m_root));
+        std::string const s = db()->lookup(m_root);
+        RLP here = RLP(s);
         NibbleSlice key = NibbleSlice(_key);        
 
-        std::cerr << "root = " << root().hex() << "\n";            
-        std::string const root_value = db()->lookup(root());
-        RLP root_rlp = RLP(root_value);
-        std::cerr << "root_rlp = " << RLP2MP3String(root_rlp) << "\n";            
+        // std::cerr << "root = " << root().hex() << "\n";            
+        // std::string const root_value = db()->lookup(root());
+        // RLP root_rlp = RLP(root_value);
+        // std::cerr << "root_rlp = " << RLP2MP3String(root_rlp) << "\n";            
 
         std::vector<std::string> fetchedRlpStrs; // this is to have persistent memoery that cannot be destroyed/moved by the compiler
 
@@ -1013,42 +1014,35 @@ namespace dev {
             unsigned itemCount = here.itemCount();            
             std::stringstream ss;
             ss << key;
-            std::cerr << "MP3: itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";            
-            std::cerr << "MP3: here = " << RLP2MP3String(here) << "\n";                        
-            std::cerr << "MP3: remaining key = " << ss.str() << "\n";                        
+            // std::cerr << "MP3: itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";            
+            // std::cerr << "MP3: here = " << RLP2MP3String(here) << "\n";                        
+            // std::cerr << "MP3: remaining key = " << ss.str() << "\n";                        
                         
             assert(here.isList() && (itemCount == 2 || itemCount == 17));
             if (itemCount == 2) {
                 auto k = keyOf(here);
                 if (key == k && isLeaf(here)){ // reached leaf and it's the searched node!                
                     trail->push_back(std::move(here.asRawString()));
-                    std::cerr << "MP3-LEAF trail before return = " << RLP2MP3String(RLP((*trail)[0])) << "\n";               
+                    // std::cerr << "MP3-LEAF trail before return = " << RLP2MP3String(RLP((*trail)[0])) << "\n";               
                     return 0;             
-                } else if (key.contains(k) && !isLeaf(here)){
+                } else if (key.contains(k) && !isLeaf(here)){ // not yet at leaf... (i.e., extension node)                    
                     
-                    trail->push_back(std::move(here.asRawString()));                                          
-
-                    // not yet at leaf and it might yet be us. onwards... (i.e., extension node)                    
-                    // std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
+                    trail->push_back(std::move(here.asRawString()));                                                                                  
                     auto lh = here[1].toHash<h256>();
                     // std::cerr << "MP3-EXT: here[1].toHash<h256>() = " << lh  << "\n";                                        
-                    std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
+                    // std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
                     // std::cerr << "MP3-EXT node(lh) =" << db()->lookup(lh) << "\n";
-                    fetchedRlpStrs.push_back(db()->lookup(lh));
-                    // auto tmp = RLP(s);
-                    // std::cerr << "MP3-EXT 1)"  << RLP2MP3String(tmp) << "\n";                                        
-                    // std::cerr << "MP3-EXT 1.1)"  << tmp << "\n";                                                                                
+                    fetchedRlpStrs.push_back(db()->lookup(lh));                    
                                         
                     // update here and key with the values of the next item in trail (i.e. below)
-                    here = RLP( *(fetchedRlpStrs.end() - 1) ); // here[1].isList() ? here[1] : RLP(s); // ????  - why isList?                
-                    // std::cerr << "MP3-EXT: 2) next here = " << RLP2MP3String(here) << "\n";                    
-                    std::cerr << "MP3-EXT: next here = " << here << "\n";   
-                    std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
+                    here = RLP( *(fetchedRlpStrs.end() - 1) ); // here[1].isList() ? here[1] : RLP(s); // ????  - why isList?                                    
+                    // std::cerr << "MP3-EXT: next here = " << here << "\n";   
+                    // std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
                     
                     key = key.mid(k.size());
 
-                    std::cerr << "MP3-EXT: next here = " << here << "\n";   
-                    std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
+                    // std::cerr << "MP3-EXT: next here = " << here << "\n";   
+                    // std::cerr << "MP3-EXT: next itemCount = " << here.itemCount() << " | isList = " << here.isList() << " | isLeaf = " << isLeaf(here) << "\n";                             
 
                 } else                    
                     return 1; // not us.
@@ -1058,18 +1052,18 @@ namespace dev {
                     return 0;
                 }
                 auto n = here[key[0]];
-                std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";
+                // std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";
                 if (n.isEmpty())
                     return 1;
                 else{                                                                      
                     fetchedRlpStrs.push_back(db()->lookup(n.toHash<h256>()));
-                    std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";                                                                                 
+                    // std::cerr << "MP3-BRANCH: next DB node" << n.toHash<h256>() << "\n";                                                                                 
                     here = RLP( *(fetchedRlpStrs.end() - 1)); // n.isList() ? n : RLP(s); // ???? IH  - why isList?
-                    std::cerr << "MP3-BRANCH next here: "  << RLP2MP3String(here) << "\n";        
+                    // std::cerr << "MP3-BRANCH next here: "  << RLP2MP3String(here) << "\n";        
                     key = key.mid(1); // mid(1) creates new NibbleSlice, but 1 nibble shorter
                 }                    
             }
-            std::cerr << "-------------------------" << "\n";
+            // std::cerr << "-------------------------" << "\n";
             idx++;
         }               
     }

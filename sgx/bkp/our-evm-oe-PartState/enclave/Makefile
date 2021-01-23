@@ -16,7 +16,19 @@ ifeq ($(USE_GCC),)
         CXX_COMPILER=clang++
 endif
 
+CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(CXX_COMPILER) --variable=${OE_CRYPTO_LIB}libs)
 
+ifeq ($(LVI_MITIGATION), ControlFlow)
+        ifeq ($(LVI_MITIGATION_BINDIR),)
+                $(error LVI_MITIGATION_BINDIR is not set)
+        endif
+        # Only run once.
+        ifeq (,$(findstring $(LVI_MITIGATION_BINDIR),$(CC)))
+                CC := $(LVI_MITIGATION_BINDIR)/$(CC)
+        endif
+        COMPILER := $(COMPILER)-lvi-cfg
+        CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(COMPILER) --variable=${OE_CRYPTO_LIB}libslvicfg)
+endif
 
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
@@ -68,7 +80,7 @@ build:
 	# oeedger8r ../aqledger.edl --trusted --trusted-dir ../common
 	$(CXX) -c -Wall -Werror $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -DENCLAVE_BUILD -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC) -c -Wall -Werror $(CFLAGS) $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 aqledger_t.c -o aqledger_t.o
-	$(CXX) -std=$(CXX_STANDARD) -o aqledger_enc aqledger_t.o enc.o signing.o sealing.o keys.o aq_ledger.o $(EEVM_OBJECTS) $(Enclave_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_enc aqledger_t.o enc.o signing.o sealing.o keys.o aq_ledger.o $(EEVM_OBJECTS) $(Enclave_Link_Flags) $(CRYPTO_LDFLAGS)
 
 sign:
 	oesign sign -e aqledger_enc -c aqledger.conf -k private.pem

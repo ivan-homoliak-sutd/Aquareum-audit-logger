@@ -21,12 +21,21 @@
             -- note that once in a while (especialy for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
 
 
-    2) Build host and enclave in by make
+    2) Build host and enclave 
+        a) UBUNTU dependecies for AQ ledger:
+            sudo apt-get install libssl-dev
+            sudo apt-get install libboost-dev
+        
+        b) Set up 'RepoDir' variable in Makefile:
+            RepoDir := {INSTALL_DIR}/centralized-ledger-impl/
 
+        c) Build AQ ledger
+            . /opt/openenclave/share/openenclave/openenclaverc
+            $ make
+    
+    3) Run AQ ledger 
+        $ make run
 
-## UBUNTU dependecies for AQ ledger:
-    sudo apt-get install libssl-dev
-    sudo apt-get install libboost-dev
 
 
 ## Since there are collision in names of c++/C headers in OpenEnclave, I had to drop a few C++ headers from 
@@ -73,6 +82,12 @@ EPC size on the platform: 98041856
     ... delete all ocurrences of "intel_sgx.ko", especially the ones for the current kernel
     $ sudo /sbin/depmod
     $ sudo /bin/sed -i '/^intel_sgx$/d' /etc/modules
+
+## During compilation of apps:
+    /usr/bin/ld: cannot find -lsgx_tstdcxx
+
+    Solution: libsgx_tstdcxx.a is old and was replaced by libsgx_tcxx.a; update -l param to -lsgx_tcxx
+
 
 ### TODO ###
 

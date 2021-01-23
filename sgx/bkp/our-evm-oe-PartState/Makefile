@@ -3,8 +3,11 @@
 
 .PHONY: all build clean run simulate host enc
 
+OE_CRYPTO_LIB := mbedtls
+export OE_CRYPTO_LIB
 
 RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
+SubPath := bkp/our-evm-oe-PartState
 
 all: build
 
@@ -16,8 +19,9 @@ clean:
 	$(MAKE) -C enclave clean
 	$(MAKE) -C host clean
 
-run: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+run: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 run:
+	mkdir -p ./data
 	host/aqledger_host ./enclave/aqledger_enc.signed
 
 host:
@@ -27,12 +31,12 @@ enc:
 	$(MAKE) -C enclave
 
 
-debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 debug:
 	valgrind host/aqledger_host ./enclave/aqledger_enc.signed
 
 
-sim: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/our-evm-oe/common/secp256k1/.libs/:$(RepoDir)/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+sim: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 sim:
 	host/aqledger_host ./enclave/aqledger_enc.signed --simulate
 
