@@ -7,7 +7,7 @@ OE_CRYPTO_LIB := mbedtls
 export OE_CRYPTO_LIB
 
 RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
-SubPath := our-evm-oe
+SubPath := bkp/our-evm-oe-FullStateMaintained
 
 MAIN_CXX_FLAGS := -DNDEBUG
 # MAIN_CXX_FLAGS := -DASSERTS_ENABLES
