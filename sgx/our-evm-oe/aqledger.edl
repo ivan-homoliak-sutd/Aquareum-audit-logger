@@ -100,8 +100,19 @@ enclave {
             size_t storages_sizes_size,
             [user_check] const uint8_t* accnts_of_storages // Addresses of accounts related to storages (their size can be inferred from 'storages_sizes_size')
         );
+        
+        public int ecall_run_many_txs_maintained_full_mp3state(
+            [in, size=txs_size] const uint8_t* txs_in_batch,            
+            size_t txs_size,            
+
+            [in, size=codes_sum_size] const uint8_t* codes_in_batch,
+            size_t codes_sum_size,
+            [in, size=codes_sizes_size] const size_t * codes_sizes,
+            size_t codes_sizes_size,                                    
+        );
 
     };
+
 
 
     // define OCALLs

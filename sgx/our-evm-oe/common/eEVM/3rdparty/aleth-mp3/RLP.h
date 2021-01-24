@@ -76,6 +76,21 @@ public:
     /// Construct a node to read RLP data in the string.
     explicit RLP(std::string const& _s, Strictness _st = VeryStrict): RLP(bytesConstRef((byte const*)_s.data(), _s.size()), _st) {}
 
+    //IH: default copy constructor DOES NOT copy data deeply since RLP contains byteConstRefs vars which are only managing references of other data !!    
+    RLP(const RLP &) = default;  // IH: important for assignments and function parameter passing by value/movable
+
+    /// Disable construction from rvalue
+    RLP(bytes const &&) = delete;    
+
+    /// IH: Disable construction from rvalue string - equally important as the previous one - causing compiler errors to avoid using it !!
+    RLP(std::string &&) = delete; // IH: this avoids construction from non-const strings (which results in undesirable compiler optimization - copy elision of other wrapping objects)
+
+    std::string asRawString() {
+        const unsigned char * d = data().data();
+        std::string s = std::string(d, d + data().count());
+        return s;
+    }
+
     /// The bare data of the RLP.
     bytesConstRef data() const { return m_data; }
 
@@ -322,8 +337,6 @@ public:
 
 
 private:
-    /// Disable construction from rvalue
-    explicit RLP(bytes const&&) {}
 
     /// Throws if is non-canonical data (i.e. single byte done in two bytes that could be done in one).
     void requireGood() const;

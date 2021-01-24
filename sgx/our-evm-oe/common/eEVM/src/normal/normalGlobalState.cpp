@@ -110,7 +110,8 @@ namespace eevm
 #endif
 
         // handle root node
-        auto cur_root_hash = m_accounts.root();
+        h256 cur_root_hash = m_accounts.root();
+        TRACE_ME("\t\t cur_root_hash = %s", cur_root_hash.hex().c_str());
         if (EmptyTrie == cur_root_hash) {  //empty MP3
             auto r = dev::rlp("");
             RLP rlp_empty = RLP(r);
@@ -128,22 +129,26 @@ namespace eevm
             sum_size_data += root_rlp.data().size();
             db_keys.insert(cur_root_hash);
             TRACE_ME("\t\t Initialized Root: %s", RLP2MP3String(root_rlp).c_str());
-        }
+        }        
 
         // the standard case
         for (auto& addr : addrs_to_process) {
             assert(exists(addr));
-            std::vector<RLP> node_trail;                                     // RLPs of DB nodes
-            TRACE_ME("\t\t addr : %s", h256(addr).hex().c_str());
+            std::vector<std::string> node_trail;                                     // RLPs of DB nodes
             int ret = m_accounts.buildTrail(h256(addr).ref(), &node_trail);  // build trail of current account of MP3
             if (0 != ret) {
                 TRACE_ME("\t\t Error when building trail.");
+                exit(1);
             }
 
-            // ?? TODO: this should be optimized by batching, returing shared trail - pass all accounts to MP3 and let MP3 to fill only unique elements to trail
+            TRACE_ME("\t\t size of trail = %ld ", node_trail.size());
+            TRACE_ME("\t\t trail[0] = %s ",  RLP2MP3String(RLP(node_trail[0])).c_str() );        
+
+            // TODO: this should be optimized by batching, returing shared trail - pass all accounts to MP3 and let MP3 to fill only unique elements to trail
 
             // pass all nodes in the trail and store unique ones
-            for (auto& rlp_node : node_trail) {
+            for (auto& str_node : node_trail) {
+                RLP rlp_node =  RLP(str_node);
                 h256 h = sha3(rlp_node.data());
                 TRACE_ME("\t\t node in trail: %s", RLP2MP3String(rlp_node).c_str());
 
@@ -161,7 +166,7 @@ namespace eevm
             acnts_storages.insert(acnts_storages.end(), addr_as_be, addr_as_be + ADDR_SIZE_B);
         }
         assert(sum_size_data == db_data.size() - size_data_before);
-    } 
+    }
 
     /**
      * It dumps the full MP3 state of accounts and their storages into several references.

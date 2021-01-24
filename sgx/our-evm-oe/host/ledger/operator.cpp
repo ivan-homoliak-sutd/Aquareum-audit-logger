@@ -393,7 +393,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
     sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
     sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
-    sh_vars["$REPEAT"] = "30";                        // the number of test repetitions for statistical evaluation of mean and std dev
+    sh_vars["$REPEAT"] = "30";                         // the number of test repetitions for statistical evaluation of mean and std dev
 
 
     while (true) {
@@ -404,7 +404,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         tokens = NULL;
         tx = NULL;
 
-        std::string mode_short = (this->m_ledger.m_mode == AQLedger::MODE::FullStateTransfer) ? "F" : "P";
+        std::string mode_short = (this->m_ledger.m_mode == AQLedger::MODE::FullStateTransfer) ? "F" : ((this->m_ledger.m_mode == AQLedger::MODE::FullStateMaintained) ? "M" : "P");
         std::string operatorFlag = (sh_origin == this->m_ledger.operAddr) ? "<SUPER>" : "";
         std::string toFlag = (m_contracts.end() != m_contracts.find(sh_to)) ? string("<") + m_contracts[sh_to].name + string(">") : "";
         cout << fmt::format("$[from={}..{} | to={}..{}]:({}) $>",
@@ -453,8 +453,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
                       << "\t vars"         << "\t\t display defined variables \n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
-                      << "\t mode [m]"     << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
-                      << "\t mem"          << "\t prints enclave memory stats about global state\n"                      
+                      << "\t mode [m]"     << "\t get the current mode to 'm': 0 for FullStateMaintained | 1 for FullGsTransfer | 2 for PartialGsTransfer \n"                      
+                      << "\t mem"          << "\t prints enclave/host memory stats about global state\n"                      
 
                       << "\n"
                       << "Hardcoded testing:\n"
@@ -475,16 +475,26 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 error_print("Failed to read the state of enclave.");
             }
             this->_printEvmState(pub_evm_state);
-    
+
         } else if (0 == strcmp(command, "mem")) {
-            // dump memory stats about global state stored within the enclave (i.e., database size)            
-            std::cout << "Enclave memory for gs:\n";
-            auto db_stats =  m_ledger.m_gs.db()->m_stats;
-                        
-            unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;            
+            // dump memory stats about global state stored within the enclave (i.e., database size)
+            std::cout << "Host memory for gs:\n";
+            auto db_stats = m_ledger.m_gs.db()->m_stats;
+
+            unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;
             std::cout << fmt::format("\t main data = {}:\n \t main keys= {}\n ", db_stats.size_main_data, db_stats.size_main_keys);
-            std::cout << fmt::format("\t aux data  = {}:\n \t aux keys = {}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);                        
+            std::cout << fmt::format("\t aux data  = {}:\n \t aux keys = {}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);
             std::cout << fmt::format("\t total = {}\n", total);
+
+
+            // TODO
+            // std::cout << "\nEnclave memory for gs:\n";
+            // ecall_ret = ecall_get_memory_stats(enclave, &ret);
+            // if (ecall_ret != OE_OK || is_error(ret)) {
+            //     error_print("Failed to get memory stats of enlave.");
+            //     return ret;
+            // }
+
 
         } else if (0 == strcmp(command, "defs")) {
             // dump definitions
@@ -541,7 +551,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
 
             if (1 == tokenCnt) {
-                std::string m = (this->m_ledger.m_mode == AQLedger::MODE::FullStateTransfer) ? "full transfer" : "partial transfer";
+                std::string m = (this->m_ledger.m_mode == AQLedger::MODE::FullStateTransfer) ? "full GS transfer" : 
+                        ((this->m_ledger.m_mode == AQLedger::MODE::FullStateMaintained) ? "full GS is maintained in E" : "partial GS transfer");
                 std::cout << "The current mode is: " << m << "\n";
                 continue;
             }
@@ -555,8 +566,15 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 std::cerr << "Invalid argument\n";
                 continue;
             }
-            if (mode != AQLedger::MODE::FullStateTransfer && mode != AQLedger::MODE::PartialStateTransfer) {
-                error_print("Unknown mode. Supported options are 1 and 2.");
+            if(this->m_ledger.m_mode == AQLedger::MODE::FullStateTransfer || this->m_ledger.m_mode == AQLedger::MODE::PartialStateTransfer){
+                if(AQLedger::MODE::FullStateMaintained == mode){
+                    error_print("Not allowed to change mode from '[Full|Partial]StateTransfer' to 'FullStateMaintained' (since E's full MP3 DB would be outdated).");
+                    continue;
+                }                
+            }
+
+            if (mode != AQLedger::MODE::FullStateTransfer && mode != AQLedger::MODE::PartialStateTransfer && mode != AQLedger::MODE::FullStateMaintained) {
+                error_print("Unknown mode. Supported options are [0,1,2].");
                 continue;
             }
             m_ledger.m_mode = AQLedger::MODE(mode);
@@ -1085,7 +1103,7 @@ void Operator::_testBulkERC_1by1(oe_enclave_t* enclave, uint numberOfTx, uint ac
  * Repeat and statistically evaluate results of function "_testBulkNativePayments_batched_repeated"
  */
 void Operator::_testBulkERC_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, Address erc, uint batchSize, uint repetitions)
-{    
+{
     vector<double> items;
     double sum = 0.0;
     for (uint i = 0; i < repetitions; i++) {
@@ -1170,6 +1188,7 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
             txs_in_batch.clear();
         }
         txs_in_batch.push_back(tx);
+        m_ledger.m_gs.db()->purge(); // clean up unused entries of database
 
         // adjust balances in our cache
         balances[j] -= value;
@@ -1181,10 +1200,10 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
     if (txs_in_batch.size() != 0) {
         if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
             exit(1);
-    }
-
+    }    
     auto end_t = chrono::steady_clock::now();
     auto ms = chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
+    m_ledger.m_gs.db()->purge(); // clean up unused entries of database
 
     double ret = numberOfTx / (ms / 1000.0);
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", ms, ret);
@@ -1201,7 +1220,7 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
  * Repeat and statistically evaluate results of function "_testBulkNativePayments_batched_repeated"
  */
 void Operator::_testBulkNativePayments_batched_repeated(oe_enclave_t* enclave, uint numberOfTx, uint accountsCnt, uint batchSize, uint repetitions)
-{    
+{
     vector<double> items;
     double sum = 0.0;
     for (uint i = 0; i < repetitions; i++) {
@@ -1270,6 +1289,7 @@ double Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint num
             txs_in_batch.clear();
         }
         txs_in_batch.push_back(tx);
+        m_ledger.m_gs.db()->purge(); // clean up unused entries of database
 
         // adjust balances and nonces in our cache
         balances[j] -= value;
@@ -1285,6 +1305,7 @@ double Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint num
         auto end_t = chrono::steady_clock::now();
         sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
     }
+    m_ledger.m_gs.db()->purge(); // clean up unused entries of database
 
     double ret = numberOfTx / (sum_time / 1000.0);
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, ret);
@@ -1360,8 +1381,11 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
     std::cout << "Creating account of Operator...\n";
     auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);
 
-    u256 output_u256;
-    if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
+    std::vector<eevm::PersistantTransaction*> txs_in_batch;
+    txs_in_batch.push_back(tx);
+
+    // u256 output_u256;
+    if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
         delete tx;
         exit(1);
     }
@@ -1404,9 +1428,12 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
         acc.addr = eevm::from_big_endian(acc.PK.data, PB_ADDR_SIZE);
 
         // 3) dispatch TX into E
+        std::vector<eevm::PersistantTransaction*> txs_in_batch;
         auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
-        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
-            delete tx;
+        txs_in_batch.push_back(tx);
+
+        if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
+            delete txs_in_batch[0];
             throw std::logic_error("error when dispatching TX");
         }
 
@@ -1415,7 +1442,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
 
         m_accounts[acc.addr] = acc;
-        delete tx;
+        delete txs_in_batch[0];
     }
     assert(nonceBefore + N == operAccnt.get_nonce());
     return acc.addr;
@@ -1434,8 +1461,8 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
             ret = _dispatchTX_FullState(enclave, tx, output_u256);
             break;
         case AQLedger::MODE::FullStateMaintained:
-            std::cerr << "FullStateMaintained mode is not currently supported.\n";
-            exit(1);
+            std::cerr << "FullStateMaintained mode is not supported for single TX execution.\n";            
+            ret = 1;
             break;
         case AQLedger::MODE::PartialStateTransfer:
             ret = _dispatchTX_PartialState(enclave, tx, output_u256);
@@ -1458,11 +1485,74 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
         case AQLedger::MODE::PartialStateTransfer:
             ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch);
             break;
+        case AQLedger::MODE::FullStateMaintained:
+            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch);
+            break;            
         default:
             std::cerr << "Unsupported mode: " << static_cast<int>(this->m_ledger.m_mode) << "\n";
             exit(1);
     }
     return ret;
+}
+
+/**
+ * Executes many TXs in Enclave, while it does not transfer the MP3 to enclave at all (i.e., enclave stores a full MP3 state)
+ */
+int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+{
+    int ret;
+
+    std::vector<uint8_t> txs_persistant;  // data of all TXs in batch (except their codes)
+    size_t txs_persistant_size = 0;       // size of the previous vector
+
+    std::vector<uint8_t> codes;       // data codes
+    std::vector<size_t> codes_sizes;  // vectorized sizes of the codes
+    size_t codes_sizes_size = 0;      // size of the previous vector
+
+    // 1) Copy data of TXs and their code // maybe we can somehow optimize and do not copy already existing data??
+    for (auto tx : txs_in_batch) {       
+        // copy data of a current TX and its code
+        PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)tx;
+        txs_persistant.insert(txs_persistant.end(), (uint8_t*)ptx, (uint8_t*)ptx + sizeof(PersistantTxProxy_T));
+        codes.insert(codes.end(), tx->code.begin(), tx->code.end());
+        codes_sizes.push_back(tx->code.size());
+    }
+    txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
+    codes_sizes_size = codes_sizes.size() * sizeof(size_t);    
+    assert(txs_persistant.size() == txs_persistant_size);
+
+    // 2) Execute TXs in Host one by one        
+    for (auto& tx : txs_in_batch) {
+        uint256_t output_u256;
+        ret = this->m_ledger.executeTX(tx, output_u256);
+        if (ret != RET_SUCCESS) {  // this updates global account state in the host
+            error_print("Error when executing TX in HOST.");
+            return ret;
+        }
+    }    
+
+     // 3) Execute all TXs from batch in Enclave
+    oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state(enclave, &ret,
+                                                (const uint8_t*)txs_persistant.data(), txs_persistant_size,
+                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size);                                                                
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when executing batch of TXs in ENCLAVE.");
+        return ret;
+    }
+
+    // 4) Fetch the updated global state of E
+    PublicSealedData_T pub_evm_state;
+    ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
+    if (ecall_ret != OE_OK && is_error(ret)) {
+        error_print("Failed to read the state of enclave.");
+        return ret;
+    }
+
+    // 5) Compare E's state to host's state
+    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ledger.m_gs.root());
+    info_print(">> State in Host and Enclave match! <<");
+    return RET_SUCCESS;
 }
 
 /**
@@ -1562,6 +1652,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
     info_print(">> State in Host and Enclave match! <<");
     return RET_SUCCESS;
 }
+
 
 /**
  * Executes one TX in enclave, while it dumps only partial MP3 state to enclave. [fast]

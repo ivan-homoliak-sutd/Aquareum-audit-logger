@@ -138,7 +138,7 @@ public:
 
 
     inline AQLedger(ECC* e)
-      : m_ecc(e), m_mode(MODE::PartialStateTransfer){};
+      : m_ecc(e), m_mode(MODE::FullStateMaintained){};
 
     PersistantTransaction* createHelloWorldTX(OperAccount& sender,
                                               size_t nonce);

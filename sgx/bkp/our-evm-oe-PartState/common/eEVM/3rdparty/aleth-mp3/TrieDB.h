@@ -1027,7 +1027,7 @@ namespace dev {
                     return 0;             
                 } else if (key.contains(k) && !isLeaf(here)){ // not yet at leaf... (i.e., extension node)                    
                     
-                    trail->push_back(std::move(here.asRawString()));                                                                                  
+                    trail->push_back(std::move(here.asRawString()));  // IH: probably deref() does the same                                                                                 
                     auto lh = here[1].toHash<h256>();
                     // std::cerr << "MP3-EXT: here[1].toHash<h256>() = " << lh  << "\n";                                        
                     // std::cerr << "MP3-EXT: here[1].isList() = " << here[1].isList() << " here[1] = " << here[1] << "\n";                    
