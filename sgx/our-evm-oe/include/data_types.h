@@ -13,8 +13,6 @@
 
 // underlying elementary data types
 
-//////////////////////////// ENCLAVE ///////////////////////////////////
-
 typedef struct {
     char* data;  // is is dynamic array, so (de)-marshaling  needs to be handled manually
 } ErrTx_T;
@@ -48,6 +46,9 @@ typedef struct {  // used as persisted object in the sealed storage
     SecretSealedData_T sec;
 } EvmState_T;
 
+
+//////////////////////////// SURROGATE TYPES (already defined elsewhere OR not consisting of PODs) ///////////////////////////////////
+
 // TX object should be constructed only from elementary C types (this should match TX defined in eEVM)
 typedef struct {
     uint8_t origin[ADDRESS_SIZE_PB];  // sender of the TX
@@ -56,7 +57,7 @@ typedef struct {
 
     uint64_t value;  // call_value
 
-    uint64_t gas_price;
+    uint64_t gas_price; // maybe these two could be dropped to optimize throughput?
     uint64_t gas_limit;
 
     uint8_t signature[SIG_SIZE_PB];  // computed over: origin, value, code, gas_price, gas_limit,
@@ -65,8 +66,13 @@ typedef struct {
 
 } PersistantTxProxy_T;
 
-// typedef struct {
+// Memory stats object already defined in aleth-mp3/database/StateCacheDB.h but expensive to bring it here directly
+typedef struct {
+        unsigned size_main_data;      
+        unsigned size_aux_data;      
+        unsigned size_main_keys;      
+        unsigned size_aux_keys;         
+        unsigned size_main_stale; // stale data that can be purged (the purge was delayed due to performance)     
+} StorageStatsMP3DB;
 
-// } FullGlobalStat_T;
 
-//////////////////////////// HOST ///////////////////////////////////

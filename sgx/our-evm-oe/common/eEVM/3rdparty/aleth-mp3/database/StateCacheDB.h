@@ -9,28 +9,24 @@
 
 namespace dev
 {
-// IH: added for better storage management within enclave
-class StorageStats {        
-    public:
-        StorageStats () {
-            size_main_data = 0;
-            size_aux_data = 0;
-            size_main_keys = 0;      
-            size_aux_keys = 0;   
-        }
-                
-        unsigned size_main_data;      
-        unsigned size_aux_data;      
-        unsigned size_main_keys;      
-        unsigned size_aux_keys;      
-};
 
 class StateCacheDB {
     friend class EnforceRefs;    
 
 public:
-    StateCacheDB() {}
-    StateCacheDB(StateCacheDB const& _c) { operator=(_c); }
+    // IH: added for better storage management within enclave
+    typedef struct {
+            unsigned size_main_data;      
+            unsigned size_aux_data;      
+            unsigned size_main_keys;      
+            unsigned size_aux_keys;         
+            unsigned size_main_stale; // stale data that can be purged (the purge was delayed due to performance)     
+    } StorageStatsMP3DB;
+    
+    StateCacheDB() :m_stats({0, 0, 0, 0, 0}) {}
+    
+    //IH: TODO - 
+    StateCacheDB(StateCacheDB const& _c) :m_stats(_c.m_stats) { operator=(_c); }
 
     StateCacheDB& operator=(StateCacheDB const& _c);
 
@@ -54,7 +50,7 @@ public:
 
     h256Hash keys() const;
 
-    StorageStats m_stats;
+    StorageStatsMP3DB m_stats;
 
 protected:
 #if DEV_GUARDED_DB

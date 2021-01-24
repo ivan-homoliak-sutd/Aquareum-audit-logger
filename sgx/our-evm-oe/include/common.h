@@ -3,7 +3,7 @@
 #include <iostream>
 #include <stddef.h>
 #include <string>
-
+#include "mp3_modes.h"
 
 // switch ON or OFF tracing logs or info logs
 
@@ -11,10 +11,13 @@
 
 // #define INFO_LOG_ENABLED
 
+#define DEFAULT_MODE MODE::FullStateMaintained
 
+// SGX stuff
 #define POLICY_UNIQUE 1
 #define POLICY_PRODUCT 2
 
+// ECC config
 #define MAX_OPT_MESSAGE_LEN 128
 #define IV_SIZE 16
 #define SIGNATURE_LEN 32
@@ -23,6 +26,10 @@
 #define PB_ADDR_SIZE 20
 #define VALID_ECC_SIG_RET 1
 #define PRINT_SEP_LEN 120
+
+// default MP3 cleanup settings
+#define DEFAULT_MAXSTALEMB_DB_ENC "10"
+#define DEFAULT_MAXSTALEMB_DB_HOST "100"
 
 // #define EMPTY_CODE_OBJ eevm::Code(EMPTY_CODE)
 
@@ -113,6 +120,7 @@ inline void print_enc_sep(EncExec e)
 #define ERR_SAVING_OPER_KEYS 110
 #define ERR_WRONG_ARGS 111
 #define ERR_KEYPAIR_GEN_FAILED 112
+#define ERR_NOT_FSMAINTAINED_MODE 113
 
 #define ERR_EVM_EXEC 201
 #define ERR_EVM_WRONG_RET_CODE 202

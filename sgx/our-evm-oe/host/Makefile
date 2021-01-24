@@ -61,8 +61,8 @@ build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
 	oeedger8r ../aqledger.edl --untrusted --search-path $(OE_SDK_INCLUDE)
-	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
-	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
+	$(CXX) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
+	$(CC) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
 	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:

@@ -70,7 +70,8 @@ void StateCacheDB::insert(h256 const& _h, bytesConstRef _v) {
 #endif
     auto it = m_main.find(_h);
     if (it != m_main.end()) {
-        it->second.first = _v.toString(); // IH: (root should also be recomputed)
+        // assert(it->second.second > 0); // IH: my assert is not true !!! (although I do not know why - the node should be killed only if it requires update & every update changes its hash) 
+        it->second.first = _v.toString(); // IH: (root should also be recomputed recursively)
         it->second.second++;
     } else {
         m_main[_h] = make_pair(_v.toString(), 1);
@@ -88,7 +89,13 @@ bool StateCacheDB::kill(h256 const& _h) {
     if (m_main.count(_h)) { // returns 0 | 1
         if (m_main[_h].second > 0) {
             m_main[_h].second--;
+            if(0 == m_main[_h].second){
+                // IH: count stale memory for deleted DB entries
+                m_stats.size_main_stale += m_main[_h].first.size() + sizeof(unsigned) + HASH_SIZE;
+            }
             return true;
+        }else{
+            assert(false); // IH: this should not happen !
         }
     }
     return false;
@@ -135,6 +142,7 @@ void StateCacheDB::purge() {
             m_stats.size_main_keys -= HASH_SIZE;
             it = m_main.erase(it);
         }
+    m_stats.size_main_stale = 0; 
 
     // purge m_aux
     for (auto it = m_aux.begin(); it != m_aux.end();)

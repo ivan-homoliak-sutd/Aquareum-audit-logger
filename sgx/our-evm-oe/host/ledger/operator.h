@@ -94,6 +94,10 @@ namespace aql
         void _printEvmState(PublicSealedData_T& es);
         void _printGlobalState(unsigned max);
         void _createMyAccntState(oe_enclave_t* enclave);
+        int _getMemoryStatsEnclave(oe_enclave_t* enclave, StorageStatsMP3DB & enc_stats);
+        int _purgeStaleMP3Enc(oe_enclave_t* enclave);
+        int _autoPurgeMP3DB(oe_enclave_t* enclave, const std::string & encMax, const std::string & hostMax);
+        void _forcePurgeStaleMP3(oe_enclave_t* enclave);
 
         ContrDefinition _parseDefinitionFile(const std::string& contract_path);
         eevm::Address _createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave);

@@ -6,14 +6,17 @@
 #include "eEVM/transaction.h"
 #include "signing.h"
 #include "merkle-tree.h"
+#include "common.h"
 
 class AQLedger {
 public:
     ECC ecc;  // ECC signing and verification
 
     eevm::Address operAddr;
+    
+    MODE m_mode;
 
-    inline AQLedger()
+    inline AQLedger() :m_mode(DEFAULT_MODE)
     {
         ecc = ECC();
     }

@@ -30,7 +30,7 @@ bool _evm_initialized = false;
 
 Sealing m_sealer;
 AQLedger m_ledger;
-eevm::NormalGlobalState *m_gs;  // the partial global state of the ledger (maintained in memory of enclave)
+eevm::NormalGlobalState *m_gs = NULL;  // the partial global state of the ledger (maintained in memory of enclave)
 
 
 ///////////////////// AUX //////////////////
@@ -113,7 +113,9 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("Initializing EVM enclave.");
 
-        m_gs = new eevm::NormalGlobalState(); // create MP3 object - TODO: if sealed file exists, initiate it from it (MP3 DB should contain only some cached data).
+        if(MODE::FullStateMaintained == DEFAULT_MODE){
+            m_gs = new eevm::NormalGlobalState(); // create MP3 object - TODO: if sealed file exists, initiate it from it (MP3 DB should contain only some cached data).
+        }        
 
         oe_result_t ocall_status;
         int ocall_ret, lib_ret;
@@ -255,6 +257,44 @@ int ecall_read_pub_state(PublicSealedData_T* pub_evm_state, size_t pub_state_siz
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("reading public state.");
         (*pub_evm_state) = m_evm_state.pub;
+        print_enc_sep(EncExec::END);
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
+}
+
+int ecall_read_memory_stats(StorageStatsMP3DB* evm_mem_stats, size_t evm_mem_stats_size)
+{
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("reading memory stats of MP3 DB in enclave.");
+        if(NULL == m_gs){
+            return ERR_NOT_FSMAINTAINED_MODE;            
+        } 
+                
+        assert(sizeof(StorageStatsMP3DB) == sizeof(dev::StateCacheDB::StorageStatsMP3DB));
+        (*evm_mem_stats) = *reinterpret_cast<StorageStatsMP3DB*>(&(m_gs->db()->m_stats));
+
+        print_enc_sep(EncExec::END);
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
+}
+
+int ecall_purge_stale_mp3_entries (){
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("Purging stale entries in MP3 DB.");
+        if(NULL == m_gs){
+            return ERR_NOT_FSMAINTAINED_MODE;            
+        } 
+                
+        m_gs->db()->purge();
+
         print_enc_sep(EncExec::END);
         return 0;
     } catch (const std::exception& e) {
@@ -485,6 +525,7 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
                 rcps_hashes.add(rcpHash);                
             }            
             codes_offset += codes_sizes[i]; 
+            // m_gs->db()->purge(); // this is less efficient than doing it after batch
         }
         assert(codes_offset == codes_sum_size);        
 
@@ -502,8 +543,8 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         // 5) Increment ID of the current block
         m_evm_state.pub.idCurrent++;
 
-        // TODO: maybe create the thread that will call purge() on m_db (i.e., StateCache) after passing data to host
-        m_gs->db()->purge(); // clean up unused entries of database (it is more efficient to do it after batch than 1 TX)
+        // 6) Clean up unused entries in MP3 db - should be done manually from host
+        m_gs->db()->purge(); 
         
         print_enc_sep(EncExec::END);
         return ret;

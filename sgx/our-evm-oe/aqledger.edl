@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 enclave {
-    include "data_types.h"
+    include "data_types.h"    
     from "openenclave/edl/sgx/cpu.edl" import *;
 
     // define ECALLs
@@ -20,12 +20,19 @@ enclave {
             size_t evm_state_size_pub
         );
 
+        public int ecall_read_memory_stats(
+            [out, size=evm_mem_stats_size] StorageStatsMP3DB* evm_mem_stats,
+            size_t evm_mem_stats_size
+        );
+
         public int ecall_set_operator_address(
             [in, size=pk_size] uint8_t* operator_PK,
             size_t pk_size
         );
 
         public int ecall_sync_evm_sealed_state_to_disk(void);
+        
+        public int ecall_purge_stale_mp3_entries(void);
 
         public int ecall_run_single_tx_simplestate(
             [in, size=tx_size] PersistantTxProxy_T* tx,

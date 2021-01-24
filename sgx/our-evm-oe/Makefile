@@ -9,6 +9,10 @@ export OE_CRYPTO_LIB
 RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
 SubPath := our-evm-oe
 
+MAIN_CXX_FLAGS := -DNDEBUG
+# MAIN_CXX_FLAGS := -DASSERTS_ENABLES
+export MAIN_CXX_FLAGS
+
 all: build
 
 build:
