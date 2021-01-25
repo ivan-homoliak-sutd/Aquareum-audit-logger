@@ -22,6 +22,14 @@ typedef struct _HashesArray {
         m_size++;
     }
 
+    inline void pop_back()
+    {
+        if (m_data.size() >= HASH_SIZE) {
+            m_data.resize(m_data.size() - HASH_SIZE);
+            m_size--;
+        }
+    }
+
     inline size_t size()
     {
         return m_size;
