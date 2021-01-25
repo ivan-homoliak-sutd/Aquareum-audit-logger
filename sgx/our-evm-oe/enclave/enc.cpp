@@ -555,3 +555,77 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         return ERR_EXCEPTION;
     }
 }
+
+/**
+ * This function prcesses TXs in batches and thus creates the blocks.
+ * The state of EVM is fully stored and maintained in the enclave.
+ * eEVM is executed only in enclave, not in host, therefore this function 
+ * provides host with the list of updated and modified AS objects, which are stored to untrusted memory 'updated_and_new_accnts'
+ */
+int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, size_t txs_size, 
+                    const uint8_t* codes, size_t codes_sum_size, 
+                    const size_t* codes_sizes, size_t codes_sizes_size,
+                    void * updated_and_new_accnts, void * updated_and_new_strgs)                                        
+{
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("executing many TXs with full MP3 maintained in enclave.");
+
+        int32_t ret;        
+        
+        // 1) Start logging of new/updated addresses - after execution of EVM, process the set of addresses and fetch final ASes
+        std::unordered_set<eevm::Address> newAndUpdatedAddrs;
+        m_gs->startASLogging(&newAndUpdatedAddrs); // start logging of account state into protected local set
+
+        // 2) Execute TXs in E one by one (while updating the protected global state)
+        size_t codes_offset = 0;
+        MerkleTreeArray txs_hashes;
+        MerkleTreeArray rcps_hashes;
+        for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
+            PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
+            ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);            
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));                
+                rcps_hashes.add(rcpHash);                
+            }            
+            codes_offset += codes_sizes[i]; 
+            // m_gs->db()->purge(); // this is less efficient than doing it after batch
+        }
+        assert(codes_offset == codes_sum_size);   
+        m_gs->finishASLogging();  
+
+        // 2) process logged addresses & update buffers in [user_check] host memory
+        auto* enc_updated_and_new_accnts = reinterpret_cast<std::unordered_map<eevm::Address, eevm::SimpleAccountState>*>(updated_and_new_accnts); // this type is used by host
+        auto* enc_updated_and_new_strgs  = reinterpret_cast<std::unordered_map<eevm::Address, eevm::SimpleStorage>*>(updated_and_new_strgs); // this type is used by host
+        for(auto& addr: newAndUpdatedAddrs){
+            auto newAs = m_gs->get(addr);            
+            auto it_pair = enc_updated_and_new_strgs->insert( std::make_pair(addr, eevm::SimpleStorage(newAs.st) ));               
+            enc_updated_and_new_accnts->insert(std::make_pair(addr, eevm::SimpleAccountState(std::move(newAs.acc), (*it_pair.first).second) ));                                                 
+        }                
+
+        // 2) Update the current root hash of the global MP3 state in E
+        memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
+
+        // 3) Compute and store the Merkle root of TXs
+        dev::h256 txsRoot = txs_hashes.computeRoot();
+        memcpy(&m_evm_state.pub.txsRoot, txsRoot.begin(), HASH_SIZE);
+
+        // 4) Compute and store Merkle root of receipts (i.e., return codes)
+        dev::h256 rcpsRoot = rcps_hashes.computeRoot();
+        memcpy(&m_evm_state.pub.rcpsRoot, rcpsRoot.begin(), HASH_SIZE);
+
+        // 5) Increment ID of the current block
+        m_evm_state.pub.idCurrent++;
+
+        // 6) Clean up unused entries in MP3 db - should be done manually from host
+        m_gs->db()->purge(); 
+        
+        print_enc_sep(EncExec::END);
+        return ret;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        // auto s = backtrace();
+        // std::cerr << "backtrace(): \n" << s << '\n';
+        return ERR_EXCEPTION;
+    }
+}

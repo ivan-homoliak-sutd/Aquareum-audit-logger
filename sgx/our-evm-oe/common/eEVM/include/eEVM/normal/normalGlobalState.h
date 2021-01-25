@@ -26,7 +26,7 @@ namespace eevm
 
 
     private:
-        Block currentBlock;  // not used so far
+        Block * m_currentBlock;  // not used so far
 
         SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
 
@@ -34,9 +34,12 @@ namespace eevm
 
         void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const;
 
-        // std::vector<Address>* m_log_created_accounts = NULL;
-        bool m_accnt_logging = false;  // indicates whether adresses of new accounts should be logged
-        unsigned m_logged_entries_cnt = 0; // counter of DB lookups that are logged in MP3 during the capture
+        // Logging of DB entries in MP3        
+        bool m_db_logging = false;  // indicates whether adresses of new accounts should be logged
+        unsigned m_db_logged_entries_cnt = 0; // counter of DB lookups that are logged in MP3 during the capture
+
+        // Logging of new/updated ASes in MP3 (it is enough to log addrs since one AS can be modified many times)       
+        std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs = NULL; // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)       
 
     public:
         NormalGlobalState(bool init = true)
@@ -64,15 +67,12 @@ namespace eevm
         inline void commitPersDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB | should be called only in HOST, not enclave
 
         AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
-        AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;
+        AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;        
         AccountState<SimpleAccount, SimpleStorage> update(const Address& addr, const StateEntry& p) override;
 
         bool exists(const Address& addr) override;
         size_t num_accounts();
-
-        virtual const Block& get_current_block() override;
-        virtual uint256_t get_block_hash(uint8_t offset) override;
-
+        
         void dump_full_db(std::vector<uint8_t>& mp3_keys,
                           std::vector<uint8_t>& mp3_values,
                           std::vector<size_t>& values_sizes,
@@ -89,19 +89,38 @@ namespace eevm
          */
         void insert(const StateEntry& e);
 
-        inline void startLookupLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
-        {
-            assert(!m_accnt_logging);
-            m_accnt_logging = true;
-            m_accounts.startLookupLoggingMP3(db_keys, db_data_aux, &m_logged_entries_cnt);
-        }
 
-        inline unsigned finishLookupLogging()
+        /**
+         * @brief it starts/finishes logging of new and updated AS as well as storages
+         */
+        inline void startASLogging(std::unordered_set<eevm::Address>* newAndUpdatedAddrs)                                   
         {
-            assert(m_accnt_logging);
-            m_accnt_logging = false;
+            assert(NULL == m_as_updatedAndNewAddrs);
+            m_as_updatedAndNewAddrs = newAndUpdatedAddrs;            
+        }
+        
+        inline void finishASLogging()
+        {
+            assert(NULL != m_as_updatedAndNewAddrs);            
+            m_as_updatedAndNewAddrs = NULL;                        
+        }        
+
+        /**
+         * @brief it starts/finish logging of DB entries of MP3
+         */
+        inline void startDBLookupLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
+        {
+            assert(!m_db_logging);
+            m_db_logging = true;
+            m_accounts.startLookupLoggingMP3(db_keys, db_data_aux, &m_db_logged_entries_cnt);
+        }
+        
+        inline unsigned finishDBLookupLogging()
+        {
+            assert(m_db_logging);
+            m_db_logging = false;
             m_accounts.finishLookupLoggingMP3();
-            return m_logged_entries_cnt;
+            return m_db_logged_entries_cnt;
         }
 
         static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,
@@ -115,6 +134,9 @@ namespace eevm
                                            const uint8_t* storages, const size_t* storages_sizes,
                                            size_t storages_sizes_size, const uint8_t* acnts_storages);
 
+
+        virtual const Block& get_current_block() override;
+        virtual uint256_t get_block_hash(uint8_t offset) override; 
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);
         // friend void from_json(const nlohmann::json&, NormalGlobalState&);

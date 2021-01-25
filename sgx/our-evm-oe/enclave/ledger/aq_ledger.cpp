@@ -113,7 +113,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     // TODO: ensure that in production, Operator can create only simple accounts (without code) to avoid "inflation" bugs from constructors
     // assert(etx.origin != this->operAddr);
 
-    // 3b) If some code is present, then (deploy contract if does not exist and) execute TX with the code
+    // 3b) If some code is present, then deploy contract if does not exist and fetch its account state
     auto senderAccnt = gs->get(etx.origin);
     bool contrDeployed = false;
 
@@ -139,11 +139,13 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
     auto& senderStorage = gs->getStorages().at(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
-        auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
+        auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), 
+                                    senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
         assert(senderAccntUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
-    // 5) Create processor & Run code of TX
+    // 5) Create processor & Run code of TX  
+    // TODO: it should not modify MP3 GS (make it const) - however, GSOverlay::getRef() in Processor needs to be fixed first
     TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // processor will fill this list if needed, and then we need to sync to MP3 gs
     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(*gs, updated_accounts);
@@ -180,7 +182,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     contrState->acc.set_stHash(contrState->st.hash());
     gs->update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
-    // 9) (if any) Sync all foreign account states modified by the eEVM processor (i.e., external contract calls)
+    // 9) (If any) sync all foreign account states modified by the eEVM processor (i.e., internal contract calls - by internal transactions)
     for (auto& i : updated_accounts) {
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
@@ -195,7 +197,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
                              as.st});
     }
 
-    // 9) Update the nonce of the sender
+    // 10) Update the nonce of the sender
     auto newNonce = senderAccnt.acc.get_nonce() + 1;
     gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
 
@@ -207,7 +209,7 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
 {
     TRACE_ENCLAVE("Simple transfer");
 
-    // allow account creation for operator (if it does not exist)
+    // allow account creation for operator (if it does not exist)    
     auto accnState = (etx.origin == this->operAddr && !gs->exists(etx.origin)) ? gs->create(etx.origin, 0u, EMPTY_CODE_OBJ) : gs->get(etx.origin);
 
     // 1) Increment the nonce and the balance of the sender

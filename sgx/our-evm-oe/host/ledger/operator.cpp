@@ -1514,8 +1514,8 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
         eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
         TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
-
         m_accounts[acc.addr] = acc;
+
         delete txs_in_batch[0];
     }
     assert(nonceBefore + N == operAccnt.get_nonce());
@@ -1593,22 +1593,31 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     }
     txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
     codes_sizes_size = codes_sizes.size() * sizeof(size_t);    
-    assert(txs_persistant.size() == txs_persistant_size);
+    assert(txs_persistant.size() == txs_persistant_size);   
 
-    // 2) Execute TXs in Host one by one        
-    for (auto& tx : txs_in_batch) {
-        uint256_t output_u256;
-        ret = this->m_ledger.executeTX(tx, output_u256);
-        if (ret != RET_SUCCESS) {  // this updates global account state in the host
-            error_print("Error when executing TX in HOST.");
-            return ret;
-        }
-    }    
+    // // 2) Execute TXs in Host one by one        
+    // for (auto& tx : txs_in_batch) {
+    //     uint256_t output_u256;
+    //     ret = this->m_ledger.executeTX(tx, output_u256);
+    //     if (ret != RET_SUCCESS) {  // this updates global account state in the host
+    //         error_print("Error when executing TX in HOST.");
+    //         return ret;
+    //     }
+    // }    
 
-     // 3) Execute all TXs from batch in Enclave
-    oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state(enclave, &ret,
+     // 2) Execute all TXs from batch in Enclave
+    
+    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_and_new_accnts; // enclave will fill it and host needs to process it
+    std::unordered_map<eevm::Address, eevm::SimpleStorage> updated_and_new_strgs; // enclave will fill it and host needs to process it
+
+    oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state_singleExec(enclave, &ret,
                                                 (const uint8_t*)txs_persistant.data(), txs_persistant_size,
-                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size);                                                                
+                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
+                                                &updated_and_new_accnts, &updated_and_new_strgs);                                                                
+
+    for(auto& as : updated_and_new_accnts){        
+            this->m_ledger.m_gs.insert(std::make_pair(as.second.acc, as.second.st));                
+    }
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing batch of TXs in ENCLAVE.");
@@ -1680,7 +1689,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
 
     // 2) Execute TXs in Host one by one (and log all newly created accounts and their trails)
     std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
-    m_ledger.m_gs.startLookupLogging(&db_keys, &db_data_aux);
+    m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_data_aux);
 
     for (auto& tx : txs_in_batch) {
         uint256_t output_u256;
@@ -1690,7 +1699,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
             return ret;
         }
     }
-    unsigned cntLookups = m_ledger.m_gs.finishLookupLogging();
+    unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging();
     info_print(fmt::format("The number of auxiliary entries fetched from DB is {}.", cntLookups));
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
@@ -1760,9 +1769,9 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
 
     // 2) Execute TX in Host    (and log all newly created accounts and their trails)
     std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
-    m_ledger.m_gs.startLookupLogging(&db_keys, &db_data_aux);
+    m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_data_aux);
     ret = this->m_ledger.executeTX(tx, output_u256);
-    unsigned cntLookups = m_ledger.m_gs.finishLookupLogging();
+    unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging();
     info_print(fmt::format("The number of auxiliary entries fetched from DB is {}.", cntLookups));
     if (ret != RET_SUCCESS) {  // this updates global account state in the host
         error_print("Error when executing TX in HOST.");

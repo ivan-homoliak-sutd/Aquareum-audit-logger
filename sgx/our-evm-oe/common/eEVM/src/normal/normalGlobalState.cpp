@@ -16,6 +16,12 @@ using namespace dev;
 
 namespace eevm
 {
+
+    // IH: TODO - resolve these
+    const Block& NormalGlobalState::get_current_block() { return *m_currentBlock; }
+    
+    uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; }
+
     void NormalGlobalState::remove(const Address& addr)
     {
         m_accounts.remove(h256(addr));
@@ -47,14 +53,17 @@ namespace eevm
     {
         TRACE_ME("create account: %s ", address_to_hex_string(addr).c_str());
         insert(std::make_pair(SimpleAccount(addr, balance, code), SimpleStorage()));
-        assert(m_accounts.contains(h256(addr)));
-        return get(addr);
+        assert(m_accounts.contains(h256(addr)));        
+
+        SimpleAccountState newAS = get(addr);
+        if(NULL != m_as_updatedAndNewAddrs){            
+            m_as_updatedAndNewAddrs->insert(addr);
+        }  
+        return newAS;            
     }
 
     bool NormalGlobalState::exists(const Address& addr) { return m_accounts.contains(h256(addr)); }
-    size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }
-    const Block& NormalGlobalState::get_current_block() { return currentBlock; }
-    uint256_t NormalGlobalState::get_block_hash(uint8_t offset) { return 0u; /* IH: cool */ }
+    size_t NormalGlobalState::num_accounts() { return (dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()))->size(); }    
 
     SimpleAccountState NormalGlobalState::update(const Address& addr, const StateEntry& p)
     {
@@ -72,7 +81,13 @@ namespace eevm
         insert(p);
         TRACE_ME("x");
         assert(m_accounts.contains(h256(addr)));
-        return get(addr);
+        
+        // get new AC and log it (if AS logging enabled)
+        SimpleAccountState newAS = get(addr);
+        if(NULL != m_as_updatedAndNewAddrs){
+            m_as_updatedAndNewAddrs->insert(addr);                        
+        }        
+        return newAS;
     }
 
     void NormalGlobalState::insert(const StateEntry& _p)
@@ -83,13 +98,13 @@ namespace eevm
         std::vector<uint8_t> value;
         TRACE_ME("1");
         _p.first.asJsonBytes(value);
-        TRACE_ME("11");
-        m_accounts.insert(h256(addr), value); // IH: here is a BUG
         TRACE_ME("2");
+        m_accounts.insert(h256(addr), value); // IH: here is a BUG
+        TRACE_ME("3");
         assert(m_accounts.contains(h256(addr)));
 
         m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
-        TRACE_ME("3");
+        TRACE_ME("4");
     }
 
     /**

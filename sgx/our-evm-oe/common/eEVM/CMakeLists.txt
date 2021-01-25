@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 3.12)
 # Once in a while - especialy for linker not found errors, rerun pkg-config below and update flags!!
 
 # causes EVM to print debug trace messages
-set(DEBUG OFF)
-set(ASSERTS OFF)
+set(DEBUG ON)
+set(ASSERTS ON)
 
 ###################################################
 ## configure HUNTER first

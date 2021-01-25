@@ -22,7 +22,7 @@ namespace eevm
         using _Storage = _S;
 
         _Account acc;  // we cannot hold reference since MP# does not contain c++ object that can be modified by reference
-        _Storage& st;  // we can hols reference due to storage is c++ map object
+        _Storage& st;  // we can hold reference since to storage is c++ map object
 
         // template <
         //     typename T,
@@ -39,11 +39,12 @@ namespace eevm
         AccountState()
           : acc(), st(*(new _Storage())) // IH: should be resolved nicer
         {
-            assert(false);  // this should never happen, but template generation engine for unordered_map<.., AccountState<>> requires DEFINITION of defaut constructor
+            // this should never happen, but template generation engine for unordered_map<.., AccountState<>> requires DEFINITION of defaut constructor
+            throw std::logic_error("AccountState must not be constructed by default constructor.");
         }
 
         AccountState(const _Account&& a, _Storage& s)  // move ctor
-          : acc(a), st(s)
+          : acc(a), st(s) // TODO: is std::move OK here??
         {}
 
         AccountState(const _Account& a, _Storage& s)  // copy ctor
@@ -55,7 +56,7 @@ namespace eevm
         {}
 
         AccountState(const AccountState&& other)     // move ctor
-          : acc(std::move(other.acc)), st(other.st)  // storage is never moved since it is just ref
+          : acc(std::move(other.acc)), st(other.st)  // storage is never moved since it is just a ref
         {}
 
         AccountState& operator=(const AccountState& other) = delete;  // disable = operator
@@ -86,8 +87,9 @@ namespace eevm
         virtual AccountState<_A, _S> update(const Address& addr, const GenericStateEntry& p) = 0;
 
         virtual bool exists(const Address& addr) = 0;
-
+      
         virtual const Block& get_current_block() = 0;
+        
         virtual uint256_t get_block_hash(uint8_t offset) = 0;
     };
 

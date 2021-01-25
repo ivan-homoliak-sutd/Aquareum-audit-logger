@@ -7,9 +7,9 @@
 
 // switch ON or OFF tracing logs or info logs
 
-// #define TRACING_ENABLED
+#define TRACING_ENABLED
 
-// #define INFO_LOG_ENABLED
+#define INFO_LOG_ENABLED
 
 #define DEFAULT_MODE MODE::FullStateMaintained
 
