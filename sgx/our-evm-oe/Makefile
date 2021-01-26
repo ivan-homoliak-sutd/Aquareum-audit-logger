@@ -6,7 +6,7 @@
 OE_CRYPTO_LIB := mbedtls
 export OE_CRYPTO_LIB
 
-RepoDir := /home/ihomoliak/Documents/centralized-ledger-impl/
+RepoDir := $(shell git rev-parse --show-toplevel)
 SubPath := our-evm-oe
 
 # MAIN_CXX_FLAGS := -DNDEBUG
