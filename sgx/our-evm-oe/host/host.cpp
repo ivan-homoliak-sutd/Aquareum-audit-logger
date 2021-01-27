@@ -15,12 +15,14 @@
 
 #define FILE_SEALED_STORAGE_EVM "./data/sealed-storage-evm.seal"
 
+using namespace std;
+using namespace aql;
+
+Operator* op; // the global object of operator (can be used by OCALLs defined here)
+
 ////////////////////
 // OCALL definitions
 ////////////////////
-
-using namespace std;
-using namespace aql;
 
 int ocall_save_evm_state(const uint8_t* sealed_data, const size_t sealed_size) {
     ofstream file(FILE_SEALED_STORAGE_EVM, ios::out | ios::binary);
@@ -88,7 +90,6 @@ int main(int argc, const char* argv[]) {
     int ret = 1;
     int ret_e = 0;
     oe_enclave_t* enclave = NULL;
-    Operator* op;
     uint32_t flags = 0;
 
     if (RET_SUCCESS != parseArgs(argc, argv, &flags))

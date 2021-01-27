@@ -48,6 +48,29 @@ namespace aql
         uint timeout_PB = TIMEOUT_FLUSH_PB;  // timeout for flushing to PB,
     };
 
+    struct ASBuffer{
+        // buffer for account and storage objects created in E and passed to host
+        std::vector<uint8_t> accnts; // no vector modifiers should be used - we exploit only embedded memory allocation of vector
+        std::vector<uint8_t> strgs;
+
+        // the sizes of objects in the previous buffers
+        std::vector<size_t> accnts_sizes;
+        std::vector<size_t> strgs_sizes;
+        
+        ASBuffer()
+        : accnts(DEFAULT_AS_BUFFER_SIZE), strgs(DEFAULT_AS_BUFFER_SIZE), 
+        accnts_sizes(DEFAULT_AS_BUFFER_SIZES_SIZE), strgs_sizes(DEFAULT_AS_BUFFER_SIZES_SIZE)
+        {}
+        void resize(size_t accnts_size, size_t strgs_size){
+            accnts.resize(accnts_size);
+            strgs.resize(strgs_size);
+        }
+        void resizeSizes(size_t accnts_size, size_t strgs_size){
+            accnts_sizes.resize(accnts_size);
+            strgs_sizes.resize(strgs_size);
+        }
+    };
+
     class Operator {
     public:
         ECC m_ecc;                                                       // Aquareum signing wrapper
@@ -75,6 +98,7 @@ namespace aql
         uint t_pb;                  // time of the last flush to PB
         FlushingLimits flush_lims;  // the flushing limits
 
+        ASBuffer m_buf; // for direct writes of serialized AS objects to host memory from Enclave
 
         Operator(secp256k1_pubkey* _enc_PK);
         ~Operator()

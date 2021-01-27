@@ -127,8 +127,18 @@ enclave {
             [in, size=codes_sizes_size] const size_t * codes_sizes,
             size_t codes_sizes_size,    
 
-            [user_check]  void* updated_and_new_accnts, // Enclave will update this and return it to host                                
-            [user_check]  void* updated_and_new_strgs,  // Enclave will update this and return it to host                                            
+            /* The enclave fills in the following buffers  - for accounts and storages */
+            [user_check]  uint8_t* updated_and_new_accnts,             
+            [user_check] size_t * accnts_sizes, // the sizes of account state objects in the previous buffer
+            [user_check] size_t * accnts_sizes_size, // the size of the 'accnts_sizes' set by E
+            size_t max_size_accnts, // maximum size of the 'updated_and_new_accnts' buffer in host
+            size_t max_size_accnts_sizes,
+            
+            [user_check]  uint8_t* updated_and_new_strgs,  
+            [user_check] size_t * strgs_sizes, // the sizes of storage objects in the previous buffer
+            [user_check] size_t * strgs_sizes_size, // the size of the 'strgs_sizes' set by E
+            size_t max_size_strgs, // maximum size of the 'updated_and_new_strgs' buffer in host
+            size_t max_size_strgs_sizes,
         );
 
     };

@@ -71,7 +71,7 @@ namespace eevm
         AccountState<SimpleAccount, SimpleStorage> update(const Address& addr, const StateEntry& p) override;
 
         bool exists(const Address& addr) override;
-        size_t num_accounts();
+        size_t num_accounts();        
         
         void dump_full_db(std::vector<uint8_t>& mp3_keys,
                           std::vector<uint8_t>& mp3_values,

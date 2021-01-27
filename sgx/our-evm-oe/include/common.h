@@ -13,6 +13,9 @@
 
 #define DEFAULT_MODE MODE::FullStateMaintained
 
+#define DEFAULT_AS_BUFFER_SIZE 5000000
+#define DEFAULT_AS_BUFFER_SIZES_SIZE 20000
+
 // SGX stuff
 #define POLICY_UNIQUE 1
 #define POLICY_PRODUCT 2

@@ -129,6 +129,43 @@ namespace eevm
         // j["storage_hash"] = to_hex_string(storage_hash);
     }  // namespace eevm
 
+
+    /**
+     * @brief More effient serialization of account object.
+     * 
+     * @param toAppend target for serialization
+     */
+    void SimpleAccount::toBytes(uint8_t * toAppend) const
+    {        
+        // store code at the end since it may have variable size
+        to_big_endian(address, toAppend);        
+        to_big_endian(balance, toAppend + sizeof(uint256_t)); // +32B        
+        to_big_endian(storage_hash, toAppend + 2 * sizeof(uint256_t)); // +64B        
+        memcpy(toAppend + 3 * sizeof(uint256_t), &nonce, sizeof(Nonce));
+        memcpy(toAppend + 3 * sizeof(uint256_t) + sizeof(Nonce), code.data(), code.size());                
+    }
+
+
+    /////////////////////////////////
+    // static methods
+    /////////////////////////////////
+
+    SimpleAccount* SimpleAccount::fromBytes(const uint8_t* data, size_t size)
+    {                
+        uint256_t _address = intx::be::unsafe::load<uint256_t>(data);
+        uint256_t _balance = intx::be::unsafe::load<uint256_t>(data + sizeof(uint256_t));
+        uint256_t _storage_hash = intx::be::unsafe::load<uint256_t>(data + 2 * sizeof(uint256_t));
+        size_t _nonce;
+        memcpy(&_nonce, data + 3 * sizeof(uint256_t), sizeof(Nonce));
+        
+        size_t size_of_rest = 3 * sizeof(uint256_t) + sizeof(Nonce);
+        Code _code(size - size_of_rest);         
+     
+        auto* acc = new SimpleAccount(std::move(_address), std::move(_balance), std::move(_code), std::move(_nonce), std::move(_storage_hash));
+        return acc;
+    }
+
+
     void to_json(nlohmann::json& j, const SimpleAccount& a)
     {
         //IH: I do not like that that "https://github.com/nlohmann/json#serialization--deserialization" reconstructs the object

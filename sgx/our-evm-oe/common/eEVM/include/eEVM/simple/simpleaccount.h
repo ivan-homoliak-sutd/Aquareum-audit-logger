@@ -13,11 +13,11 @@ using namespace dev;
 
 namespace eevm
 {
-    /**
+  /**
    * Simple implementation of Account
    */
     class SimpleAccount : public Account {
-    private:
+    protected:
         Address address = {};
         uint256_t balance = 0u;
         Code code = {0u};
@@ -69,14 +69,15 @@ namespace eevm
             nonce(n)
         {}
 
-        // SimpleAccount(
-        //     const Address& a, const uint256_t& b, const Code& c, Nonce n, uint256_t storage_h)
-        //   : address(a),
-        //     balance(b),
-        //     code(c),
-        //     nonce(n),
-        //     storage_hash(storage_h)
-        // {}
+        // movable constructor utilized for deserialization
+        SimpleAccount(const Address&& a, const uint256_t&& b, const Code&& c, Nonce&& n, uint256_t&& storage_h)
+          : address(std::move(a)), // IH: is it necessary to explicitly write move?
+            balance(std::move(b)), 
+            code(std::move(c)),            
+            storage_hash(std::move(storage_h))
+        {
+          nonce = std::exchange(n, INT_MOVED);
+        }
 
         virtual Address get_address() const override;
         virtual bytesConstRef get_address_h256() const;
@@ -98,6 +99,8 @@ namespace eevm
         inline uint256_t& get_stHash() { return storage_hash; };
         inline void set_stHash(uint256_t h) { storage_hash = h; };
 
+        void toBytes(uint8_t * toAppend) const;
+
         bool operator==(const Account&) const;
         SimpleAccount& operator=(const SimpleAccount& a)
         {
@@ -109,7 +112,14 @@ namespace eevm
             return *this;
         }
 
+        static SimpleAccount* fromBytes(const uint8_t* data, size_t size);
+
         virtual std::vector<uint8_t>& asJsonBytes(std::vector<uint8_t>& output) const override;
+
+        inline size_t sizeB() const { 
+          constexpr size_t fixed_size = sizeof(Address) + 2 * sizeof(uint256_t) + sizeof(Nonce);                    
+          return code.size() + fixed_size;
+        };
 
         std::string toString() const;
         void obj_to_json(nlohmann::json& j) const;

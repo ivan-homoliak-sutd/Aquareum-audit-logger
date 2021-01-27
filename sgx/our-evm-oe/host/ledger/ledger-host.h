@@ -130,7 +130,6 @@ public:
 
     eevm::Address operAddr;
 
-
     inline AQLedger(ECC* e)
       : m_ecc(e), m_mode(MODE::FullStateMaintained){};
 

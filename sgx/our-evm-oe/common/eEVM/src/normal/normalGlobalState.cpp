@@ -323,7 +323,7 @@ namespace eevm
             SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
             // TRACE_ME("[%d] Imported storage is %s, with size %ld and hash = %s", i, s->toString().c_str(), storages_sizes[i], to_hex_string(s->hash()).c_str());
 
-            // 3a) insert storage entry entry
+            // 3a) insert storage entry
             auto computed_hash = s->hash();
             strgs.insert(std::make_pair(std::move(addr), std::move(*s)));
 

@@ -560,12 +560,14 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
  * This function prcesses TXs in batches and thus creates the blocks.
  * The state of EVM is fully stored and maintained in the enclave.
  * eEVM is executed only in enclave, not in host, therefore this function 
- * provides host with the list of updated and modified AS objects, which are stored to untrusted memory 'updated_and_new_accnts'
+ * provides host with the list of updated and modified AS objects, which are 
+ * stored to untrusted memory 'updated_and_new_accnts' and 'updated_and_new_strgs'
  */
 int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, size_t txs_size, 
                     const uint8_t* codes, size_t codes_sum_size, 
                     const size_t* codes_sizes, size_t codes_sizes_size,
-                    void * updated_and_new_accnts, void * updated_and_new_strgs)                                        
+                    uint8_t * updated_and_new_accnts, size_t * accnts_sizes, size_t * accnts_sizes_size, size_t max_size_accnts, size_t max_size_accnts_sizes, 
+                    uint8_t * updated_and_new_strgs, size_t * strgs_sizes, size_t * strgs_sizes_size, size_t max_size_strgs, size_t max_size_strgs_sizes)                                        
 {
     try {
         print_enc_sep(EncExec::START);
@@ -577,6 +579,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         std::unordered_set<eevm::Address> newAndUpdatedAddrs;
         m_gs->startASLogging(&newAndUpdatedAddrs); // start logging of account state into protected local set
 
+        TRACE_ENCLAVE("E 1");
         // 2) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
@@ -592,16 +595,39 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
             // m_gs->db()->purge(); // this is less efficient than doing it after batch
         }
         assert(codes_offset == codes_sum_size);   
+        TRACE_ENCLAVE("E 2");
         m_gs->finishASLogging();  
 
-        // 2) process logged addresses & update buffers in [user_check] host memory
-        auto* enc_updated_and_new_accnts = reinterpret_cast<std::unordered_map<eevm::Address, eevm::SimpleAccountState>*>(updated_and_new_accnts); // this type is used by host
-        auto* enc_updated_and_new_strgs  = reinterpret_cast<std::unordered_map<eevm::Address, eevm::SimpleStorage>*>(updated_and_new_strgs); // this type is used by host
+        // check size of sizes buffers and reallocate by OCALL if needed
+        if(newAndUpdatedAddrs.size() > max_size_accnts_sizes) 
+            throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");        
+
+        // 2) serialize logged addresses into [user_check] buffers of host memory
+        TRACE_ENCLAVE("E 3");                
+        size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;         
         for(auto& addr: newAndUpdatedAddrs){
             auto newAs = m_gs->get(addr);            
-            auto it_pair = enc_updated_and_new_strgs->insert( std::make_pair(addr, eevm::SimpleStorage(newAs.st) ));               
-            enc_updated_and_new_accnts->insert(std::make_pair(addr, eevm::SimpleAccountState(std::move(newAs.acc), (*it_pair.first).second) ));                                                 
+            
+            // a) copy storage object to the host buffer 
+            if(newAs.st.sizeB() + sum_size_strgs > max_size_strgs) 
+                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");            
+            size_t s = newAs.st.toBytes(updated_and_new_strgs + sum_size_strgs);
+            *(strgs_sizes + i) = s;
+            sum_size_strgs += s;            
+
+            // b) copy account object to the host buffer (it contains address)
+            s = newAs.acc.sizeB();
+            if(s + sum_size_accnts > max_size_accnts) 
+                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");
+            newAs.acc.toBytes(updated_and_new_accnts + sum_size_accnts); 
+            *(accnts_sizes + i) = s;
+            sum_size_accnts += s;            
+        
+            i++;
         }                
+        *strgs_sizes_size = i + 1;
+        *accnts_sizes_size = i + 1;
+        TRACE_ENCLAVE("E 4");
 
         // 2) Update the current root hash of the global MP3 state in E
         memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
@@ -617,7 +643,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         // 5) Increment ID of the current block
         m_evm_state.pub.idCurrent++;
 
-        // 6) Clean up unused entries in MP3 db - should be done manually from host
+        // 6) Clean up unused entries in MP3 db (it is fastest when doing after each block)
         m_gs->db()->purge(); 
         
         print_enc_sep(EncExec::END);

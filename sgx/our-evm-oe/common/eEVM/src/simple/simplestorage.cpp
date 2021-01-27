@@ -70,12 +70,28 @@ namespace eevm
                 toAppend.push_back(as_bytes[i]);
             }
 
-            // 1) store value
+            // 2) store value
             to_big_endian(e.second, as_bytes);
             for (size_t i = 0; i < 32; i++) {
                 toAppend.push_back(as_bytes[i]);
             }
             size_of_storage += 64;  // 64 accounts for uint256 key and value
+        }
+        return size_of_storage;
+    }
+
+    size_t SimpleStorage::toBytes(uint8_t * toAppend) const
+    {
+        size_t size_of_storage = 0;
+
+        for (auto& e : m_s) {
+            // 1) store key            
+            to_big_endian(e.first, toAppend + size_of_storage);                         
+            size_of_storage += 32;
+
+            // 2) store value
+            to_big_endian(e.second, toAppend + size_of_storage);            
+            size_of_storage += 32; 
         }
         return size_of_storage;
     }

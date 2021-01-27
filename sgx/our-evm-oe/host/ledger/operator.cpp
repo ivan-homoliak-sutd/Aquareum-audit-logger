@@ -1595,35 +1595,41 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     codes_sizes_size = codes_sizes.size() * sizeof(size_t);    
     assert(txs_persistant.size() == txs_persistant_size);   
 
-    // // 2) Execute TXs in Host one by one        
-    // for (auto& tx : txs_in_batch) {
-    //     uint256_t output_u256;
-    //     ret = this->m_ledger.executeTX(tx, output_u256);
-    //     if (ret != RET_SUCCESS) {  // this updates global account state in the host
-    //         error_print("Error when executing TX in HOST.");
-    //         return ret;
-    //     }
+    // ?) Collect account states that enclave does not have its cache and will need them in this batch
+    // for (auto& tx : txs_in_batch) {    
+    //     ... TODO
     // }    
 
-     // 2) Execute all TXs from batch in Enclave
-    
-    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_and_new_accnts; // enclave will fill it and host needs to process it
-    std::unordered_map<eevm::Address, eevm::SimpleStorage> updated_and_new_strgs; // enclave will fill it and host needs to process it
-
+    // 2) Execute all TXs from batch in Enclave        
+    TRACE_HOST("H 1");
+    size_t accnts_sizes_size, strgs_sizes_size;
     oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state_singleExec(enclave, &ret,
-                                                (const uint8_t*)txs_persistant.data(), txs_persistant_size,
-                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
-                                                &updated_and_new_accnts, &updated_and_new_strgs);                                                                
-
-    for(auto& as : updated_and_new_accnts){        
-            this->m_ledger.m_gs.insert(std::make_pair(as.second.acc, as.second.st));                
-    }
-
+                                    (const uint8_t*)txs_persistant.data(), txs_persistant_size,
+                                    (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
+                                    m_buf.accnts.data(), m_buf.accnts_sizes.data(), &accnts_sizes_size, m_buf.accnts.size(), m_buf.accnts_sizes.size(),
+                                    m_buf.strgs.data(),  m_buf.strgs_sizes.data(), &strgs_sizes_size, m_buf.strgs.size(), m_buf.strgs_sizes.size());                                                                    
+    TRACE_HOST("H 2");
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing batch of TXs in ENCLAVE.");
         return ret;
     }
+    assert(accnts_sizes_size == strgs_sizes_size);
 
+    // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3 
+    size_t ptr_accnts = 0, ptr_strgs = 0;
+    for (size_t i = 0; i < accnts_sizes_size; i++){                
+        SimpleAccount* ac = SimpleAccount::fromBytes(&(m_buf.accnts.data()[ptr_accnts]), m_buf.accnts_sizes[i]);
+        SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
+
+        eevm::NormalGlobalState::StateEntry e = std::make_pair(std::move(*ac), std::move(*st));
+        this->m_ledger.m_gs.insert(e);                
+
+        ptr_accnts += m_buf.accnts_sizes[i];
+        ptr_strgs += m_buf.strgs_sizes[i];
+        delete &e.first; 
+        delete &e.second; 
+    }
+        
     // 4) Fetch the updated global state of E
     PublicSealedData_T pub_evm_state;
     ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));

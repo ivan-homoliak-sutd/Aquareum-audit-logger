@@ -10,7 +10,9 @@ RepoDir := $(shell git rev-parse --show-toplevel)
 SubPath := our-evm-oe
 
 # MAIN_CXX_FLAGS := -DNDEBUG
-MAIN_CXX_FLAGS := -DASSERTS_ENABLES
+# MAIN_CXX_FLAGS := -g
+MAIN_CXX_FLAGS := -DNOTHING
+
 export MAIN_CXX_FLAGS
 
 all: build

@@ -30,8 +30,6 @@ ifeq ($(LVI_MITIGATION), ControlFlow)
         CRYPTO_LDFLAGS := $(shell pkg-config oeenclave-$(COMPILER) --variable=${OE_CRYPTO_LIB}libslvicfg)
 endif
 
-
-
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
 

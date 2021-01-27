@@ -4,9 +4,10 @@ cmake_minimum_required(VERSION 3.12)
 # !!! cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave
 # Once in a while - especialy for linker not found errors, rerun pkg-config below and update flags!!
 
-# causes EVM to print debug trace messages
-set(DEBUG ON)
+# causes EVM to print debug trace messages | use asserts | generate compiler debug symbols
 set(ASSERTS ON)
+set(TRACING_MSGS ON)
+set(DEBUG_SYMBOLS OFF)
 
 ###################################################
 ## configure HUNTER first
@@ -84,25 +85,33 @@ SET(CXX_HOST_COMPILE_FLAGS
   "-fstack-protector-strong -D_FORTIFY_SOURCE=2"  
 )
 
+if(DEBUG_SYMBOLS)
+  message(STATUS ">>> debug symbols generated <<<")  
+  message(STATUS " ")
+  SET(DEBUG_SYMBOLS_FLAG "-g")  
+else()
+  SET(DEBUG_SYMBOLS_FLAG " ")  
+endif()
+
 if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")
   # building eEVM for host
   message(STATUS ">>> BUILDING EEVM for HOST <<<")
-  SET(CMAKE_CXX_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
-  SET(CMAKE_CC_FLAGS "${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_CC_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
   SET(SUM_CXX_INCLUDES "")
 else()
   # building eEVM for enclave
   message(STATUS ">>> BUILDING EEVM for ENCLAVE <<<")
-  SET(CMAKE_CXX_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
-  SET(CMAKE_CC_FLAGS "${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_CC_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
   include_directories("${OE_SDK_CXX_INCLUDES}")
   SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
 endif()
 message(STATUS " ")
 
-if(DEBUG)
+if(TRACING_MSGS)
   add_compile_definitions(TRACING_ENABLED)
   message(STATUS ">>> TRACING LOGS ENABLED <<<")
   message(STATUS " ")
