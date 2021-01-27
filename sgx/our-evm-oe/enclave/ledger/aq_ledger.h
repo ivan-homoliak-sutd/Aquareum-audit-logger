@@ -30,7 +30,8 @@ public:
 
     int execute_tx_simplestate_internal(PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size);
 
-    int32_t execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes = NULL);
+    int32_t execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, 
+                                    MerkleTreeArray* txs_hashes = NULL, uint8_t * output_result = NULL);
 
 private:
     int _execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx);

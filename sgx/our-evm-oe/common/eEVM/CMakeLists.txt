@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 3.12)
 # Once in a while - especialy for linker not found errors, rerun pkg-config below and update flags!!
 
 # causes EVM to print debug trace messages | use asserts | generate compiler debug symbols
-set(ASSERTS OFF)
-set(TRACING_MSGS OFF)
+set(ASSERTS ON)
+set(TRACING_MSGS ON)
 set(DEBUG_SYMBOLS OFF)
 
 ###################################################

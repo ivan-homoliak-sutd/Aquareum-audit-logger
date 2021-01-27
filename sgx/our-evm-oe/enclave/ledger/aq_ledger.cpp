@@ -53,8 +53,8 @@ int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
     TRACE_ENCLAVE("output as str: %s", response.c_str());
 
 #ifdef TRACING_ENABLED
-    const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
-    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(result_bi).c_str());
+    const uint256_t output_result = eevm::from_big_endian(e.output.data(), 32);
+    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(output_result).c_str());
 #endif    
 
     // Sync all (foreign) account states modified by the eEVM processor.
@@ -73,7 +73,8 @@ int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
  * Considers the full MP3 global state transferred from the host part here
  * but also works for partial state, unless some DB entries are missing.
  */
-int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, MerkleTreeArray* txs_hashes)
+int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, 
+                MerkleTreeArray* txs_hashes, uint8_t * output_result)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -163,14 +164,16 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
+    if(NULL != output_result)
+        memcpy(output_result, e.output.data(), 32); // store output to the host memory                    
 
 #ifdef TRACING_ENABLED
     if (lh.logs.size())  // print LOG events emmitted in EVM
         TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
-    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
-    const uint256_t result_bi = eevm::from_big_endian(e.output.data(), 32);
+    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());        
+    const uint256_t output_result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as str: %s", response.c_str());
-    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(result_bi).c_str());
+    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(output_result_bi).c_str());
 #endif
 
     // 7) if deployment of contract was made, then update the code of the contract to contain the effect of execution

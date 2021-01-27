@@ -55,7 +55,7 @@ namespace aql
 
         // the sizes of objects in the previous buffers
         std::vector<size_t> accnts_sizes;
-        std::vector<size_t> strgs_sizes;
+        std::vector<size_t> strgs_sizes;        
         
         ASBuffer()
         : accnts(DEFAULT_AS_BUFFER_SIZE), strgs(DEFAULT_AS_BUFFER_SIZE), 
@@ -135,7 +135,7 @@ namespace aql
         int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
-        int _dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
+        int _dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch, std::vector<uint8_t> & output_results);
         
         int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
         int _dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);

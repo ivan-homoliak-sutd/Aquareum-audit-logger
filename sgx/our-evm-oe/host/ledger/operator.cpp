@@ -1450,13 +1450,10 @@ void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOf
 void Operator::_createMyAccntState(oe_enclave_t* enclave)
 {
     std::cout << "Creating account of Operator...\n";
-    auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);
+    auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);    
 
-    std::vector<eevm::PersistantTransaction*> txs_in_batch;
-    txs_in_batch.push_back(tx);
-
-    // u256 output_u256;
-    if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
+    u256 output_u256;
+    if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
         delete tx;
         exit(1);
     }
@@ -1529,14 +1526,18 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256)
 {
     int ret;
+    std::vector<eevm::PersistantTransaction*> txs_in_batch;
+    txs_in_batch.push_back(tx);
+    std::vector<uint8_t> output_results(32);
 
     switch (this->m_ledger.m_mode) {
         case MODE::FullStateTransfer:
             ret = _dispatchTX_FullState(enclave, tx, output_u256);
             break;
-        case MODE::FullStateMaintained:
-            std::cerr << "FullStateMaintained mode is not supported for single TX execution.\n";            
-            ret = 1;
+        case MODE::FullStateMaintained:            
+            // std::cerr << "\t FullStateMaintained mode is not supported for single TX execution!\n";                        
+            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);                        
+            output_u256 = eevm::from_big_endian(output_results.data(), 32);
             break;
         case MODE::PartialStateTransfer:
             ret = _dispatchTX_PartialState(enclave, tx, output_u256);
@@ -1555,12 +1556,14 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
 int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
 {
     int ret;
+    std::vector<uint8_t> output_results(32 * txs_in_batch.size());
+    
     switch (this->m_ledger.m_mode) {
         case MODE::PartialStateTransfer:
             ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch);
             break;
-        case MODE::FullStateMaintained:
-            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch);
+        case MODE::FullStateMaintained:            
+            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);
             break;            
         default:
             std::cerr << "Unsupported mode: " << static_cast<int>(this->m_ledger.m_mode) << "\n";
@@ -1572,7 +1575,7 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
 /**
  * Executes many TXs in Enclave, while it does not transfer the MP3 to enclave at all (i.e., enclave stores a full MP3 state)
  */
-int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch, std::vector<uint8_t> & output_results)
 {
     int ret;
 
@@ -1600,26 +1603,22 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     //     ... TODO
     // }    
 
-    // 2) Execute all TXs from batch in Enclave        
-    TRACE_HOST("H 1");
+    // 2) Execute all TXs from batch in Enclave         
     size_t accnts_sizes_size, strgs_sizes_size;
     oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state_singleExec(enclave, &ret,
-                                    (const uint8_t*)txs_persistant.data(), txs_persistant_size,
+                                    (const uint8_t*)txs_persistant.data(), txs_persistant_size, output_results.data(),
                                     (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
                                     m_buf.accnts.data(), m_buf.accnts_sizes.data(), &accnts_sizes_size, m_buf.accnts.size(), m_buf.accnts_sizes.size(),
-                                    m_buf.strgs.data(),  m_buf.strgs_sizes.data(), &strgs_sizes_size, m_buf.strgs.size(), m_buf.strgs_sizes.size());                                                                    
-    TRACE_HOST("H 2");
+                                    m_buf.strgs.data(),  m_buf.strgs_sizes.data(), &strgs_sizes_size, m_buf.strgs.size(), m_buf.strgs_sizes.size());                                                                        
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing batch of TXs in ENCLAVE.");
         return ret;
     }
     assert(accnts_sizes_size == strgs_sizes_size);
-
-    TRACE_HOST("H 2 - accnt size = %ld ", accnts_sizes_size);
+    
     // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3 
     size_t ptr_accnts = 0, ptr_strgs = 0;
     for (size_t i = 0; i < accnts_sizes_size; i++){                
-        TRACE_HOST("\t 3 ...");
         SimpleAccount* ac = SimpleAccount::fromBytes(&(m_buf.accnts.data()[ptr_accnts]), m_buf.accnts_sizes[i]);
         SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
 
@@ -1639,7 +1638,11 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     }
 
     // 5) Compare E's state to host's state
-    assert(eevm::from_big_endian(pub_evm_state.globStRoot) == this->m_ledger.m_gs.root());
+    if(eevm::from_big_endian(pub_evm_state.globStRoot) != this->m_ledger.m_gs.root()){
+        error_print("State in Host and Enclave does not match!");
+        return ERROR_MP3_DOES_NOT_MATCH;
+    }
+
     info_print(">> State in Host and Enclave match! <<");
     return RET_SUCCESS;
 }

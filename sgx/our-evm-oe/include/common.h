@@ -7,9 +7,9 @@
 
 // switch ON or OFF tracing logs or info logs
 
-// #define TRACING_ENABLED
+#define TRACING_ENABLED
 
-// #define INFO_LOG_ENABLED
+#define INFO_LOG_ENABLED
 
 #define DEFAULT_MODE MODE::FullStateMaintained
 
@@ -98,18 +98,19 @@ inline void print_enc_sep(EncExec e)
 
 
 // errors shared by host and enclaves
+#define RET_SUCCESS 0
 #define ERROR_SIGNATURE_VERIFY_FAIL 1
 #define ERROR_OUT_OF_MEMORY 2
 #define ERROR_GET_SEALKEY 3
 #define ERROR_SIGN_SEALED_DATA_FAIL 4
 #define ERROR_CIPHER_ERROR 5
 #define ERROR_UNSEALED_DATA_FAIL 6
+#define ERROR_MP3_DOES_NOT_MATCH 7
 
 #define ERR_ECC_SIGNING 51
 
 
 // EVM enclave return codes
-#define RET_SUCCESS 0
 #define ERR_RAND_FAILED 100
 #define ERR_FAIL_SEAL_STATE 101
 #define ERR_CANNOT_SAVE_EVM_STATE 102
