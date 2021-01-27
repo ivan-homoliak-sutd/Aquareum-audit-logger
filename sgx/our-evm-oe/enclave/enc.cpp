@@ -579,7 +579,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         std::unordered_set<eevm::Address> newAndUpdatedAddrs;
         m_gs->startASLogging(&newAndUpdatedAddrs); // start logging of account state into protected local set
 
-        TRACE_ENCLAVE("E 1");
+        TRACE_ENCLAVE("E %d", 1);
         // 2) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
@@ -595,7 +595,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
             // m_gs->db()->purge(); // this is less efficient than doing it after batch
         }
         assert(codes_offset == codes_sum_size);   
-        TRACE_ENCLAVE("E 2");
+        TRACE_ENCLAVE("E %d", 2);
         m_gs->finishASLogging();  
 
         // check size of sizes buffers and reallocate by OCALL if needed
@@ -603,7 +603,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
             throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");        
 
         // 2) serialize logged addresses into [user_check] buffers of host memory
-        TRACE_ENCLAVE("E 3");                
+        TRACE_ENCLAVE("E %d", 3);                
         size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;         
         for(auto& addr: newAndUpdatedAddrs){
             auto newAs = m_gs->get(addr);            
@@ -625,8 +625,8 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         
             i++;
         }                
-        *strgs_sizes_size = i + 1;
-        *accnts_sizes_size = i + 1;
+        *strgs_sizes_size = i;
+        *accnts_sizes_size = i;
         TRACE_ENCLAVE("E 4");
 
         // 2) Update the current root hash of the global MP3 state in E

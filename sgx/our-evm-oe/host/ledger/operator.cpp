@@ -1615,9 +1615,11 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     }
     assert(accnts_sizes_size == strgs_sizes_size);
 
+    TRACE_HOST("H 2 - accnt size = %ld ", accnts_sizes_size);
     // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3 
     size_t ptr_accnts = 0, ptr_strgs = 0;
     for (size_t i = 0; i < accnts_sizes_size; i++){                
+        TRACE_HOST("\t 3 ...");
         SimpleAccount* ac = SimpleAccount::fromBytes(&(m_buf.accnts.data()[ptr_accnts]), m_buf.accnts_sizes[i]);
         SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
 
@@ -1625,9 +1627,7 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
         this->m_ledger.m_gs.insert(e);                
 
         ptr_accnts += m_buf.accnts_sizes[i];
-        ptr_strgs += m_buf.strgs_sizes[i];
-        delete &e.first; 
-        delete &e.second; 
+        ptr_strgs += m_buf.strgs_sizes[i];        
     }
         
     // 4) Fetch the updated global state of E
