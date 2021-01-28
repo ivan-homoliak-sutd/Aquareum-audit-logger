@@ -121,7 +121,7 @@ namespace eevm
           return code.size() + fixed_size;
         };
 
-        std::string toString() const;
+        std::string toString(bool dumpFullCode = false) const;
         void obj_to_json(nlohmann::json& j) const;
 
         friend void to_json(nlohmann::json&, const SimpleAccount&);

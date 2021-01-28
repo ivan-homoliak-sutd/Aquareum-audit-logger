@@ -96,10 +96,10 @@ namespace eevm
         return output;
     }
 
-    std::string SimpleAccount::toString() const
+    std::string SimpleAccount::toString(bool dumpFullCode) const
     {
         std::string codeStr;
-        if (code.size() <= 10) {
+        if (code.size() <= 10 || dumpFullCode) {
             codeStr = to_hex_string(code);
         } else {
             codeStr = to_hex_string(code.begin(), code.begin() + 10) + fmt::format(" (size={})", code.size());
@@ -159,7 +159,8 @@ namespace eevm
         memcpy(&_nonce, data + 3 * sizeof(uint256_t), sizeof(Nonce));
         
         size_t size_of_rest = 3 * sizeof(uint256_t) + sizeof(Nonce);
-        Code _code(size - size_of_rest);         
+        Code _code(size - size_of_rest);  
+        memcpy(_code.data(), data + size_of_rest, size - size_of_rest);
      
         auto* acc = new SimpleAccount(std::move(_address), std::move(_balance), std::move(_code), std::move(_nonce), std::move(_storage_hash));
         return acc;
