@@ -4,6 +4,9 @@
 enclave {
     include "data_types.h"    
     from "openenclave/edl/sgx/cpu.edl" import *;
+    from "openenclave/edl/syscall.edl" import *;
+    from "platform.edl" import *;
+
 
     // define ECALLs
     trusted {
