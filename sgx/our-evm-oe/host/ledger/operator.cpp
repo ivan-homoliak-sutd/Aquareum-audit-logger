@@ -1515,6 +1515,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 
         delete txs_in_batch[0];
     }
+    _forcePurgeStaleMP3(enclave);
     assert(nonceBefore + N == operAccnt.get_nonce());
     return acc.addr;
 }
@@ -1623,7 +1624,9 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
         SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
 
         eevm::NormalGlobalState::StateEntry e = std::make_pair(std::move(*ac), std::move(*st));
+        TRACE_HOST("\t new account = %s", e.first.toString(true).c_str());
         this->m_ledger.m_gs.insert(e);                
+        
 
         ptr_accnts += m_buf.accnts_sizes[i];
         ptr_strgs += m_buf.strgs_sizes[i];        

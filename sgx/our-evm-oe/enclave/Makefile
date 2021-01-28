@@ -36,10 +36,10 @@ EEVM_BUILD := ../common/eEVM/build/CMakeFiles/eevm.dir
 CFLAGS=$(shell pkg-config oeenclave-$(C_COMPILER) --cflags)
 CXXFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --cflags)
 LDFLAGS=$(shell pkg-config oeenclave-$(CXX_COMPILER) --libs)
+OE_SDK_INCLUDE=$(shell pkg-config oeenclave-$(C_COMPILER) --variable=includedir)
 CXX_STANDARD := c++1z
 
-OE_SDK_INCLUDE := /opt/openenclave/include/
-OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}openenclave/3rdparty/libc/bits/
+OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}/openenclave/3rdparty/libc/bits/
 # -I${OE_SDK_3RDPARTY_INCLUDE_CC} \
 
 Enclave_Cpp_Files := \
@@ -76,7 +76,9 @@ all:
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
-	oeedger8r ../aqledger.edl --trusted --search-path $(OE_SDK_INCLUDE)
+	oeedger8r ../aqledger.edl --trusted \
+			--search-path $(OE_SDK_INCLUDE) \
+			--search-path $(OE_SDK_INCLUDE)/openenclave/edl/sgx
 	# oeedger8r ../aqledger.edl --trusted --trusted-dir ../common
 	$(CXX) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -DENCLAVE_BUILD -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC)  -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CFLAGS)  $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 aqledger_t.c -o aqledger_t.o

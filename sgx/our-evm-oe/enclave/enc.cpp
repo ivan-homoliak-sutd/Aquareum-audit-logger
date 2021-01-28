@@ -618,6 +618,8 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         for(auto& addr: newAndUpdatedAddrs){
             auto newAs = m_gs->get(addr);            
             
+            TRACE_ENCLAVE("\t [%ld] new account = %s", i, newAs.acc.toString(true).c_str());
+
             // a) copy storage object to the host buffer 
             if(newAs.st.sizeB() + sum_size_strgs > MAX_SIZE_strgs) 
                 throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");            

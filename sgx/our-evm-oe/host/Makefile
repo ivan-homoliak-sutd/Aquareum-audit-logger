@@ -24,7 +24,7 @@ CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 CXX_STANDARD := c++1z
 CXX_LIB_DIR := /usr/lib/x86_64-linux-gnu/
 
-OE_SDK_INCLUDE := /opt/openenclave/include/
+OE_SDK_INCLUDE := $(shell pkg-config oehost-$(C_COMPILER) --variable=includedir)
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
 # INTX_LIB_DIR := ./libs/intx/build/lib/intx/
@@ -60,7 +60,9 @@ Host_Include_Paths := \
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	rm -f ../data/*
-	oeedger8r ../aqledger.edl --untrusted --search-path $(OE_SDK_INCLUDE)
+	oeedger8r ../aqledger.edl --untrusted \
+			--search-path $(OE_SDK_INCLUDE) \
+			--search-path $(OE_SDK_INCLUDE)/openenclave/edl/sgx
 	$(CXX) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
 	$(CC) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
 	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)

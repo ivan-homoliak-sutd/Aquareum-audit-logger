@@ -79,7 +79,7 @@ namespace eevm
         // m_accounts.killNodeWrapper(dev::RLP(rlpStrOld));
 
         insert(p);
-        TRACE_ME("x");
+        // TRACE_ME("x");
         assert(m_accounts.contains(h256(addr)));
         
         // get new AC and log it (if AS logging enabled)
@@ -96,15 +96,15 @@ namespace eevm
         auto addr = _p.first.get_address();
 
         std::vector<uint8_t> value;
-        TRACE_ME("1");
+        // TRACE_ME("1");
         _p.first.asJsonBytes(value);
-        TRACE_ME("2");
+        // TRACE_ME("2");
         m_accounts.insert(h256(addr), value); // IH: here is a BUG
-        TRACE_ME("3");
+        // TRACE_ME("3");
         assert(m_accounts.contains(h256(addr)));
 
         m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
-        TRACE_ME("4");
+        // TRACE_ME("4");
     }
 
     /**
