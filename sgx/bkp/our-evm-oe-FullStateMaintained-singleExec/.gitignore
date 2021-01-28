@@ -1,0 +1,15 @@
+*_args.h
+*.pem
+*.signed
+host/aqledger_host
+enclave/aqledger_enc
+enclave/aqledger_enc
+sealed-storage-evm.seal
+data
+core
+vgcore.*
+GPATH
+GRTAGS
+GTAGS
+
+

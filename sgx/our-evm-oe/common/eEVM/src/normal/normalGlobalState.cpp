@@ -72,7 +72,7 @@ namespace eevm
         // the updated entry does not need to be removed !!!
 
         // a) standard removal of node in MP3
-        // m_accounts.remove(h256(addr));  // TODO: IH: replace "remove" for direct deleting from DB by forceKillNode. There is no need to update the MP3
+        // m_accounts.remove(h256(addr)); 
 
         // b) removal only from DB
         // std::string rlpStrOld = m_accounts.at(h256(addr));
@@ -95,16 +95,12 @@ namespace eevm
         // auto _p = const_cast<StateEntry&>(p);
         auto addr = _p.first.get_address();
 
-        std::vector<uint8_t> value;
-        // TRACE_ME("1");
-        _p.first.asJsonBytes(value);
-        // TRACE_ME("2");
-        m_accounts.insert(h256(addr), value); // IH: here is a BUG
-        // TRACE_ME("3");
+        std::vector<uint8_t> value;        
+        _p.first.asJsonBytes(value);        
+        m_accounts.insert(h256(addr), value); // IH: here is a BUG ?        
         assert(m_accounts.contains(h256(addr)));
 
-        m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured
-        // TRACE_ME("4");
+        m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured        
     }
 
     /**

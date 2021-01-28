@@ -1,0 +1,96 @@
+
+## General installation guide 
+    0) Build and install open enclave into /opt/openenclave
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/SGX1GettingStarted.md
+        -https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/Contributors/LinuxInstallInfo.md
+    
+    1) Build ./common/ stuff: 
+        a) secp256k1, 
+             $ sudo apt-get install build-essential
+             $ sudo apt-get install libltdl7 libtool       
+            ./autogen.sh            
+            ./configure --with-bignum=no  --enable-module-recovery
+            make
+            make check
+
+        b) eEVM (cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave)
+            $ mkdir build
+            $ mkdir build-host
+            $ cd build 
+            $ cmake ..
+            -- note that once in a while (especialy for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
+
+
+    2) Build host and enclave 
+        a) UBUNTU dependecies for AQ ledger:
+            sudo apt-get install libssl-dev
+            sudo apt-get install libboost-dev
+        
+        b) Set up 'RepoDir' variable in Makefile:
+            RepoDir := {INSTALL_DIR}/centralized-ledger-impl/
+
+        c) Build AQ ledger
+            . /opt/openenclave/share/openenclave/openenclaverc
+            $ make
+    
+    3) Run AQ ledger 
+        $ make run
+
+
+
+## Since there are collision in names of c++/C headers in OpenEnclave, I had to drop a few C++ headers from 
+    /opt/openenclave/include/openenclave/3rdparty/libcxx/, i.e., stdlib.h, stddef.h, and string.h
+    I just rename them by some prefix.
+
+
+## Before compilation, it is necessary to source rc file:
+    . /opt/openenclave/share/openenclave/openenclaverc
+
+
+## Set RepoDir variable in the main Makefile of Aquareum to the repository path.
+
+
+### Notes ### 
+
+# Before running host part of application, It is necessary to set LD environment variable:
+    export LD_LIBRARY_PATH=/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/common/secp256k1/.libs/:/home/ihomoliak/Documents/SUTD/centralized-ledger-impl/sgx/our-evm-oe/host/libs/intx/build/lib/intx/
+    NOTE: I added it into Makefile
+
+
+# Checking SGX support and FLC (Flexible Launch Control) - https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/SGXSupportLevel.md
+
+$ oesgx 
+CPU supports Software Guard Extensions:SGX1
+MaxEnclaveSize_64: 2^(36)
+EPC size on the platform: 98041856
+
+
+# After I updated a new kernel (in auto update) and rebooted a machine, i got the Errror: 
+    enclave_create with ENCLAVE_TYPE_SGX1 type failed (err=0x1) (oe_result_t=OE_PLATFORM_ERROR)
+    
+    1) This means that SGX kernel module needs to be reinstalled. Download and install the actual drivers from https://download.01.org/intel-sgx/linux-2.4/ubuntu18.04-server/
+
+    2) then rebuild OE depdendent project - eEVM in build directory.
+
+    3) rubuild the main project
+    
+    
+# It is important to ensure that FLC-less machine does not have intel_sgx.ko driver installed. The only driver installed for such a machine should be isgx.ko. I accidentally installed both, then unpluged one from the kernel (by rmmod), but the problem is that it was not sufficient. The correct uninstallation of intel_sgx.ko is as follows:
+
+    $ sudo systemctl stop aesmd.service
+    $ sudo /sbin/modprobe -r intel_sgx
+    ... delete all ocurrences of "intel_sgx.ko", especially the ones for the current kernel
+    $ sudo /sbin/depmod
+    $ sudo /bin/sed -i '/^intel_sgx$/d' /etc/modules
+
+## During compilation of apps:
+    /usr/bin/ld: cannot find -lsgx_tstdcxx
+
+    Solution: libsgx_tstdcxx.a is old and was replaced by libsgx_tcxx.a; update -l param to -lsgx_tcxx
+
+
+### TODO ###
+
+## Note that secp256k1 is configured without gmp support. Later, try to enable it to increase performance.
+
+

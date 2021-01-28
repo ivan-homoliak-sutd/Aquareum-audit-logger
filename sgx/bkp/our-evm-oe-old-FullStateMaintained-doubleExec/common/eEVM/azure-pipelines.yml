@@ -1,0 +1,30 @@
+# C/C++ with GCC
+# Build your C/C++ project with GCC using make.
+# Add steps that publish test results, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/c-cpp/gcc
+
+pool:
+  vmImage: 'Ubuntu 16.04'
+
+## NB: CI will currently fail as the gcc version 16.04 does not have full C++17 support
+## Need to investigate using a custom Docker image
+
+steps:
+- script: 'mkdir build'
+  displayName: Make build dir
+
+- script: 'cmake ..'
+  displayName: CMake
+  workingDirectory: build
+
+- script: make VERBOSE=1
+  displayName: Make
+  workingDirectory: build
+
+- script: 'ctest -VV'
+  displayName: Quick test
+  workingDirectory: build
+
+- script: 'time TEST_DIR=../3rdparty/test_cases/ ./eevm_tests -ns -d'
+  displayName: Full tests
+  workingDirectory: build

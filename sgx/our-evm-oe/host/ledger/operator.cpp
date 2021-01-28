@@ -1507,6 +1507,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
             delete txs_in_batch[0];
             throw std::logic_error("error when dispatching TX");
         }
+        m_ledger.m_gs.db()->purge(); // purge stale entries of database in the host 
 
         eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
         TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
