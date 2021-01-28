@@ -120,26 +120,27 @@ enclave {
 
         public int ecall_run_many_txs_maintained_full_mp3state_singleExec(
             [in, size=txs_size] const uint8_t* txs_in_batch,            
-            size_t txs_size,      
-            [user_check] uint8_t * output_results,   // output for each transaction (each entry has 32B) filled in by enclave
+            size_t txs_size, 
+            [user_check] uint8_t * output_results, // [out] output for each transaction (each entry has 32B) filled in by enclave
 
             [in, size=codes_sum_size] const uint8_t* codes_in_batch,
             size_t codes_sum_size,
             [in, size=codes_sizes_size] const size_t * codes_sizes,
             size_t codes_sizes_size,    
 
-            /* The enclave fills in the following buffers  - for accounts and storages */
-            [user_check]  uint8_t* updated_and_new_accnts,             
-            [user_check] size_t * accnts_sizes, // the sizes of account state objects in the previous buffer
-            [user_check] size_t * accnts_sizes_size, // the size of the 'accnts_sizes' set by E
-            size_t max_size_accnts, // maximum size of the 'updated_and_new_accnts' buffer in host
-            size_t max_size_accnts_sizes,
+            /* The enclave fills in the following buffers and pass them to the host - for accounts and storages */
             
-            [user_check]  uint8_t* updated_and_new_strgs,  
-            [user_check] size_t * strgs_sizes, // the sizes of storage objects in the previous buffer
-            [user_check] size_t * strgs_sizes_size, // the size of the 'strgs_sizes' set by E
-            size_t max_size_strgs, // maximum size of the 'updated_and_new_strgs' buffer in host
-            size_t max_size_strgs_sizes,
+            [user_check]  uint8_t* updated_and_new_accnts, // [out]             
+            [user_check] size_t * accnts_sizes, // [out] the sizes of account state objects in the previous buffer
+            [user_check] size_t * accnts_sizes_size, // [out] the size of the 'accnts_sizes' filled by E
+            size_t MAX_SIZE_accnts, // [in] maximum size of the 'updated_and_new_accnts' buffer in host
+            size_t MAX_SIZE_accnts_sizes, // [in] maximum size for 'accnts_sizes' sizes array
+            
+            [user_check]  uint8_t* updated_and_new_strgs, // [out]  
+            [user_check] size_t * strgs_sizes, // [out] the sizes of storage objects in the previous buffer
+            [user_check] size_t * strgs_sizes_size, // [out] the size of the 'strgs_sizes' set by E
+            size_t MAX_SIZE_strgs, // [in] maximum size of the 'updated_and_new_strgs' buffer in host
+            size_t MAX_SIZE_strgs_sizes, // [in] maximum size for 'strgs_sizes' sizes array
         );
 
     };

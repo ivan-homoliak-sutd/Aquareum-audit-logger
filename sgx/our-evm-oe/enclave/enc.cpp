@@ -566,14 +566,27 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
 int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, size_t txs_size, uint8_t * output_results,
                     const uint8_t* codes, size_t codes_sum_size, 
                     const size_t* codes_sizes, size_t codes_sizes_size,
-                    uint8_t * updated_and_new_accnts, size_t * accnts_sizes, size_t * accnts_sizes_size, size_t max_size_accnts, size_t max_size_accnts_sizes, 
-                    uint8_t * updated_and_new_strgs, size_t * strgs_sizes, size_t * strgs_sizes_size, size_t max_size_strgs, size_t max_size_strgs_sizes)                                        
+                    uint8_t * updated_and_new_accnts, size_t * accnts_sizes, size_t * accnts_sizes_size, size_t MAX_SIZE_accnts, size_t MAX_SIZE_accnts_sizes, 
+                    uint8_t * updated_and_new_strgs, size_t * strgs_sizes, size_t * strgs_sizes_size, size_t MAX_SIZE_strgs, size_t MAX_SIZE_strgs_sizes)                                        
 {
     try {
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("executing many TXs with full MP3 maintained in enclave.");
 
         int32_t ret;        
+        size_t numberOfTxs = txs_size / sizeof(PersistantTxProxy_T);
+
+        // 0) perform memory location check - must be STRICTLY outside of the enlclave (i.e., not overlapping with E)
+        if(!oe_is_outside_enclave(output_results, 32 * numberOfTxs)) // we know this size beforehand: 32B is the size per one output
+            return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
+        if(!oe_is_outside_enclave(updated_and_new_accnts, MAX_SIZE_accnts)) // check the max size allocated in host
+            return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
+        if(!oe_is_outside_enclave(accnts_sizes, MAX_SIZE_accnts_sizes)) // check the max size allocated in host
+            return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
+        if(!oe_is_outside_enclave(updated_and_new_strgs, MAX_SIZE_strgs)) // check the max size allocated in host
+            return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
+        if(!oe_is_outside_enclave(strgs_sizes, MAX_SIZE_strgs_sizes)) // check the max size allocated in host
+            return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
         
         // 1) Start logging of new/updated addresses - after execution of EVM, process the set of addresses and fetch final ASes
         std::unordered_set<eevm::Address> newAndUpdatedAddrs;
@@ -583,7 +596,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
         MerkleTreeArray rcps_hashes;
-        for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
+        for (size_t i = 0; i < numberOfTxs; i++) {
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
             ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes, &output_results[i * 32]);            
             if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
@@ -597,8 +610,8 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         m_gs->finishASLogging();  
 
         // check size of sizes buffers and reallocate by OCALL if needed
-        if(newAndUpdatedAddrs.size() > max_size_accnts_sizes) 
-            throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");        
+        if(newAndUpdatedAddrs.size() > MAX_SIZE_accnts_sizes) 
+            throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");        
 
         // 2) serialize logged addresses into [user_check] buffers of host memory                       
         size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;         
@@ -606,16 +619,16 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
             auto newAs = m_gs->get(addr);            
             
             // a) copy storage object to the host buffer 
-            if(newAs.st.sizeB() + sum_size_strgs > max_size_strgs) 
-                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");            
+            if(newAs.st.sizeB() + sum_size_strgs > MAX_SIZE_strgs) 
+                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");            
             size_t s = newAs.st.toBytes(updated_and_new_strgs + sum_size_strgs);
             *(strgs_sizes + i) = s;
             sum_size_strgs += s;            
 
             // b) copy account object to the host buffer (it contains address)
             s = newAs.acc.sizeB();
-            if(s + sum_size_accnts > max_size_accnts) 
-                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL, while returing a new data pointer (with orig data in location it points to).");
+            if(s + sum_size_accnts > MAX_SIZE_accnts) 
+                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");
             newAs.acc.toBytes(updated_and_new_accnts + sum_size_accnts); 
             *(accnts_sizes + i) = s;
             sum_size_accnts += s;            

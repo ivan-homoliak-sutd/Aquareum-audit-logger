@@ -122,7 +122,7 @@ struct OperAccount {
 class AQLedger {
 public:
 
-    NormalGlobalState m_gs;  // the full global state of the ECL ledger
+    NormalGlobalState m_gs;  // the full global state of the ledger
 
     ECC* m_ecc;  // ECC signing wrapper
 

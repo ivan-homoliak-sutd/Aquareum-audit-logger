@@ -22,14 +22,14 @@
     #define __SHORT_FILE__ ({constexpr c_charp sf__ {past_last_slash(__FILE__)}; sf__;})
 
     #define TRACE_ENCLAVE(fmt, ...)              \
-        printf(                                  \
+        fprintf(stdout,                                  \
             ">\t[TRACE_ENC]: %s(%d): " fmt "\n", \
             __SHORT_FILE__,                            \
             __LINE__,                            \
             ##__VA_ARGS__)
 
     #define TRACE_HOST(fmt, ...)                 \
-        printf(                                  \
+        fprintf(stdout,                                  \
             "\t[TRACE_HOST]: %s(%d): " fmt "\n", \
             __SHORT_FILE__,                            \
             __LINE__,                            \

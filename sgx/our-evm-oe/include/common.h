@@ -7,7 +7,7 @@
 
 // switch ON or OFF tracing logs or info logs
 
-#define TRACING_ENABLED
+// #define TRACING_ENABLED
 
 #define INFO_LOG_ENABLED
 
@@ -54,14 +54,14 @@ enum class EncExec { START,
 
 #ifdef TRACING_ENABLED
 #define TRACE_ENCLAVE(fmt, ...)              \
-    printf(                                  \
+    fprintf(stdout,                                  \
         ">\t[TRACE_ENC]: %s(%d): " fmt "\n", \
         __FILE__,                            \
         __LINE__,                            \
         ##__VA_ARGS__)
 
 #define TRACE_HOST(fmt, ...)                 \
-    printf(                                  \
+    fprintf(stdout,                                  \
         "\t[TRACE_HOST]: %s(%d): " fmt "\n", \
         __FILE__,                            \
         __LINE__,                            \
@@ -125,6 +125,8 @@ inline void print_enc_sep(EncExec e)
 #define ERR_WRONG_ARGS 111
 #define ERR_KEYPAIR_GEN_FAILED 112
 #define ERR_NOT_FSMAINTAINED_MODE 113
+#define ERR_POINTER_NOT_OUTSIDE_OF_ENC 114
+
 
 #define ERR_EVM_EXEC 201
 #define ERR_EVM_WRONG_RET_CODE 202

@@ -48,7 +48,7 @@ Operator::Operator(secp256k1_pubkey* _enc_PK)
         this->persistMyKeys();
     }
     memcpy(this->PK_E_PB.data, _enc_PK->data, ECC_PK_SIZE);
-    this->m_ledger.operAddr = eevm::from_big_endian(this->PK_O.data, PB_ADDR_SIZE);  // copy the address of O to the ECL object
+    this->m_ledger.operAddr = eevm::from_big_endian(this->PK_O.data, PB_ADDR_SIZE);  // copy the address of O to the ledger object
 
     info_print(string("PK_E_PB = ") + to_hex_str(_enc_PK->data, ECC_PK_SIZE));
     info_print(string("SK_O = ") + to_hex_str(this->SK_O, ECC_SK_SIZE));
