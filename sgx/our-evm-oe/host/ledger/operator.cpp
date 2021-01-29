@@ -1479,52 +1479,81 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
 Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
     std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
-    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
-    u256 output_u256;
+    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account    
+    Address lastAddr;
 
 #ifndef NDEBUG
     size_t nonceBefore = operAccnt.get_nonce();
 #endif
 
-    OperAccount acc;
-    for (unsigned i = 0; i < N; i++) {
+    const size_t batchSize = 1000;
+    std::vector<eevm::PersistantTransaction*> txs_in_batch;
+    std::vector<OperAccount> accnts;
+    accnts.resize(batchSize);
+    
+    for (unsigned i = 0; i < N ; i++) {
         std::cout << fmt::format("\n [{}] Creating next operator's testing account...\n", i);
 
-
         // 1) generate SK of account
-        if (1 != RAND_priv_bytes((unsigned char*)&acc.SK, ECC_SK_SIZE)) {
+        if (1 != RAND_priv_bytes((unsigned char*)&accnts[i % batchSize].SK, ECC_SK_SIZE)) {
             unsigned long err = ERR_get_error();
             throw std::logic_error(fmt::format("RAND_pseudo_bytes failed, err = {}", err));
         }
 
         // 2) compute PK of account
-        if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &acc.PK, (const uint8_t*)&acc.SK))
+        if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &accnts[i % batchSize].PK, (const uint8_t*)&accnts[i % batchSize].SK))
             throw std::logic_error("secp256k1_ec_pubkey_create failed");
 
-        acc.addr = eevm::from_big_endian(acc.PK.data, PB_ADDR_SIZE);
+       accnts[i % batchSize].addr = eevm::from_big_endian(accnts[i % batchSize].PK.data, PB_ADDR_SIZE);
 
-        // 3) dispatch TX into E
-        std::vector<eevm::PersistantTransaction*> txs_in_batch;
-        auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
+        // 3) store tx in batch
+        auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, accnts[i % batchSize].addr, initBalance, operAccnt.get_nonce());
         txs_in_batch.push_back(tx);
+         
+        // 4) flush the batch to the enclave
+        if (txs_in_batch.size() == batchSize) {
+            if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
+                std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
+                throw std::logic_error("error when dispatching TX");
+            }                        
+            for(auto& acc : accnts){
+                eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
+                TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());                
+                m_accounts[acc.addr] = acc;
+            }
+            operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
+            lastAddr = accnts[accnts.size() - 1].addr;
 
-        if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
-            delete txs_in_batch[0];
-            throw std::logic_error("error when dispatching TX");
+            // clean up allocated heap memory for persitant txs
+            std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
+            txs_in_batch.clear();
+            m_ledger.m_gs.db()->purge(); // purge stale entries of database in the host 
+        }       
+    }    
+     
+    // resolve remaining TXs in the last (non-full) batch    
+    if (txs_in_batch.size() != 0) {        
+        if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
+            exit(1); 
+        
+        lastAddr = accnts[txs_in_batch.size() - 1].addr;
+        for(size_t i = 0; i < txs_in_batch.size(); i++){
+                auto& acc = accnts[i];
+                eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
+                TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());                
+                m_accounts[acc.addr] = acc;
         }
-        m_ledger.m_gs.db()->purge(); // purge stale entries of database in the host 
-
-        eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
-        TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
-        m_accounts[acc.addr] = acc;
-
-        delete txs_in_batch[0];
+        
+        // clean up allocated heap memory for persitant txs
+        std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
+        txs_in_batch.clear();  
     }
-    _forcePurgeStaleMP3(enclave);
+    _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
+        
     assert(nonceBefore + N == operAccnt.get_nonce());
-    return acc.addr;
-}
+    return lastAddr;
+}    
 
 /**
  * The point of interaction with the Enclave. Store the first 32B of the result into 'output_u256'
