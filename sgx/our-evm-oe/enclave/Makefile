@@ -45,6 +45,7 @@ OE_SDK_3RDPARTY_INCLUDE_CC := ${OE_SDK_INCLUDE}/openenclave/3rdparty/libc/bits/
 Enclave_Cpp_Files := \
 	enc.cpp \
 	../common/signing-PB/signing.cpp \
+	../common/signing-PB/merkle-tree.cpp \
 	sealing/sealing.cpp \
 	sealing/keys.cpp \
 	ledger/aq_ledger.cpp

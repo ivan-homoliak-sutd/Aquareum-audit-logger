@@ -18,41 +18,35 @@ class HashesArray {
         :m_data(other.m_data), m_size(other.m_size)
     {}
 
-    inline void push_back(const dev::h256& a)
-    {
+    inline void push_back(const dev::h256& a){
         m_data.insert(m_data.end(), a.begin(), a.end());
         m_size++;
     }
 
-    inline void push_back(const eevm::KeccakHash& a)
-    {
+    inline void push_back(const eevm::KeccakHash& a){
         m_data.insert(m_data.end(), a.begin(), a.end());
         m_size++;
     }
 
-    inline void pop_back()
-    {
+    inline void pop_back(){
         if (m_data.size() >= HASH_SIZE) {  // not empty hash array
             m_data.resize(m_data.size() - HASH_SIZE);
             m_size--;
         }
     }
 
-    inline size_t size()
-    {
-        return m_size;
-    }
+    inline dev::h256 && at(int idx){ return dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer); }
 
-    inline uint8_t* data()
-    {
-        return m_data.data();
-    }
+    inline size_t size(){ return m_size; }
+
+    inline void resize(size_t newSize){ m_data.resize(newSize * HASH_SIZE); }
+
+    inline uint8_t* data(){ return m_data.data(); }
 
     inline std::string toHex(size_t idx){
           auto ret = dev::h256(m_data.data() + idx, dev::h256::ConstructFromPointer);
           return ret.hex();
     }
-
 };
 
 class MerkleTreeArray {

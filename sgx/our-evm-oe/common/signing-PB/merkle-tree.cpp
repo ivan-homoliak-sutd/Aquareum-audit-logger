@@ -1,5 +1,3 @@
-#pragma once
-
 #include "merkle-tree.h"
 #include "aleth-mp3/FixedHash.h"
 #include "eEVM/constants.h"

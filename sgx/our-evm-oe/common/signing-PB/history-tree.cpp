@@ -1,11 +1,12 @@
 #include "eEVM/util.h"
+#include "eEVM/tracing.h"
 #include "history-tree.h"
 
     void HistoryTree::add(const eevm::KeccakHash& a)
     {
         m_FH_cache.push_back(a);
         m_itemsCnt++;        
-
+        
         // reduce items of cache to get (+1) Incremental proof 
         int log = floor(log2(m_itemsCnt));
     	for (int i = 2; i <= pow(2,log); i *= 2) {
@@ -36,7 +37,15 @@
     void HistoryTree::printFHCache() {        
         std::cout << "FH cache: ";
         for(size_t i = 0; i < m_FH_cache.size(); i++){
-            std::cout <<  m_FH_cache.toHex(i * HASH_SIZE)  << ", ";
+            std::cout <<  m_FH_cache.toHex(i)  << ", ";
+        }        
+        std::cout << "\n";
+    }
+    
+    void HistoryTree::printElements(){
+        std::cout << "Elements are asd follows " << "[size: " << m_elements.size() << "]:" ;
+        for(size_t i = 0; i < m_elements.size(); i++){
+            std::cout <<  m_elements.toHex(i)  << ", ";
         }        
         std::cout << "\n";
     }
