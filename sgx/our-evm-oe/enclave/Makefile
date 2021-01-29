@@ -54,7 +54,7 @@ Enclave_Include_Paths := \
 	-I. \
 	-I../include \
 	-I../common/secp256k1/include \
-	-I../common/signing-PB \
+	-I../common/signing-PB/include \
 	-I../common/eEVM/3rdparty/intx/include \
 	-I../common/eEVM/3rdparty \
 	-I../common/eEVM/3rdparty/aleth-mp3 \
@@ -82,7 +82,7 @@ build:
 	# oeedger8r ../aqledger.edl --trusted --trusted-dir ../common
 	$(CXX) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CXXFLAGS) $(INCLUDES) $(Enclave_Include_Paths) -DENCLAVE_BUILD -DOE_API_VERSION=2 $(Enclave_Cpp_Files)
 	$(CC)  -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CFLAGS)  $(CINCLUDES) $(Enclave_Include_Paths) -DOE_API_VERSION=2 aqledger_t.c -o aqledger_t.o
-	$(CXX) -std=$(CXX_STANDARD) -o aqledger_enc aqledger_t.o enc.o signing.o sealing.o keys.o aq_ledger.o $(EEVM_OBJECTS) $(Enclave_Link_Flags) $(CRYPTO_LDFLAGS)
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_enc aqledger_t.o enc.o signing.o merkle-tree.o sealing.o keys.o aq_ledger.o $(EEVM_OBJECTS) $(Enclave_Link_Flags) $(CRYPTO_LDFLAGS)
 
 sign:
 	oesign sign -e aqledger_enc -c aqledger.conf -k private.pem

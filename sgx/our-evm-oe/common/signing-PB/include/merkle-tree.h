@@ -6,9 +6,17 @@
 
 #define EMPTY_HASH_OBJ dev::h256("0x0000000000000000000000000000000000000000000000000000000000000000", dev::h256::FromHex)
 
-typedef struct _HashesArray {
+class HashesArray {
+  
+  public:
     std::vector<uint8_t> m_data;  // raw data of hashes of the layer in the tree
     size_t m_size = 0;            // the number of items, where each item has 32B
+
+    HashesArray() = default;
+
+    HashesArray(HashesArray & other) // copy constructor
+        :m_data(other.m_data), m_size(other.m_size)
+    {}
 
     inline void push_back(const dev::h256& a)
     {
@@ -24,7 +32,7 @@ typedef struct _HashesArray {
 
     inline void pop_back()
     {
-        if (m_data.size() >= HASH_SIZE) {
+        if (m_data.size() >= HASH_SIZE) {  // not empty hash array
             m_data.resize(m_data.size() - HASH_SIZE);
             m_size--;
         }
@@ -39,41 +47,28 @@ typedef struct _HashesArray {
     {
         return m_data.data();
     }
-} HashesArray;
+
+    inline std::string toHex(size_t idx){
+          auto ret = dev::h256(m_data.data() + idx, dev::h256::ConstructFromPointer);
+          return ret.hex();
+    }
+
+};
 
 class MerkleTreeArray {
 public:
-    inline MerkleTreeArray(){};
-
-    inline void add(dev::h256& a)
-    {
+    
+    MerkleTreeArray() = default;
+    
+    inline void add(dev::h256& a){
         m_hashes.push_back(a);
     }
 
-    inline void add(eevm::KeccakHash& a)
-    {
+    inline void add(eevm::KeccakHash& a){
         m_hashes.push_back(a);
     }
 
-    // uses internal field m_hashes
-    inline dev::h256 computeRoot()
-    {
-        if (m_hashes.size() == 0) {
-            return EMPTY_HASH_OBJ;
-        }
-        while (m_hashes.size() > 1) {
-            if (m_hashes.size() & 1) {  // resolve odd arrays of items by appending empty hash object
-                m_hashes.push_back(EMPTY_HASH_OBJ);
-            }
-
-            // aggregate one layer
-            for (size_t i = 0; i < m_hashes.size() / 2; i++) {
-                eevm::keccak_256(m_hashes.data() + 2 * i * HASH_SIZE, 2 * HASH_SIZE, m_hashes.data() + i * HASH_SIZE);
-            }
-            m_hashes.m_size /= 2;  // the second half of the hashes in the layer are not needed anymore
-        }
-        return dev::h256(m_hashes.data(), dev::h256::ConstructFromPointer);
-    }
+    dev::h256 computeRoot();  // uses internal field m_hashes  
 
 private:
     HashesArray m_hashes;

@@ -18,10 +18,11 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(CXX_LIB_DIR) -lstdc++ -lc \
 
 Host_Cpp_Files := \
-	merkle-tree.cpp
+	main.cpp \
+	history-tree.cpp
 
 Host_Include_Paths := \
-	-I. \
+	-I./include \
 	-I../include \
 	-I../eEVM/3rdparty/intx/include \
 	-I../eEVM/3rdparty \
@@ -29,9 +30,12 @@ Host_Include_Paths := \
 	-I../eEVM/include 
 
 build:
-	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
+	$(CXX) -c -g -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
 	#@ echo "Compilers used: $(EEVM_OBJECTS)"
-	$(CXX) -std=$(CXX_STANDARD) -o test merkle-tree.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o test main.o history-tree.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+
+run:
+	./test
 
 clean:
 	$(RM) $(OBJS)

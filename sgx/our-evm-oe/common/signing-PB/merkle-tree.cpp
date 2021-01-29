@@ -1,47 +1,28 @@
-#include <iostream>
-#include <string>
+#pragma once
 
 #include "merkle-tree.h"
-#include "history-tree.h"
+#include "aleth-mp3/FixedHash.h"
+#include "eEVM/constants.h"
+#include "eEVM/util.h"
+        
+// its preserves m_hashes
+dev::h256 MerkleTreeArray::computeRoot()
+{
+    HashesArray tmpHashes(m_hashes);
+    
+    if (tmpHashes.size() == 0) {
+        return EMPTY_HASH_OBJ;
+    }
+    while (tmpHashes.size() > 1) {
+        if (tmpHashes.size() & 1) {  // resolve odd arrays of items by appending empty hash object
+            tmpHashes.push_back(EMPTY_HASH_OBJ);
+        }
 
-using namespace std;
-using namespace eevm;
-
-int main() {
-    // MerkleTreeArray objtst;
-    HistoryTree objtst;
-
-    string s = "test1";
-    KeccakHash rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    dev::h256 c = objtst.getRoot();
-	cout << c.hex() << endl;
-    objtst.print_tree();
-    cout << endl;
-
-    s = "test2";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << c.hex() << endl;
-    objtst.print_tree();
-    cout << endl;
-
-    s = "test3";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << c.hex() << endl;
-    objtst.print_tree();
-    cout << endl;
-
-    s = "btc";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << c.hex() << endl;
-    objtst.print_tree();
-    cout << endl;
-
-    return 0;
+        // aggregate one layer
+        for (size_t i = 0; i < tmpHashes.size() / 2; i++) {
+            eevm::keccak_256(tmpHashes.data() + 2 * i * HASH_SIZE, 2 * HASH_SIZE, tmpHashes.data() + i * HASH_SIZE);
+        }
+        tmpHashes.m_size /= 2;  // the second half of the hashes in the layer are not needed anymore
+    }
+    return dev::h256(tmpHashes.data(), dev::h256::ConstructFromPointer);
 }

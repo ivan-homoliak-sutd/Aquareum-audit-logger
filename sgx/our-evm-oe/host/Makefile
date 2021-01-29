@@ -40,14 +40,14 @@ Host_Cpp_Files := \
 	utils.cpp \
 	./ledger/operator.cpp \
 	./ledger/ledger-host.cpp \
-	../common/signing-PB/signing.cpp \
+	../common/signing-PB/signing.cpp \	
 	host.cpp
 
 Host_Include_Paths := \
 	-I. \
 	-I../include \
 	-I../common/secp256k1/include \
-	-I../common/signing-PB \
+	-I../common/signing-PB/include \
 	-I../common/eEVM/3rdparty \
 	-I../common/eEVM/3rdparty/intx/include \
 	-I../common/eEVM/include \
