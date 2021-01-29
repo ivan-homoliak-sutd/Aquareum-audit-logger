@@ -30,7 +30,7 @@ namespace eevm
 
         SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
 
-        std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts
+        std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts        
 
         void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const;
 
@@ -59,6 +59,13 @@ namespace eevm
         // state & storage getters
         inline SecureTrieDB<h256, OverlayDB>& getAccounts() { return m_accounts; }
         inline std::unordered_map<Address, SimpleStorage>& getStorages() { return m_storages; }
+        inline size_t getStoragesDataSize() {
+            size_t sumSize = 0;
+            for(auto& p: m_storages){
+                sumSize += p.second.sizeB();
+            }
+            return sumSize;
+        }
 
         inline db::MemoryDB* persDB() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
         inline OverlayDB* db() { return dynamic_cast<OverlayDB*>(m_accounts.db()); }

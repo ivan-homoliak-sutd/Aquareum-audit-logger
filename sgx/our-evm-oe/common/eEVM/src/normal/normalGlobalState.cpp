@@ -99,7 +99,7 @@ namespace eevm
         _p.first.asJsonBytes(value);        
         m_accounts.insert(h256(addr), value); // IH: here is a BUG ?        
         assert(m_accounts.contains(h256(addr)));
-
+        
         m_storages[addr] = _p.second;  // IH: TODO this could be omitted by some explicit bool flag indicating a change/not in storage has occured        
     }
 

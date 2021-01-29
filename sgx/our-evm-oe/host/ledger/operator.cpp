@@ -553,6 +553,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::cout << fmt::format("\t total     = {:n}\n", total);
             std::cout << fmt::format("\t stale     = {:n}\n ", enc_stats.size_main_stale);
 
+            std::cout << "\nEnclave memory used for storages DB:\n";
+            std::cout << fmt::format("\t #cnt = {:n}\n", m_ledger.m_gs.getStorages().size());
+            std::cout << fmt::format("\t data = {:n}\n \t keys  = {:n}\n ", m_ledger.m_gs.getStoragesDataSize(), sizeof(eevm::Address) * m_ledger.m_gs.getStorages().size());
+            // TODO: do not store storage for simple accounts!
+
         } else if (0 == strcmp(command, "purge")) {
             std::cout << fmt::format("Force purging of MP3 stale data in enclave.") << "\n";            
             std::cout << fmt::format("Force purging of MP3 stale data in host.") << "\n";
