@@ -44,16 +44,15 @@ protected:
     HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
     std::vector<FHPositionNode> m_FH_pos; // positions of FH nodes within the tree (it corresponds to the above array)    
     size_t m_itemsCnt;      // the number of items in the history tree    
-
-private:
     dev::h256 m_root; 
 };
+
 
 class HistoryTreeHost: public HistoryTreeEnc {
 public:
     
     HistoryTreeHost()
-        :m_layers(1) // the first layer will store elements
+        :HistoryTreeEnc(), m_layers(1)  // the first layer will store elements
     {}
 
     void add(const eevm::KeccakHash& a) override;    
@@ -64,7 +63,7 @@ public:
 
     inline size_t getHeight() {return m_layers.size(); }
 
-    inline const dev::h256 & getRoot() override {return m_layers[m_layers.size() - 1].at(0); }
+    inline const dev::h256 & getRoot() override { m_root = m_layers[m_layers.size() - 1].at(0); return m_root; }
 
     inline dev::h256 && getNode(int idxLayer, int idxElem) {
         assert(m_layers[idxLayer].size() >= (size_t) abs(idxElem)); // range check

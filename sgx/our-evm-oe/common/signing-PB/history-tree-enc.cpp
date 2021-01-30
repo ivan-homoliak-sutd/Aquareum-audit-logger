@@ -22,7 +22,7 @@
                     m_FH_pos.pop_back();
 
                     // b) reduce FH Nodes themeselves
-                    auto * dest = m_FH_cache.data() + (m_FH_cache.size() - 2) * HASH_SIZE;
+                    auto * dest = m_FH_cache.dataAt(m_FH_cache.size() - 2);
                     eevm::keccak_256(dest, 2 * HASH_SIZE, dest); // IH: src and dest location is the same - hope it is OK !!!
                     m_FH_cache.pop_back();  
                 }             
@@ -46,14 +46,14 @@
         HashesArray tmpFHCache;
         std::vector<FHPositionNode> tmpFHPos;
         for (size_t i = 0; i < m_FH_cache.size(); ++i) {                                    
-            tmpFHCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.data() + i * HASH_SIZE), dev::h256::ConstructFromPointer)));
+            tmpFHCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(i)), dev::h256::ConstructFromPointer)));
             tmpFHPos.push_back(m_FH_pos[i]);
         }
         
         // 2) compute the root hash from the tmp array of FHs and their positions - insert stubs according to positions        
         auto & lowestFHPosNode = tmpFHPos[tmpFHPos.size() - 1];
-        for(size_t iL = lowestFHPosNode.idxL; iL < treeHeight(); iL++) { // start at the position of the current layer taken from the last FHPositionNode (since it is the lowest one)                                    
-            
+        for(size_t iL = lowestFHPosNode.idxL; iL < treeHeight() - 1; iL++) { // start at the position of the current layer taken from the last FHPositionNode (since it is the lowest one)                                                            
+           
             // a) add stub FHNode and its position if there is an odd number of elements in the layer
             if(0 != (lowestFHPosNode.idxE + 1) % 2){ 
                 tmpFHCache.push_back(EMPTY_HASH_OBJ);
@@ -66,12 +66,12 @@
             tmpFHPos.pop_back();
 
             // c) reduce FHNodes themselves (into the above layer)
-            auto* dest = tmpFHCache.data() + (tmpFHCache.size() - 2)  * HASH_SIZE;
+            auto* dest = tmpFHCache.dataAt(tmpFHCache.size() - 2);
             eevm::keccak_256(dest, 2 * HASH_SIZE, dest); // IH: src and dest location is the same - hope it is OK !!!                                        
             tmpFHCache.pop_back();
 
             // d) update the lowest FH position node
-            lowestFHPosNode = tmpFHPos[tmpFHPos.size() - 1];
+            lowestFHPosNode = tmpFHPos[tmpFHPos.size() - 1];            
         }        
         m_root = dev::h256(tmpFHCache.data(), dev::h256::ConstructFromPointer);                
         return m_root;
@@ -82,14 +82,14 @@
     //     // 1) copy FH cache to local array
     //     HashesArray tmpFHCache;
     //     for (size_t i = 0; i < m_FH_cache.size(); ++i) {                                    
-    //         tmpFHCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.data() + i * HASH_SIZE), dev::h256::ConstructFromPointer)));
+    //         tmpFHCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(i)), dev::h256::ConstructFromPointer)));
     //     }
         
     //     // 2) compute the root hash from the local array
     //     uint8_t tmpH[HASH_SIZE];
     //     for (int i = m_FH_cache.size() - 2; i >= 0; i--) {            
-    //             eevm::keccak_256(tmpFHCache.data() + i * HASH_SIZE, 2 * HASH_SIZE, tmpH);
-    //             memcpy(tmpFHCache.data() + i * HASH_SIZE, tmpH, HASH_SIZE);            
+    //             eevm::keccak_256(tmpFHCache.data(i), 2 * HASH_SIZE, tmpH);
+    //             memcpy(tmpFHCache.dataAt(i), tmpH, HASH_SIZE);            
     //     }        
     //     m_root = dev::h256(tmpFHCache.data(), dev::h256::ConstructFromPointer);                
     // }

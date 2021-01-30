@@ -41,9 +41,11 @@ class HashesArray {
     inline void resize(size_t newSize){ m_data.resize(newSize * HASH_SIZE); m_size = newSize; }
 
     inline uint8_t* data(){ return m_data.data(); }
+    inline uint8_t* dataAt(size_t idx){ return m_data.data() + idx * HASH_SIZE; }
 
     inline const std::string toHex(size_t idx){
-          auto ret = dev::h256(m_data.data() + idx, dev::h256::ConstructFromPointer);
+          assert(idx < size());
+          auto ret = dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer);
           return ret.hex();
     }
 };

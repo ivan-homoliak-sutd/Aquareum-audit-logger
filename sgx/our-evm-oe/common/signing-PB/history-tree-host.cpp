@@ -49,7 +49,7 @@ void HistoryTreeHost::updateLayersAndRoot(){
  * @param idxL - index of the current layer to be reduced 
  */
 void HistoryTreeHost::fullReduceLayer(int idxL){    
-    assert(m_layers[idxL].size() % 2 == 0);
+    assert(m_layers[idxL].size() % 2 == 0); // we always have even number of elements in the current layer
 
     // resize the next layer if needed
     if(m_layers[idxL].size() / 2 > m_layers[idxL + 1].size()){
@@ -59,7 +59,7 @@ void HistoryTreeHost::fullReduceLayer(int idxL){
     // store the reduced content of the layer with 'idxL' to the layer with 'idxL' + 1 
     for (size_t i = 0; i < m_layers[idxL].size(); i += 2) {                        
             int idxInHigherLayer = i / 2; // twice slower than the lower layer            
-            eevm::keccak_256(m_layers[idxL].data() + i * HASH_SIZE, 2 * HASH_SIZE, m_layers[idxL + 1].data() + idxInHigherLayer);            
+            eevm::keccak_256(m_layers[idxL].dataAt(i), 2 * HASH_SIZE, m_layers[idxL + 1].dataAt(idxInHigherLayer));            
     }       
 }
 
@@ -71,7 +71,6 @@ void HistoryTreeHost::printElements(){
         }        
         std::cout << "\n";
 }
-
 
 void HistoryTreeHost::printLayers(){                
     
