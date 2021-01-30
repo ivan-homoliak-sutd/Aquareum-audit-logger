@@ -35,12 +35,12 @@
     }
 
     /**
-     * @brief It computes root hash from '_mFH_cache' and stores it into m_root. 
+     * @brief It computes root hash from 'm_FH_cache' and stores it into m_root. 
      * It also adds stubs for odd size layers to be compatible with incremental proofs higher than (+1) - utilized in HistoryTreeHost
      * 
      */
     const dev::h256 & HistoryTreeEnc::computeRootFromFHs(){        
-        if(0 == _mFH_cache.size()) return m_root; // root is initialized to  EMPTY_HASH_OBJ}
+        if(0 == m_FH_cache.size()) return m_root; // root is initialized to  EMPTY_HASH_OBJ}
         
         // 1) copy FH cache to local array
         HashesArray tmpFHCache;
@@ -50,16 +50,14 @@
             tmpFHPos.push_back(m_FH_pos[i]);
         }
         
-        // 2) compute the root hash from the tmp array of FHs and their positions - insert stubs according to positions
-        bool stubAdded = false;
+        // 2) compute the root hash from the tmp array of FHs and their positions - insert stubs according to positions        
         auto & lowestFHPosNode = tmpFHPos[tmpFHPos.size() - 1];
         for(size_t iL = lowestFHPosNode.idxL; iL < treeHeight(); iL++) { // start at the position of the current layer taken from the last FHPositionNode (since it is the lowest one)                                    
             
             // a) add stub FHNode and its position if there is an odd number of elements in the layer
-            if(0 != (lowestFHPosNode.idxE + 1) / 2){ 
+            if(0 != (lowestFHPosNode.idxE + 1) % 2){ 
                 tmpFHCache.push_back(EMPTY_HASH_OBJ);
-                tmpFHPos.push_back({lowestFHPosNode.idxL, lowestFHPosNode.idxE + 1});
-                stubAdded = true;
+                tmpFHPos.push_back({lowestFHPosNode.idxL, lowestFHPosNode.idxE + 1});                
             }
 
             // b) reduce  positions of FHNodes (into the above layer)
