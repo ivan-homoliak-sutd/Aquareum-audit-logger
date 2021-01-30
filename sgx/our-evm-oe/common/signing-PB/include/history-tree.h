@@ -13,7 +13,7 @@ typedef struct {
         ss << " [" << idxL << "," << idxE << "]";
         return ss.str();
     }
-} FHidxNode;
+} FHPositionNode;
 
 class HistoryTreeEnc {
 public:
@@ -24,23 +24,25 @@ public:
 
     void virtual add(const eevm::KeccakHash& a);    
 
-    void computeRootFromFH(); // store root into m_root
+    const dev::h256 & computeRootFromFHs(); // store root into m_root and returs its reference
+
+    inline virtual const dev::h256 & getRoot(){ return m_root; } // the root hash - note it is valid only after calling computeRootFromFH()        
+
+    inline const size_t treeHeight() const { return ceil(log2(m_itemsCnt)) + 1; } // includes also stub nodes (if any)
 
     void printFHCache(); 
 
     void printElements(); 
 
-    inline FHidxNode & getFHidxNodeRef(int idxElem) {
-        assert(m_FH_idxs.size() >= (size_t) abs(idxElem)); // range check
-        idxElem = (idxElem < 0 )? m_FH_idxs.size() + idxElem : idxElem; 
-        return m_FH_idxs[idxElem];
-    }
-
-    inline virtual const dev::h256 & getRoot(){ return m_root; } // the root hash - note it is valid only after calling computeRootFromFH()        
+    inline FHPositionNode & getFHPositionNodeRef(int idxElem) {
+        assert(m_FH_pos.size() >= (size_t) abs(idxElem)); // range check
+        idxElem = (idxElem < 0 )? m_FH_pos.size() + idxElem : idxElem; 
+        return m_FH_pos[idxElem];
+    }    
 
 protected:
     HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
-    std::vector<FHidxNode> m_FH_idxs; // indices of FH nodes within the tree (it corresponds to the above array)    
+    std::vector<FHPositionNode> m_FH_pos; // positions of FH nodes within the tree (it corresponds to the above array)    
     size_t m_itemsCnt;      // the number of items in the history tree    
 
 private:
