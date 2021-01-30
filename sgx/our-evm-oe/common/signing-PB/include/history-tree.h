@@ -3,11 +3,23 @@
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
 
+
+typedef struct {        
+    unsigned int idxL;      // index of layer of the node from the bottom (starting by 0)
+    long unsigned int idxE; // index of node within the layer (starting by 0)
+
+    inline std::string str(){
+        std::stringstream ss;
+        ss << " [" << idxL << "," << idxE << "]";
+        return ss.str();
+    }
+} FHidxNode;
+
 class HistoryTreeEnc {
 public:
             
     HistoryTreeEnc()
-        :m_root(EMPTY_HASH_OBJ)
+        : m_itemsCnt(0), m_root(EMPTY_HASH_OBJ)
     {}
 
     void virtual add(const eevm::KeccakHash& a);    
@@ -18,14 +30,21 @@ public:
 
     void printElements(); 
 
-    inline virtual const dev::h256 & getRoot(){ return m_root; }
+    inline FHidxNode & getFHidxNodeRef(int idxElem) {
+        assert(m_FH_idxs.size() >= (size_t) abs(idxElem)); // range check
+        idxElem = (idxElem < 0 )? m_FH_idxs.size() + idxElem : idxElem; 
+        return m_FH_idxs[idxElem];
+    }
+
+    inline virtual const dev::h256 & getRoot(){ return m_root; } // the root hash - note it is valid only after calling computeRootFromFH()        
 
 protected:
-    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)    
-    size_t m_itemsCnt;      // the number of items in the history tree
+    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
+    std::vector<FHidxNode> m_FH_idxs; // indices of FH nodes within the tree (it corresponds to the above array)    
+    size_t m_itemsCnt;      // the number of items in the history tree    
 
 private:
-    dev::h256 m_root; // the root hash - note it is valid only after calling computeRootFromFH()        
+    dev::h256 m_root; 
 };
 
 class HistoryTreeHost: public HistoryTreeEnc {

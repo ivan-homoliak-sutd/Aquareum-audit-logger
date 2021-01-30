@@ -43,8 +43,8 @@ void HistoryTreeHost::updateLayersAndRoot(){
 }
 
 /**
- * @brief It reduces the previous layer of history tree to the next (above) layer; including root hash (i.e., the highest layer)
- *  TODO: needs to be optimized by skipping of computation of was was already fixed before.
+ * @brief It reduces the full previous layer of history tree to the next (above) layer; including root hash (i.e., the highest layer)
+ *  TODO: needs to be optimized by skipping of computations that were already done before (using FH cache).
  * 
  * @param idxL - index of the current layer to be reduced 
  */

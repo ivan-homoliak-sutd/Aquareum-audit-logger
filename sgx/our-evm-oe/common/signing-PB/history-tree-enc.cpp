@@ -6,18 +6,28 @@
     {
         // 1) add new element
         m_FH_cache.push_back(a);
+        m_FH_idxs.push_back({0, m_itemsCnt}); // insert as the last node in the bottom layer
         m_itemsCnt++;        
         
         // 2) reduce items of cache to get (+1) Incremental proof in it
         int log = floor(log2(m_itemsCnt));
     	for (int i = 2; i <= pow(2,log); i *= 2) {
     		if (m_itemsCnt % i == 0) {                
-                if (m_FH_cache.size() > 1) {
+                if (m_FH_cache.size() > 1) {                    
+                    int idxLast = m_FH_idxs.size() - 1;
+                    assert(m_FH_idxs[idxLast].idxL == m_FH_idxs[idxLast - 1].idxL); // two last nodes in FH indices must be in the same layer
+
+                    // a) reduce indices of FH Nodes
+                    m_FH_idxs[idxLast - 1] = FHidxNode({m_FH_idxs[idxLast - 1].idxL + 1, m_FH_idxs[idxLast - 1].idxE / 2}); // increase the layer and decrease the FHNode idx (by /2)
+                    m_FH_idxs.pop_back();
+
+                    // b) reduce FH Nodes themeselves
                     eevm::keccak_256(m_FH_cache.data() + (m_FH_cache.size() - 2) * HASH_SIZE, 2 * HASH_SIZE, m_FH_cache.data() + (m_FH_cache.size() - 2) * HASH_SIZE);
                     m_FH_cache.pop_back();  
-                }              
+                }             
     		}
     	}        
+        assert(m_FH_idxs.size() == m_FH_cache.size());
 
         // 3) compute the root hash from FH cache (and store it to m_root)
         computeRootFromFH();        
@@ -31,19 +41,35 @@
             tmpCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.data() + i * HASH_SIZE), dev::h256::ConstructFromPointer)));
         }
         
-        // 2) compute the root hash from the local array
-        uint8_t tmpH[HASH_SIZE];
+        // 2) compute the root hash from the local array        
         for (int i = m_FH_cache.size() - 2; i >= 0; i--) {            
-                eevm::keccak_256(tmpCache.data() + i * HASH_SIZE, 2 * HASH_SIZE, tmpH);
-                memcpy(tmpCache.data() + i * HASH_SIZE, tmpH, HASH_SIZE);            
+                auto* dest = tmpCache.data() + i * HASH_SIZE;
+                eevm::keccak_256(dest, 2 * HASH_SIZE, dest); // IH: src and dest location is the same - hope it is OK !!!                
         }        
         m_root = dev::h256(tmpCache.data(), dev::h256::ConstructFromPointer);                
     }
+
+    // void HistoryTreeEnc::computeRootFromFHOld(){
+        
+    //     // 1) copy FH cache to local array
+    //     HashesArray tmpCache;
+    //     for (size_t i = 0; i < m_FH_cache.size(); ++i) {                                    
+    //         tmpCache.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.data() + i * HASH_SIZE), dev::h256::ConstructFromPointer)));
+    //     }
+        
+    //     // 2) compute the root hash from the local array
+    //     uint8_t tmpH[HASH_SIZE];
+    //     for (int i = m_FH_cache.size() - 2; i >= 0; i--) {            
+    //             eevm::keccak_256(tmpCache.data() + i * HASH_SIZE, 2 * HASH_SIZE, tmpH);
+    //             memcpy(tmpCache.data() + i * HASH_SIZE, tmpH, HASH_SIZE);            
+    //     }        
+    //     m_root = dev::h256(tmpCache.data(), dev::h256::ConstructFromPointer);                
+    // }
     
     void HistoryTreeEnc::printFHCache() {        
         std::cout << "FH cache: ";
         for(size_t i = 0; i < m_FH_cache.size(); i++){
-            std::cout <<  m_FH_cache.toHex(i).substr(0, 6)  << ", ";
+            std::cout <<  m_FH_cache.toHex(i).substr(0, 6) << m_FH_idxs[i].str() << ", ";
         }        
         std::cout << "\n";
     }
