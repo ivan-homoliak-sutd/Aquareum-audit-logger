@@ -14,9 +14,8 @@ class HashesArray {
 
     HashesArray() = default;
 
-    HashesArray(HashesArray & other) // copy constructor
-        :m_data(other.m_data), m_size(other.m_size)
-    {}
+    HashesArray(HashesArray const & other) = default; // copy constructor
+    //     :m_data(other.m_data), m_size(other.m_size) {}
 
     inline void push_back(const dev::h256& a){
         m_data.insert(m_data.end(), a.begin(), a.end());
@@ -37,13 +36,13 @@ class HashesArray {
 
     inline dev::h256 && at(int idx){ return std::move(dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer)); }
 
-    inline size_t size(){ return m_size; }
+    inline const size_t size(){ return m_size; }
 
-    inline void resize(size_t newSize){ m_data.resize(newSize * HASH_SIZE); }
+    inline void resize(size_t newSize){ m_data.resize(newSize * HASH_SIZE); m_size = newSize; }
 
     inline uint8_t* data(){ return m_data.data(); }
 
-    inline std::string toHex(size_t idx){
+    inline const std::string toHex(size_t idx){
           auto ret = dev::h256(m_data.data() + idx, dev::h256::ConstructFromPointer);
           return ret.hex();
     }

@@ -3,28 +3,32 @@
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
 
-class HistoryTree {
+class HistoryTreeEnc {
 public:
             
-    HistoryTree()
+    HistoryTreeEnc()
         :m_root(EMPTY_HASH_OBJ)
     {}
 
     void virtual add(const eevm::KeccakHash& a);    
 
+    void computeRootFromFH(); // store root into m_root
+
     void printFHCache(); 
 
     void printElements(); 
 
-    inline dev::h256 getRoot(){ return m_root; }
+    inline virtual const dev::h256 & getRoot(){ return m_root; }
 
 protected:
-    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
+    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)    
     size_t m_itemsCnt;      // the number of items in the history tree
-    dev::h256 m_root;
+
+private:
+    dev::h256 m_root; // the root hash - note it is valid only after calling computeRootFromFH()        
 };
 
-class HistoryTreeHost: public HistoryTree {
+class HistoryTreeHost: public HistoryTreeEnc {
 public:
     
     HistoryTreeHost()
@@ -33,19 +37,24 @@ public:
 
     void add(const eevm::KeccakHash& a) override;    
 
-    inline const HashesArray & getElements() { return m_layers[0]; }  // !!! including stub (if any) 
+    inline const HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
     
-    inline size_t getSizeElements() { return m_layers[0].size(); } // !!! including stub (if any)
+    inline size_t getSizeElements() { return m_layers[0].size(); } // excluding stub (if any)
 
     inline size_t getHeight() {return m_layers.size(); }
 
-    inline const dev::h256 & getRoot() {return m_layers[m_layers.size() - 1].at(0); }
+    inline const dev::h256 & getRoot() override {return m_layers[m_layers.size() - 1].at(0); }
 
     inline dev::h256 && getNode(int idxLayer, int idxElem) {
-        assert(m_layers[idxLayer].size() >= abs(idxElem)); // range check
+        assert(m_layers[idxLayer].size() >= (size_t) abs(idxElem)); // range check
         idxElem = (idxElem < 0 )? m_layers[idxLayer].size() + idxElem : idxElem; 
         return m_layers[idxLayer].at(idxElem);
     }
+
+    inline const std::vector<HashesArray> & getLayers() { return m_layers; }
+    
+    void printLayers();
+    void printElements();
 
 private:        
     void updateLayersAndRoot();

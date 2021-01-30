@@ -7,49 +7,35 @@
 using namespace std;
 using namespace eevm;
 
-int main() {
-    // MerkleTreeArray objtst;
-    HistoryTree objtst;
+int main() {    
+    
+    
+    int ITERS = 10;
 
-    string s = "test1";
-    KeccakHash rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    dev::h256 c = objtst.getRoot();
-	cout << "root: " << c.hex() << endl;
-    objtst.printFHCache();
-    cout << endl;
+    // test of Enclave reduction of FHs (without stubs)
+    // HistoryTreeEnc htree;
+    // for(int i = 0; i < ITERS; i++){
+    //     cout << "[i = " << i << "]\n";
+    //     string s = "test-" + i;
+    //     KeccakHash ehash = keccak_256(s);
+    //     htree.add(ehash);        
+    //     cout << "root: " << htree.getRoot().hex().substr(0, 6) << endl;
+    //     htree.printFHCache();
+    //     cout << "\n";
+    // }    
 
-    s = "test2";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << "root: " << c.hex() << endl;
-    objtst.printFHCache();
-    cout << endl;
-
-    s = "test3";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << "root: " << c.hex() << endl;
-    objtst.printFHCache();
-    cout << endl;
-
-    s = "btc";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << "root: " << c.hex() << endl;
-    objtst.printFHCache();
-    cout << endl;
-
-    s = "btc";
-    rcpHash = keccak_256(reinterpret_cast<const uint8_t*>(&s[0]), s.size());
-    objtst.add(rcpHash);
-    c = objtst.getRoot();
-	cout << "root: " << c.hex() << endl;
-    objtst.printFHCache();
-    cout << endl;
+    // test of Host history tree reduction of FHs (wit stubs)
+    HistoryTreeHost htree;
+    for(int i = 0; i < ITERS; i++){
+        string s = "test " + std::to_string(i);
+        cout << "[i = " << i << "]" << " adding: " << s << "\n";        
+        htree.add(keccak_256(s));        
+        cout << "root: " << htree.getRoot().hex().substr(0, 6) << endl;
+        // htree.printElements();
+        htree.printLayers();
+        // htree.printFHCache();
+        cout << "------------------\n";
+    }    
 
     return 0;
 }
