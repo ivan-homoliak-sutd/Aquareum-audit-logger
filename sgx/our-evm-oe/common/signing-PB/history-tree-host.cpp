@@ -2,19 +2,25 @@
 #include "eEVM/tracing.h"
 #include "history-tree.h"
 
+/**
+ * @brief Adds entry to m_layers and updates the full tree in m_layers as well. 
+ * Additionally, calls parent method to update FH cache (i.e., current incremental proof)
+ * 
+ * @param a 
+ */
 void HistoryTreeHost::add(const eevm::KeccakHash& a)
 {        
     // insert new element at the end of the 0th layer (i.e., data hashes layer)
     m_layers[0].push_back(a);    
-    m_itemsCnt++;        
-    updateLayersAndRoot();
+    _updateLayersAndRoot();
+    HistoryTreeEnc::add(a, false); // update FH cache and FH positions by utilizing data of parent history tree (for enclave); skip recomputation of E's m_root
 }
-
+    
 /**
- * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after its end. 
+ * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after processing. 
  * 
  */
-void HistoryTreeHost::updateLayersAndRoot(){ 
+void HistoryTreeHost::_updateLayersAndRoot(){ 
     
     int newLayerIdx = (getSizeElements() > 1)? ceil(log2(getSizeElements())): 1; // idx of the new layer from bottom of the tree (note that log2(1) needs special handling)    
     int maxLayerIdx = getHeight() - 1;
@@ -32,7 +38,7 @@ void HistoryTreeHost::updateLayersAndRoot(){
             stubAdded = true;
         }
         
-        fullReduceLayer(idxL);           
+        _reduceSingleLayer(idxL); // uses default reduction mode
 
         // b) remove the last stub element of the layer idxL (if any)
         if(stubAdded){
@@ -43,20 +49,40 @@ void HistoryTreeHost::updateLayersAndRoot(){
 }
 
 /**
- * @brief It reduces the full previous layer of history tree to the next (above) layer; including root hash (i.e., the highest layer)
- *  TODO: needs to be optimized by skipping of computations that were already done before (using FH cache).
+ * @brief In contrast to _fullReduceSingleLayer Optimized by skipping of computations that were already done before (using FH cache).
  * 
  * @param idxL - index of the current layer to be reduced 
  */
-void HistoryTreeHost::fullReduceLayer(int idxL){    
+void HistoryTreeHost::_partialReduceSingleLayer(int idxL){    
     assert(m_layers[idxL].size() % 2 == 0); // we always have even number of elements in the current layer
 
-    // resize the next layer if needed
+    // 1) resize the next layer if needed
     if(m_layers[idxL].size() / 2 > m_layers[idxL + 1].size()){
         m_layers[idxL + 1].resize(m_layers[idxL].size() / 2);
     }
 
-    // store the reduced content of the layer with 'idxL' to the layer with 'idxL' + 1 
+    // 2) store the PARTIAL reduced content of the layer with 'idxL' to the layer with 'idxL' + 1     
+    size_t cntNodesInCurL = m_layers[idxL].size() - 1; // -1 to not assume curently added element by add()
+    size_t idxInCur =  cntNodesInCurL - (cntNodesInCurL % 2); // skip the (fixed) elements of old tree (-m_item % 2 to get idx on the left side)                                        
+    size_t idxInNext = (idxInCur / 2)  - (idxInCur % 2) ;     // / 2 since it is 2 times slower | %2 to get on the left side
+    eevm::keccak_256(m_layers[idxL].dataAt(idxInCur), 2 * HASH_SIZE, m_layers[idxL + 1].dataAt(idxInNext));                       
+}
+
+/**
+ * @brief It reduces the full current layer of history tree into the next (above) layer; including root hash (i.e., the highest layer)
+ * It can be used for fast loading of data from disk by function loadTree()
+ * 
+ * @param idxL - index of the current layer to be reduced 
+ */
+void HistoryTreeHost::_fullReduceSingleLayer(int idxL){    
+    assert(m_layers[idxL].size() % 2 == 0); // we always have even number of elements in the current layer
+
+    // 1) resize the next layer if needed
+    if(m_layers[idxL].size() / 2 > m_layers[idxL + 1].size()){
+        m_layers[idxL + 1].resize(m_layers[idxL].size() / 2);
+    }
+
+    // store the reduced content of the current layer with 'idxL' to the layer with 'idxL' + 1 
     for (size_t i = 0; i < m_layers[idxL].size(); i += 2) {                        
             int idxInHigherLayer = i / 2; // twice slower than the lower layer            
             eevm::keccak_256(m_layers[idxL].dataAt(i), 2 * HASH_SIZE, m_layers[idxL + 1].dataAt(idxInHigherLayer));            
@@ -72,8 +98,7 @@ void HistoryTreeHost::printElements(){
         std::cout << "\n";
 }
 
-void HistoryTreeHost::printLayers(){                
-    
+void HistoryTreeHost::printLayers(){                    
     for(int idxL = getLayers().size() - 1; idxL >= 0; idxL--){
         auto& elems = const_cast<HashesArray &>(getLayers()[idxL]);
 

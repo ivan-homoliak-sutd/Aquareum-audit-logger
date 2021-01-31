@@ -8,11 +8,7 @@ typedef struct {
     unsigned int idxL;      // index of layer of the node from the bottom (starting by 0)
     long unsigned int idxE; // index of node within the layer (starting by 0)
 
-    inline std::string str(){
-        std::stringstream ss;
-        ss << " [" << idxL << "," << idxE << "]";
-        return ss.str();
-    }
+    inline std::string str(){ std::stringstream ss; ss << " [" << idxL << "," << idxE << "]"; return ss.str(); }    
 } FHPositionNode;
 
 class HistoryTreeEnc {
@@ -22,7 +18,7 @@ public:
         : m_itemsCnt(0), m_root(EMPTY_HASH_OBJ)
     {}
 
-    void virtual add(const eevm::KeccakHash& a);    
+    void add(const eevm::KeccakHash& a, bool recomputeRoot = true);    
 
     const dev::h256 & computeRootFromFHs(); // store root into m_root and returs its reference
 
@@ -34,14 +30,17 @@ public:
 
     void printElements(); 
 
-    inline FHPositionNode & getFHPositionNodeRef(int idxElem) {
-        assert(m_FH_pos.size() >= (size_t) abs(idxElem)); // range check
-        idxElem = (idxElem < 0 )? m_FH_pos.size() + idxElem : idxElem; 
-        return m_FH_pos[idxElem];
+    inline FHPositionNode & getFHPositionNodeRef(int idx) {
+        assert(m_FH_pos.size() >= (size_t) abs(idx)); // range check
+        idx = (idx < 0 )? m_FH_pos.size() + idx : idx; 
+        return m_FH_pos[idx];
     }    
 
-protected:
+private:
+    void _updateFHCache(); // reduces FHCache (called after adding a new item)
     HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
+
+protected:    
     std::vector<FHPositionNode> m_FH_pos; // positions of FH nodes within the tree (it corresponds to the above array)    
     size_t m_itemsCnt;      // the number of items in the history tree    
     dev::h256 m_root; 
@@ -51,13 +50,15 @@ protected:
 class HistoryTreeHost: public HistoryTreeEnc {
 public:
     
-    HistoryTreeHost()
-        :HistoryTreeEnc(), m_layers(1)  // the first layer will store elements
+    enum ReduceType { FULL, PARTIAL };
+
+    HistoryTreeHost(ReduceType r = PARTIAL)
+        :HistoryTreeEnc(), m_layers(1), m_reduceType(r)  // the first layer will store elements
     {}
 
-    void add(const eevm::KeccakHash& a) override;    
+    void add(const eevm::KeccakHash& a);    
 
-    inline const HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
+    inline HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
     
     inline size_t getSizeElements() { return m_layers[0].size(); } // excluding stub (if any)
 
@@ -72,14 +73,26 @@ public:
     }
 
     inline const std::vector<HashesArray> & getLayers() { return m_layers; }
+
+    inline void loadTree() { throw std::logic_error("Not implememented."); } // enable to load data from disk quickly (not by add(), which is slow)
     
     void printLayers();
     void printElements();
 
 private:        
-    void updateLayersAndRoot();
-
-    void fullReduceLayer(int idxL); // it passes the full layer and reduces it to the next one (not optimal)
+    void _updateLayersAndRoot();
+    
+    inline void _reduceSingleLayer(size_t idxL){ // wrapper for the following two          
+        if(FULL == m_reduceType){
+            _fullReduceSingleLayer(idxL);   
+        } else if(PARTIAL == m_reduceType){
+            _partialReduceSingleLayer(idxL);   
+        } else
+            throw std::logic_error("Unknown reduction mode of a layer.");        
+    }
+    void _fullReduceSingleLayer(int idxL); // it passes the full layer and reduces it to the next one (not optimal)
+    void _partialReduceSingleLayer(int idxL); // it passes reduces only changed parts of the layer (optimal)
         
     std::vector<HashesArray> m_layers; // cached layers of non-terminal nodes of the tree - they serve for fast provision of proofs to C
+    ReduceType m_reduceType;
 };
