@@ -90,12 +90,57 @@ void HistoryTreeHost::_fullReduceSingleLayer(int idxL){
 }
 
 int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos){
-    if(versionB != getSizeElements()){ throw std::logic_error("Only inc proofs against the current version are supported."); }
-
     
-    // m_FH_pos
+    // 0) initial checks & allocation
+    size_t curVer = getCurVersion();
+    if(versionB < 2 || versionA < 1) { throw std::logic_error("Only inc proofs against the current version are supported."); }    
+    if(versionB != curVer){ throw std::logic_error("Only inc proofs against the current version are supported."); }
+    if(versionA >= versionB){ throw std::logic_error("Version A must be always smaller than version B."); }
+    if(proofFHs.size() != 0 || proofFHPos.size() != 0) {throw std::logic_error("Non-zero size of output proofs.") ;}
+    proofFHs.resize(3 * getHeight()); // reserve the max possible elements
+    proofFHPos.resize(3 * getHeight()); // reserve the max possible elements
 
+    // 1) find the rightmost item in the current FH cache (and position) that "covers" the last element of versionA
+    size_t rangeStart, rangeEnd;
+    size_t revIdx =  proofFHPos.size() - 1;
+    size_t iOFH = m_FH_pos.size() - 1; // idx pointing to original FH
+    for (; iOFH >= 0; iOFH--){
+        
+        // a) copy FH cache and their positions to output lists - copy to the end of the container
+        proofFHs[revIdx] = dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer);
+        proofFHPos[revIdx] = m_FH_pos[iOFH];
+        revIdx--; 
+        assert(revIdx >= 0);
+        
+        // b) get range of idxes covered by a current FHNode
+        rangeStart = pow(2, m_FH_pos[iOFH].idxL) *  m_FH_pos[iOFH].idxE;
+        rangeEnd   = pow(2, m_FH_pos[iOFH].idxL) * (m_FH_pos[iOFH].idxE + 1) - 1;
+
+        if(versionA >= rangeStart)
+            break;
+    }
+    assert(rangeStart != rangeEnd);           
+
+    // 3) unveil found FH Node (to a pair of FH Nodes) until the last element of versionA is not the rightmost covered element by some unveiled FH Node
+    while(!_isRightMostItem(versionA, rangeEnd)){
+        // update revIdx here !!!
+        // proceed in trail towards versionA
+        TODO
+    }
+
+    // 4) copy the remaining FH Nodes from the original FH cache, which are on the left from the target node
+    for (size_t i = iOFH - 1; i >= 0; i--){
+        proofFHs[revIdx] = dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(i)), dev::h256::ConstructFromPointer);
+        proofFHPos[revIdx] = m_FH_pos[i];
+        revIdx--;
+        assert(revIdx >= 0);
+    }
+   
     return 0;
+}
+
+bool HistoryTreeHost::_isRightMostItem(const size_t versionA, size_t rangeEnd){
+    return versionA == rangeEnd;
 }
 
 void HistoryTreeHost::printElements(){        

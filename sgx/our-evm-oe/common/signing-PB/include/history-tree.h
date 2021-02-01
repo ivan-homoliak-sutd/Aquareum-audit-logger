@@ -3,7 +3,6 @@
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
 
-
 typedef struct {        
     unsigned int idxL;      // index of layer of the node from the bottom (starting by 0)
     long unsigned int idxE; // index of node within the layer (starting by 0)
@@ -23,6 +22,8 @@ public:
     inline virtual const dev::h256 & getRoot(){ return m_root; } // the root hash - note it is valid only after calling computeRootFromFH()        
 
     inline const size_t treeHeight() const { return ceil(log2(m_itemsCnt)) + 1; } // includes also stub nodes (if any)
+
+    inline size_t getCurVersion() { return m_itemsCnt; }
 
     void printFHCache(); 
 
@@ -82,6 +83,8 @@ public:
 
 private:        
     void _updateLayersAndRoot();
+
+    bool _isRightMostItem(const size_t versionA, size_t rangeEnd);
     
     inline void _reduceSingleLayer(size_t idxL){ // wrapper for the following two          
         if(FULL == m_reduceType){
