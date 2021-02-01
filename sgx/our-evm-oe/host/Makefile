@@ -42,6 +42,8 @@ Host_Cpp_Files := \
 	./ledger/ledger-host.cpp \
 	../common/signing-PB/signing.cpp \
 	../common/signing-PB/merkle-tree.cpp \
+	../common/signing-PB/history-tree-host.cpp \
+	../common/signing-PB/history-tree-enc.cpp \
 	host.cpp
 
 Host_Include_Paths := \
@@ -66,7 +68,7 @@ build:
 			--search-path $(OE_SDK_INCLUDE)/openenclave/edl/sgx
 	$(CXX) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
 	$(CC) -c -Wall -Werror $(MAIN_CXX_FLAGS) $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
-	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o merkle-tree.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o utils.o operator.o ledger-host.o signing.o  merkle-tree.o history-tree-host.o history-tree-enc.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
 	rm -f aqledger_host *.o aqledger_u.c aqledger_u.h aqledger_args.h

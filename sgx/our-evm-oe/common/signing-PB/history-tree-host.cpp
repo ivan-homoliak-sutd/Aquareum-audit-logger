@@ -89,6 +89,15 @@ void HistoryTreeHost::_fullReduceSingleLayer(int idxL){
     }       
 }
 
+int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos){
+    if(versionB != getSizeElements()){ throw std::logic_error("Only inc proofs against the current version are supported."); }
+
+    
+    // m_FH_pos
+
+    return 0;
+}
+
 void HistoryTreeHost::printElements(){        
         auto& elems = const_cast<HashesArray &>(getElements());
         std::cout << "Elements are as follows " << "[size: " << elems.size() << "]:" ;

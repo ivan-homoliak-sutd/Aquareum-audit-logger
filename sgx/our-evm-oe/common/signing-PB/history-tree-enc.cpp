@@ -74,7 +74,7 @@
                 tmpFHPos.push_back({lowestFHPosNode.idxL, lowestFHPosNode.idxE + 1});                
             }
 
-            // b) reduce  positions of FHNodes (into the above layer)
+            // b) reduce positions of FHNodes (into the above layer)
             int idxLast = tmpFHPos.size() - 1;
             tmpFHPos[idxLast - 1] = FHPositionNode({tmpFHPos[idxLast - 1].idxL + 1, tmpFHPos[idxLast - 1].idxE / 2}); // increase the layer and decrease the FHNode idx (by /2)
             tmpFHPos.pop_back();

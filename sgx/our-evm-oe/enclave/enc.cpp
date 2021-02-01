@@ -592,11 +592,13 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         std::unordered_set<eevm::Address> newAndUpdatedAddrs;
         m_gs->startASLogging(&newAndUpdatedAddrs); // start logging of account state into protected local set
         
+
         // 2) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
         MerkleTreeArray rcps_hashes;
         for (size_t i = 0; i < numberOfTxs; i++) {
+            
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
             ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes, &output_results[i * 32]);            
             if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
@@ -605,15 +607,17 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
             }            
             codes_offset += codes_sizes[i]; 
             // m_gs->db()->purge(); // this is less efficient than doing it after batch
+            
         }
         assert(codes_offset == codes_sum_size);           
-        m_gs->finishASLogging();  
+        m_gs->finishASLogging(); 
+
 
         // check size of sizes buffers and reallocate by OCALL if needed
         if(newAndUpdatedAddrs.size() > MAX_SIZE_accnts_sizes) 
             throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");        
 
-        // 2) serialize logged addresses into [user_check] buffers of host memory                       
+        // 3) serialize logged addresses into [user_check] buffers of host memory                       
         size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;         
         for(auto& addr: newAndUpdatedAddrs){
             auto newAs = m_gs->get(addr);            
@@ -640,21 +644,21 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         *strgs_sizes_size = i;
         *accnts_sizes_size = i;        
 
-        // 2) Update the current root hash of the global MP3 state in E
+        // 4) Update the current root hash of the global MP3 state in E
         memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
 
-        // 3) Compute and store the Merkle root of TXs
+        // 5) Compute and store the Merkle root of TXs
         dev::h256 txsRoot = txs_hashes.computeRoot();
         memcpy(&m_evm_state.pub.txsRoot, txsRoot.begin(), HASH_SIZE);
 
-        // 4) Compute and store Merkle root of receipts (i.e., return codes)
+        // 6) Compute and store Merkle root of receipts (i.e., return codes)
         dev::h256 rcpsRoot = rcps_hashes.computeRoot();
         memcpy(&m_evm_state.pub.rcpsRoot, rcpsRoot.begin(), HASH_SIZE);
 
-        // 5) Increment ID of the current block
+        // 7) Increment ID of the current block
         m_evm_state.pub.idCurrent++;
 
-        // 6) Clean up unused entries in MP3 db (it is fastest when doing after each block)
+        // 8) Clean up unused entries in MP3 db (it is fastest when doing after each block)
         m_gs->db()->purge(); 
         
         print_enc_sep(EncExec::END);

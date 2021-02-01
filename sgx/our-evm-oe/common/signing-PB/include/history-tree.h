@@ -18,9 +18,7 @@ public:
         : m_itemsCnt(0), m_root(EMPTY_HASH_OBJ)
     {}
 
-    void add(const eevm::KeccakHash& a, bool recomputeRoot = true);    
-
-    const dev::h256 & computeRootFromFHs(); // store root into m_root and returs its reference
+    void add(const eevm::KeccakHash& a, bool recomputeRoot = true);        
 
     inline virtual const dev::h256 & getRoot(){ return m_root; } // the root hash - note it is valid only after calling computeRootFromFH()        
 
@@ -37,10 +35,11 @@ public:
     }    
 
 private:
+    const dev::h256 & computeRootFromFHs(); // store root into m_root and returs its reference
     void _updateFHCache(); // reduces FHCache (called after adding a new item)
-    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
 
-protected:    
+protected: 
+    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
     std::vector<FHPositionNode> m_FH_pos; // positions of FH nodes within the tree (it corresponds to the above array)    
     size_t m_itemsCnt;      // the number of items in the history tree    
     dev::h256 m_root; 
@@ -56,7 +55,9 @@ public:
         :HistoryTreeEnc(), m_layers(1), m_reduceType(r)  // the first layer will store elements
     {}
 
-    void add(const eevm::KeccakHash& a);    
+    void add(const eevm::KeccakHash& a); 
+
+    int buildIncProof(const size_t versionA, const  size_t versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);   
 
     inline HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
     

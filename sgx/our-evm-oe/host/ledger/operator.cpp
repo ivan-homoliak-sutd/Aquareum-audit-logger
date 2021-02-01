@@ -443,6 +443,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     std::unordered_map<std::string, std::string> sh_vars;
     sh_vars["$?"] = "NULL";                                     // the last deployed contract
     sh_vars["$ERC"] = "./contracts/erc20/ERC20_combined.json";  // testing definition file
+    sh_vars["$ERC2"] = "./contracts/erc20/ERC20_combined_tweaked.json";  // testing definition file
     sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
     sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
     sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
@@ -837,7 +838,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 std::cerr << "The minimal size of the batch is 1.\n";
                 continue;
             }
-            if (m_contracts.end() == m_contracts.find(sh_to) || m_contracts[sh_to].name != "ERC20") {
+            if (m_contracts.end() == m_contracts.find(sh_to) || std::string::npos == m_contracts[sh_to].name.find("ERC20")) {
                 error_print(fmt::format("Selected contract {} is not an ERC20 contract.", address_to_hex_string(sh_to)));
                 continue;
             }
@@ -965,12 +966,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 }
             }
 
-            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
+            INFO_PRINT("\t Creating TX that calls contract function %s ...", ep.first.c_str());
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
             if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
+            
+            std::cout << "\t Output of VM is: " << to_hex_string(output_u256) << "\n";
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
