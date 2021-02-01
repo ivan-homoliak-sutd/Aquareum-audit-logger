@@ -966,14 +966,14 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 }
             }
 
-            INFO_PRINT("\t Creating TX that calls contract function %s ...", ep.first.c_str());
+            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
             if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
             
-            std::cout << "\t Output of VM is: " << to_hex_string(output_u256) << "\n";
+            std::cout << "\tOutput of VM is: " << to_hex_string(output_u256) << "\n";
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
