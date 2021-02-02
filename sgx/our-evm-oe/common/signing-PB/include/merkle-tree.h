@@ -41,6 +41,7 @@ class HashesArray {
     inline void resize(size_t newSize){ m_data.resize(newSize * HASH_SIZE); m_size = newSize; }
 
     inline uint8_t* data(){ return m_data.data(); }
+    
     inline uint8_t* dataAt(size_t idx){ return m_data.data() + idx * HASH_SIZE; }
 
     inline const std::string toHex(size_t idx){

@@ -3,12 +3,18 @@
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
 
-typedef struct {        
+class FHPositionNode {        
+public:
+    FHPositionNode(FHPositionNode && other) = default;
+    FHPositionNode(const FHPositionNode & other) = default;
+    FHPositionNode& operator=(const FHPositionNode& other) = default; // copy operator
+    FHPositionNode& operator=(FHPositionNode&& other) = default; // move operator
+    
     unsigned int idxL;      // index of layer of the node from the bottom (starting by 0)
-    long unsigned int idxE; // index of node within the layer (starting by 0)
+    unsigned long int idxE; // index of node within the layer (starting by 0)
 
     inline std::string str(){ std::stringstream ss; ss << " [" << idxL << "," << idxE << "]"; return ss.str(); }    
-} FHPositionNode;
+};
 
 class HistoryTreeEnc {
 public:
@@ -68,10 +74,16 @@ public:
 
     inline const dev::h256 & getRoot() override { m_root = m_layers[m_layers.size() - 1].at(0); return m_root; }
 
-    inline dev::h256 && getNode(int idxLayer, int idxElem) {
+    inline dev::h256 && getNode(int idxLayer, unsigned long int idxElem) {
         assert(m_layers[idxLayer].size() >= (size_t) abs(idxElem)); // range check
         idxElem = (idxElem < 0 )? m_layers[idxLayer].size() + idxElem : idxElem; 
         return m_layers[idxLayer].at(idxElem);
+    }
+
+    inline const uint8_t * getNodeData(int idxLayer, unsigned long int idxElem) {
+        assert(m_layers[idxLayer].size() >= (size_t) abs(idxElem)); // range check
+        idxElem = (idxElem < 0 )? m_layers[idxLayer].size() + idxElem : idxElem; 
+        return m_layers[idxLayer].dataAt(idxElem);
     }
 
     inline const std::vector<HashesArray> & getLayers() { return m_layers; }

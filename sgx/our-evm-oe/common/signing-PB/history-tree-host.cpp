@@ -1,6 +1,7 @@
 #include "eEVM/util.h"
 #include "eEVM/tracing.h"
 #include "history-tree.h"
+#include <list>
 
 /**
  * @brief Adds entry to m_layers and updates the full tree in m_layers as well. 
@@ -94,48 +95,67 @@ int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB
     // 0) initial checks & allocation
     size_t curVer = getCurVersion();
     if(versionB < 2 || versionA < 1) { throw std::logic_error("Only inc proofs against the current version are supported."); }    
-    if(versionB != curVer){ throw std::logic_error("Only inc proofs against the current version are supported."); }
+    if(versionB != curVer){ throw std::logic_error("Only incremental proofs against the current version are supported."); }
     if(versionA >= versionB){ throw std::logic_error("Version A must be always smaller than version B."); }
-    if(proofFHs.size() != 0 || proofFHPos.size() != 0) {throw std::logic_error("Non-zero size of output proofs.") ;}
-    proofFHs.resize(3 * getHeight()); // reserve the max possible elements
-    proofFHPos.resize(3 * getHeight()); // reserve the max possible elements
+    if(proofFHs.size() != 0 || proofFHPos.size() != 0) {throw std::logic_error("Non-zero size of output proofs.") ;}    
 
-    // 1) find the rightmost item in the current FH cache (and position) that "covers" the last element of versionA
-    size_t rangeStart, rangeEnd;
-    size_t revIdx =  proofFHPos.size() - 1;
-    size_t iOFH = m_FH_pos.size() - 1; // idx pointing to original FH
-    for (; iOFH >= 0; iOFH--){
-        
-        // a) copy FH cache and their positions to output lists - copy to the end of the container
-        proofFHs[revIdx] = dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer);
-        proofFHPos[revIdx] = m_FH_pos[iOFH];
-        revIdx--; 
-        assert(revIdx >= 0);
-        
-        // b) get range of idxes covered by a current FHNode
+    // 1) find the item in the current FH cache (and position) that "covers" the last element of versionA
+    size_t rangeStart, rangeEnd;    
+    size_t iOFH = 0; // idx pointing to original FH
+    for (; iOFH <  m_FH_pos.size(); iOFH++){                                 
+
+        // a) get range of idxes covered by a current FHNode - and break if it already covers version A
         rangeStart = pow(2, m_FH_pos[iOFH].idxL) *  m_FH_pos[iOFH].idxE;
         rangeEnd   = pow(2, m_FH_pos[iOFH].idxL) * (m_FH_pos[iOFH].idxE + 1) - 1;
-
-        if(versionA >= rangeStart)
+        if(versionA >= rangeStart){            
             break;
+        }   
+
+        // b) copy the (left-positioned fixed or the target unfixed)  skeleton node FHNode and its position to output proofs
+        proofFHs.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer)));
+        proofFHPos.push_back(m_FH_pos[iOFH]);                     
     }
     assert(rangeStart != rangeEnd);           
 
-    // 3) unveil found FH Node (to a pair of FH Nodes) until the last element of versionA is not the rightmost covered element by some unveiled FH Node
-    while(!_isRightMostItem(versionA, rangeEnd)){
-        // update revIdx here !!!
-        // proceed in trail towards versionA
-        TODO
+    // 3) descend the target node - unfold found FHNode (to a pair of FHNodes) until the last element of version A is not the rightmost covered element by some unfolded FHNode
+    auto targetNode = m_FH_pos[iOFH]; // target node to unfold    
+    std::list<FHPositionNode> tmpPos {targetNode}; // temporary list to keep unfolded positions in (it extends and shrinks)
+    auto targetIt = tmpPos.end(); // point before the element to insert into list
+    while(!_isRightMostItem(versionA, rangeEnd)){        
+        // proceed in trail towards versionA                
+
+        // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
+        unsigned long int rightIdxInLower =  2 * targetNode.idxE + 1; // idx of right node in the lower layer (2x faster indexing)
+        tmpPos.insert(targetIt, FHPositionNode({targetNode.idxL - 1, rightIdxInLower})); // inserts at target iterator
+        *std::prev(targetIt, 2) = std::move(FHPositionNode({ targetNode.idxL - 1, rightIdxInLower - 1}));  // replace the penultimate node - it is just unfolded        
+        
+        // b) get right ranges covered by a left and right currently unfolded nodes
+        auto rangeEndLeft    = pow(2, tmpPos.back().idxL) * (rightIdxInLower    ) - 1;
+        auto rangeEndRight   = pow(2, tmpPos.back().idxL) * (rightIdxInLower + 1) - 1;
+
+        if(versionA <= rangeEndLeft){             
+            rangeEnd = rangeEndLeft; 
+            targetNode = *std::prev(targetIt, 2); // descend to left
+            targetIt--;  // set the iterator just after the target node
+        } else{             
+            rangeEnd = rangeEndRight;
+            targetNode = *std::prev(targetIt); // descend to right            
+            // targetIt -= 0; // iterator is already set just after the target node
+        }
     }
 
-    // 4) copy the remaining FH Nodes from the original FH cache, which are on the left from the target node
-    for (size_t i = iOFH - 1; i >= 0; i--){
-        proofFHs[revIdx] = dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(i)), dev::h256::ConstructFromPointer);
-        proofFHPos[revIdx] = m_FH_pos[i];
-        revIdx--;
-        assert(revIdx >= 0);
+    // 4) tmpPos now contains unfolded elements that need to be copied to output proofs
+    for(auto&& t: tmpPos){
+        proofFHs.emplace(proofFHs.end(), const_cast<const uint8_t *>(getNodeData(t.idxL, t.idxE)), dev::h256::ConstructFromPointer); 
+        proofFHPos.push_back(t);                     
     }
-   
+
+    // 5) copy the remaining FH Nodes from the original FH cache, which are on the right from the target FHNode   
+    iOFH++; // adjust the idx to all next FHNodes that can be directly copied 
+    for (; iOFH < m_FH_pos.size(); iOFH++){
+        proofFHs.push_back(std::move(dev::h256(const_cast<const uint8_t *>(m_FH_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer)));
+        proofFHPos.push_back(m_FH_pos[iOFH]);        
+    }   
     return 0;
 }
 
