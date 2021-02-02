@@ -59,5 +59,24 @@ int main() {
     }    
     assert(root2 == root3);
 
+    cout << "========================================\n";    
+    
+    cout << "HistoryTreeHost (incremental proof generation)\n";
+
+    std::vector<dev::h256> proofFHs;
+    std::vector<FHPositionNode> proofFHPos;
+    size_t curVer = htree3.getCurVersion();
+    for (size_t i = 1; i < curVer; i++) {        
+        proofFHs.clear();
+        proofFHPos.clear();
+
+        htree3.buildIncProof(i, curVer, proofFHs, proofFHPos);
+        htree3.printIncProof(i, curVer, proofFHs, proofFHPos);     
+        cout << "------------------\n";           
+    }
+    
+
+
+
     return 0;
 }

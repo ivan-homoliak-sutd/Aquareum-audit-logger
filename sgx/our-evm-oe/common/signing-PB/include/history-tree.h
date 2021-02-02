@@ -64,7 +64,7 @@ public:
 
     void add(const eevm::KeccakHash& a); 
 
-    int buildIncProof(const size_t versionA, const  size_t versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);   
+    int buildIncProof(const unsigned long int versionA, const  unsigned long int versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);   
 
     inline HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
     
@@ -92,11 +92,11 @@ public:
     
     void printLayers();
     void printElements();
+    void printIncProof(const unsigned long int versionA, const  unsigned long int versionB, 
+                std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);
 
 private:        
     void _updateLayersAndRoot();
-
-    bool _isRightMostItem(const size_t versionA, size_t rangeEnd);
     
     inline void _reduceSingleLayer(size_t idxL){ // wrapper for the following two          
         if(FULL == m_reduceType){

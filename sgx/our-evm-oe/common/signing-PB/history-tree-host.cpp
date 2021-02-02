@@ -90,7 +90,9 @@ void HistoryTreeHost::_fullReduceSingleLayer(int idxL){
     }       
 }
 
-int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos){
+int HistoryTreeHost::buildIncProof(const unsigned long int versionA, const  unsigned long int versionB, 
+                                std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos)
+    {
     
     // 0) initial checks & allocation
     size_t curVer = getCurVersion();
@@ -121,7 +123,7 @@ int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB
     auto targetNode = m_FH_pos[iOFH]; // target node to unfold    
     std::list<FHPositionNode> tmpPos {targetNode}; // temporary list to keep unfolded positions in (it extends and shrinks)
     auto targetIt = tmpPos.end(); // point before the element to insert into list
-    while(!_isRightMostItem(versionA, rangeEnd)){        
+    while(true){        
         // proceed in trail towards versionA                
 
         // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
@@ -130,9 +132,10 @@ int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB
         *std::prev(targetIt, 2) = std::move(FHPositionNode({ targetNode.idxL - 1, rightIdxInLower - 1}));  // replace the penultimate node - it is just unfolded        
         
         // b) get right ranges covered by a left and right currently unfolded nodes
-        auto rangeEndLeft    = pow(2, tmpPos.back().idxL) * (rightIdxInLower    ) - 1;
-        auto rangeEndRight   = pow(2, tmpPos.back().idxL) * (rightIdxInLower + 1) - 1;
+        auto rangeEndLeft    = pow(2, std::prev(targetIt)->idxL) * (rightIdxInLower    );
+        auto rangeEndRight   = pow(2, std::prev(targetIt)->idxL) * (rightIdxInLower + 1);        
 
+        // c) if we are not at bottom yet, then continue in descent       
         if(versionA <= rangeEndLeft){             
             rangeEnd = rangeEndLeft; 
             targetNode = *std::prev(targetIt, 2); // descend to left
@@ -142,6 +145,10 @@ int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB
             targetNode = *std::prev(targetIt); // descend to right            
             // targetIt -= 0; // iterator is already set just after the target node
         }
+
+        // d) if we reached rightmost node that is complete in terms of powers
+        if(rangeEnd == versionA)
+            break;
     }
 
     // 4) tmpPos now contains unfolded elements that need to be copied to output proofs
@@ -157,10 +164,6 @@ int HistoryTreeHost::buildIncProof(const size_t versionA, const  size_t versionB
         proofFHPos.push_back(m_FH_pos[iOFH]);        
     }   
     return 0;
-}
-
-bool HistoryTreeHost::_isRightMostItem(const size_t versionA, size_t rangeEnd){
-    return versionA == rangeEnd;
 }
 
 void HistoryTreeHost::printElements(){        
@@ -183,3 +186,20 @@ void HistoryTreeHost::printLayers(){
         std::cout << "\n";
     }                
 }
+
+void HistoryTreeHost::printIncProof(const unsigned long int versionA, const  unsigned long int versionB, 
+                                std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos) {    
+    
+    std::cout << "Printing Inc proof (" << versionA << "," << versionB << "):\n";
+    std::cout << "Proof nodes: ";
+    for(size_t i = 0; i < proofFHs.size(); i++){
+        std::cout <<  proofFHs[i].hex().substr(0, 6) << ", ";
+    }
+    std::cout << "\n";
+
+    std::cout << "Proof positions: ";
+    for(size_t i = 0; i < proofFHPos.size(); i++){
+        std::cout <<  proofFHPos[i].str().substr(0, 6) << ", ";
+    }
+    std::cout << "\n";
+}                
