@@ -1,5 +1,5 @@
-#include "operator.h"
 #include "common.h"
+#include "operator.h"
 #include "secp256k1.h"
 #include "utils.h"
 
@@ -365,29 +365,31 @@ uint256_t get_random_uint256(size_t bytes = 32)
     return eevm::from_big_endian(raw.data(), raw.size());
 }
 
-int Operator::_purgeStaleMP3Enc(oe_enclave_t* enclave){
+int Operator::_purgeStaleMP3Enc(oe_enclave_t* enclave)
+{
     int ecall_ret, ret;
     ecall_ret = ecall_purge_stale_mp3_entries(enclave, &ret);
     if (ecall_ret != OE_OK || is_error(ret)) {
-        error_print("Failed to purge stale entries of enclave.");                
+        error_print("Failed to purge stale entries of enclave.");
         return 1;
     }
     return 0;
 }
 
-int Operator::_getMemoryStatsEnclave(oe_enclave_t* enclave, StorageStatsMP3DB & enc_stats){    
+int Operator::_getMemoryStatsEnclave(oe_enclave_t* enclave, StorageStatsMP3DB& enc_stats)
+{
     int ecall_ret, ret;
     ecall_ret = ecall_read_memory_stats(enclave, &ret, &enc_stats, sizeof(enc_stats));
     if (ecall_ret != OE_OK || is_error(ret)) {
-        error_print("Failed to get memory stats of enlave.");                
+        error_print("Failed to get memory stats of enlave.");
         return 1;
     }
     return 0;
 }
 
-int Operator::_autoPurgeMP3DB(oe_enclave_t* enclave, const std::string & encMaxMB, const std::string & hostMaxMB){
-    
-    uint encMaxStaleB, hostMaxStaleB; 
+int Operator::_autoPurgeMP3DB(oe_enclave_t* enclave, const std::string& encMaxMB, const std::string& hostMaxMB)
+{
+    uint encMaxStaleB, hostMaxStaleB;
     try {
         encMaxStaleB = std::stoul(encMaxMB) * 1000000;
         hostMaxStaleB = std::stoul(hostMaxMB) * 1000000;
@@ -395,27 +397,30 @@ int Operator::_autoPurgeMP3DB(oe_enclave_t* enclave, const std::string & encMaxM
         std::cerr << "The variable $MAX_STALE_[E|H] is not an integer.\n";
         return 1;
     }
-    
+
     // 1) clean up Enclave (if needed)
-    StorageStatsMP3DB enc_stats;    
-    if(0 != _getMemoryStatsEnclave(enclave, enc_stats)) { return 1; }
-    if(enc_stats.size_main_stale >= encMaxStaleB){
+    StorageStatsMP3DB enc_stats;
+    if (0 != _getMemoryStatsEnclave(enclave, enc_stats)) {
+        return 1;
+    }
+    if (enc_stats.size_main_stale >= encMaxStaleB) {
         std::cout << fmt::format("\t Auto-Purging MP3 stale data in enclave (stale size = {:n} | max allowed = {:n})", enc_stats.size_main_stale, encMaxStaleB) << "\n";
         _purgeStaleMP3Enc(enclave);
-    }                
+    }
 
     // 2) clean up Host (if needed)
     auto db_stats = m_ledger.m_gs.db()->m_stats;
-    if(db_stats.size_main_stale >= hostMaxStaleB){
+    if (db_stats.size_main_stale >= hostMaxStaleB) {
         std::cout << fmt::format("\t Auto-Purging MP3 stale data in host (stale size = {:n} | max allowed = {:n})", db_stats.size_main_stale, hostMaxStaleB) << "\n";
         m_ledger.m_gs.db()->purge();
     }
     return 0;
 }
 
-void Operator::_forcePurgeStaleMP3(oe_enclave_t* enclave){
-     m_ledger.m_gs.db()->purge(); // purge stale entries of database in the host 
-    _purgeStaleMP3Enc(enclave); // purge stale entries of database in the enclave
+void Operator::_forcePurgeStaleMP3(oe_enclave_t* enclave)
+{
+    m_ledger.m_gs.db()->purge();  // purge stale entries of database in the host
+    _purgeStaleMP3Enc(enclave);   // purge stale entries of database in the enclave
 }
 
 ////////////////////////////////////////
@@ -441,8 +446,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
     // shell variables
     std::unordered_map<std::string, std::string> sh_vars;
-    sh_vars["$?"] = "NULL";                                     // the last deployed contract
-    sh_vars["$ERC"] = "./contracts/erc20/ERC20_combined.json";  // testing definition file
+    sh_vars["$?"] = "NULL";                                              // the last deployed contract
+    sh_vars["$ERC"] = "./contracts/erc20/ERC20_combined.json";           // testing definition file
     sh_vars["$ERC2"] = "./contracts/erc20/ERC20_combined_tweaked.json";  // testing definition file
     sh_vars["$KID"] = "./contracts/CTX1/Kid_combined.json";
     sh_vars["$PAR"] = "./contracts/CTX1/Parent_combined.json";
@@ -470,7 +475,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         // TRACE_HOST("expanded_cmd = %s", command_s.c_str());
 
         // purge MP3 DBs (if their size reached max size (i.e., MAX_STALE_[E|H]))
-        _autoPurgeMP3DB(enclave, sh_vars["$MAX_STALE_E"], sh_vars["$MAX_STALE_H"]);        
+        _autoPurgeMP3DB(enclave, sh_vars["$MAX_STALE_E"], sh_vars["$MAX_STALE_H"]);
 
         // shell variables' handling
         if (0 == strncmp(command, "$", 1)) {
@@ -512,8 +517,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                       << "\t vars"         << "\t\t display defined variables \n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
                       << "\t mode [m]"     << "\t get the current mode to 'm': 0 for FullStateMaintained | 1 for FullGsTransfer | 2 for PartialGsTransfer \n"                      
-                      << "\t mem"          << "\t prints enclave/host memory stats about global state\n"     
-                      << "\t purge"        << "\t (force) purge stale entries of MP3 DB in enclave & host\n"     
+                      << "\t mem"          << "\t prints enclave/host memory stats about global state\n"
+                      << "\t purge"        << "\t (force) purge stale entries of MP3 DB in enclave & host\n"
 
                       << "\n"
                       << "Hardcoded testing:\n"
@@ -539,18 +544,20 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // dump memory stats about global state stored within the enclave (i.e., database size)
             std::cout << "Host memory used for MP3 DB:\n";
             auto db_stats = m_ledger.m_gs.db()->m_stats;
-            unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;            
+            unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;
             std::cout << fmt::format("\t main data = {:n}\n \t main keys = {:n}\n ", db_stats.size_main_data, db_stats.size_main_keys);
-            std::cout << fmt::format("\t aux data  = {:n}\n \t aux keys  = {:n}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);            
+            std::cout << fmt::format("\t aux data  = {:n}\n \t aux keys  = {:n}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);
             std::cout << fmt::format("\t total     = {:n}\n", total);
-            std::cout << fmt::format("\t stale     = {:n}\n ", db_stats.size_main_stale);            
-            
+            std::cout << fmt::format("\t stale     = {:n}\n ", db_stats.size_main_stale);
+
             std::cout << "\nEnclave memory used for MP3 DB:\n";
             StorageStatsMP3DB enc_stats;
-            if(0 != _getMemoryStatsEnclave(enclave, enc_stats)) { continue; }
+            if (0 != _getMemoryStatsEnclave(enclave, enc_stats)) {
+                continue;
+            }
             total = enc_stats.size_main_data + enc_stats.size_aux_data + enc_stats.size_main_keys + enc_stats.size_aux_keys;
             std::cout << fmt::format("\t main data = {:n}\n \t main keys = {:n}\n ", enc_stats.size_main_data, enc_stats.size_main_keys);
-            std::cout << fmt::format("\t aux data  = {:n}\n \t aux keys  = {:n}\n ", enc_stats.size_aux_data, enc_stats.size_aux_keys);            
+            std::cout << fmt::format("\t aux data  = {:n}\n \t aux keys  = {:n}\n ", enc_stats.size_aux_data, enc_stats.size_aux_keys);
             std::cout << fmt::format("\t total     = {:n}\n", total);
             std::cout << fmt::format("\t stale     = {:n}\n ", enc_stats.size_main_stale);
 
@@ -560,7 +567,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // TODO: do not store storage for simple accounts!
 
         } else if (0 == strcmp(command, "purge")) {
-            std::cout << fmt::format("Force purging of MP3 stale data in enclave.") << "\n";            
+            std::cout << fmt::format("Force purging of MP3 stale data in enclave.") << "\n";
             std::cout << fmt::format("Force purging of MP3 stale data in host.") << "\n";
             _forcePurgeStaleMP3(enclave);
 
@@ -619,8 +626,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
 
             if (1 == tokenCnt) {
-                std::string m = (this->m_ledger.m_mode == MODE::FullStateTransfer) ? "full GS transfer" : 
-                        ((this->m_ledger.m_mode == MODE::FullStateMaintained) ? "full GS is maintained in E" : "partial GS transfer");
+                std::string m = (this->m_ledger.m_mode == MODE::FullStateTransfer) ? "full GS transfer" :
+                                                                                     ((this->m_ledger.m_mode == MODE::FullStateMaintained) ? "full GS is maintained in E" : "partial GS transfer");
                 std::cout << "The current mode is: " << m << "\n";
                 continue;
             }
@@ -634,11 +641,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 std::cerr << "Invalid argument\n";
                 continue;
             }
-            if(this->m_ledger.m_mode == MODE::FullStateTransfer || this->m_ledger.m_mode == MODE::PartialStateTransfer){
-                if(MODE::FullStateMaintained == mode){
+            if (this->m_ledger.m_mode == MODE::FullStateTransfer || this->m_ledger.m_mode == MODE::PartialStateTransfer) {
+                if (MODE::FullStateMaintained == mode) {
                     error_print("Not allowed to change mode from '[Full|Partial]StateTransfer' to 'FullStateMaintained' (since E's full MP3 DB would be outdated).");
                     continue;
-                }                
+                }
             }
 
             if (mode != MODE::FullStateTransfer && mode != MODE::PartialStateTransfer && mode != MODE::FullStateMaintained) {
@@ -860,7 +867,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (!correct_token_cnt(command_s, {2, 3, 4}, &tokens, &tokenCnt))
                 continue;
 
-            uint accntsCount = 5;  // default number of accounts involved in transactions
+            uint accntsCount = 1000;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
             uint b = 10;           // default number of TXs in one batch that is processed by E
             uint repetitions;
@@ -972,7 +979,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
                 continue;
-            
+
             std::cout << "\tOutput of VM is: " << to_hex_string(output_u256) << "\n";
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
@@ -1252,19 +1259,19 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
         eevm::PersistantTransaction* tx = this->m_ledger.createCallFunctionTX(m_accounts[selectedAccnts[j]], erc, parsedParams, epbin, nonces[j], 0);
 
         // dispatch TXs from batch if the batch is full already
-        if (txs_in_batch.size() == batchSize) {            
+        if (txs_in_batch.size() == batchSize) {
             auto start_t = chrono::steady_clock::now();
             if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
                 exit(1);
             auto end_t = chrono::steady_clock::now();
             sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
-            
+
             // clean up allocated memory on heap for persistant TXs
-            std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });            
+            std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
             txs_in_batch.clear();
         }
         txs_in_batch.push_back(tx);
-        _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
+        _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
 
         // adjust balances in our cache
         balances[j] -= value;
@@ -1279,8 +1286,8 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
             exit(1);
         auto end_t = chrono::steady_clock::now();
         sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
-    }    
-    _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
+    }
+    _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
 
     double ret = numberOfTx / (sum_time / 1000.0);
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, ret);
@@ -1368,7 +1375,7 @@ double Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint num
             txs_in_batch.clear();
         }
         txs_in_batch.push_back(tx);
-        _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
+        _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
 
         // adjust balances and nonces in our cache
         balances[j] -= value;
@@ -1384,7 +1391,7 @@ double Operator::_testBulkNativePayments_batched(oe_enclave_t* enclave, uint num
         auto end_t = chrono::steady_clock::now();
         sum_time += chrono::duration_cast<chrono::milliseconds>(end_t - start_t).count();
     }
-    _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
+    _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
 
     double ret = numberOfTx / (sum_time / 1000.0);
     std::cout << fmt::format("\nElapsed time = {}ms => {} TXs/sec.\n", sum_time, ret);
@@ -1458,7 +1465,7 @@ void Operator::_testBulkNativePayments_1by1(oe_enclave_t* enclave, uint numberOf
 void Operator::_createMyAccntState(oe_enclave_t* enclave)
 {
     std::cout << "Creating account of Operator...\n";
-    auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);    
+    auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, this->getOperAddr(), 100, 0);
 
     u256 output_u256;
     if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
@@ -1482,7 +1489,7 @@ void Operator::_createMyAccntState(oe_enclave_t* enclave)
 Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_enclave_t* enclave)
 {
     std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
-    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account    
+    auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
     Address lastAddr;
 
 #ifndef NDEBUG
@@ -1493,8 +1500,8 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
     std::vector<eevm::PersistantTransaction*> txs_in_batch;
     std::vector<OperAccount> accnts;
     accnts.resize(batchSize);
-    
-    for (unsigned i = 0; i < N ; i++) {
+
+    for (unsigned i = 0; i < N; i++) {
         std::cout << fmt::format("\n [{}] Creating next operator's testing account...\n", i);
 
         // 1) generate SK of account
@@ -1507,21 +1514,21 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
         if (1 != secp256k1_ec_pubkey_create(ECC::s_ctx, &accnts[i % batchSize].PK, (const uint8_t*)&accnts[i % batchSize].SK))
             throw std::logic_error("secp256k1_ec_pubkey_create failed");
 
-       accnts[i % batchSize].addr = eevm::from_big_endian(accnts[i % batchSize].PK.data, PB_ADDR_SIZE);
+        accnts[i % batchSize].addr = eevm::from_big_endian(accnts[i % batchSize].PK.data, PB_ADDR_SIZE);
 
         // 3) store tx in batch
         auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, accnts[i % batchSize].addr, initBalance, operAccnt.get_nonce());
         txs_in_batch.push_back(tx);
-         
+
         // 4) flush the batch to the enclave
         if (txs_in_batch.size() == batchSize) {
             if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch)) {
                 std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
                 throw std::logic_error("error when dispatching TX");
-            }                        
-            for(auto& acc : accnts){
+            }
+            for (auto& acc : accnts) {
                 eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
-                TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());                
+                TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
                 m_accounts[acc.addr] = acc;
             }
             operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
@@ -1530,33 +1537,33 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
             // clean up allocated heap memory for persitant txs
             std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
             txs_in_batch.clear();
-            m_ledger.m_gs.db()->purge(); // purge stale entries of database in the host 
-        }       
-    }    
-     
-    // resolve remaining TXs in the last (non-full) batch    
-    if (txs_in_batch.size() != 0) {        
+            m_ledger.m_gs.db()->purge();  // purge stale entries of database in the host
+        }
+    }
+
+    // resolve remaining TXs in the last (non-full) batch
+    if (txs_in_batch.size() != 0) {
         if (RET_SUCCESS != this->_dispatchManyTXs(enclave, txs_in_batch))
-            exit(1); 
-        
+            exit(1);
+
         lastAddr = accnts[txs_in_batch.size() - 1].addr;
-        for(size_t i = 0; i < txs_in_batch.size(); i++){
-                auto& acc = accnts[i];
-                eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
-                TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());                
-                m_accounts[acc.addr] = acc;
+        for (size_t i = 0; i < txs_in_batch.size(); i++) {
+            auto& acc = accnts[i];
+            eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
+            TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
+            m_accounts[acc.addr] = acc;
         }
         operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
-        
+
         // clean up allocated heap memory for persitant txs
         std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
-        txs_in_batch.clear();  
+        txs_in_batch.clear();
     }
-    _forcePurgeStaleMP3(enclave); // purge stale entries of database in the host and enclave 
-        
+    _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
+
     assert(nonceBefore + N == operAccnt.get_nonce());
     return lastAddr;
-}    
+}
 
 /**
  * The point of interaction with the Enclave. Store the first 32B of the result into 'output_u256'
@@ -1573,9 +1580,9 @@ int Operator::_dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx
         case MODE::FullStateTransfer:
             ret = _dispatchTX_FullState(enclave, tx, output_u256);
             break;
-        case MODE::FullStateMaintained:            
-            // std::cerr << "\t FullStateMaintained mode is not supported for single TX execution!\n";                        
-            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);                        
+        case MODE::FullStateMaintained:
+            // std::cerr << "\t FullStateMaintained mode is not supported for single TX execution!\n";
+            ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);
             output_u256 = eevm::from_big_endian(output_results.data(), 32);
             break;
         case MODE::PartialStateTransfer:
@@ -1596,14 +1603,14 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
 {
     int ret;
     std::vector<uint8_t> output_results(32 * txs_in_batch.size());
-    
+
     switch (this->m_ledger.m_mode) {
         case MODE::PartialStateTransfer:
             ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch);
             break;
-        case MODE::FullStateMaintained:            
+        case MODE::FullStateMaintained:
             ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);
-            break;            
+            break;
         default:
             std::cerr << "Unsupported mode: " << static_cast<int>(this->m_ledger.m_mode) << "\n";
             exit(1);
@@ -1614,7 +1621,7 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
 /**
  * Executes many TXs in Enclave, while it does not transfer the MP3 to enclave at all (i.e., enclave stores a full MP3 state)
  */
-int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch, std::vector<uint8_t> & output_results)
+int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch, std::vector<uint8_t>& output_results)
 {
     int ret;
 
@@ -1626,7 +1633,7 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     size_t codes_sizes_size = 0;      // size of the previous vector
 
     // 1) Copy data of TXs and their code // maybe we can somehow optimize and do not copy already existing data??
-    for (auto tx : txs_in_batch) {       
+    for (auto tx : txs_in_batch) {
         // copy data of a current TX and its code
         PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)tx;
         txs_persistant.insert(txs_persistant.end(), (uint8_t*)ptx, (uint8_t*)ptx + sizeof(PersistantTxProxy_T));
@@ -1634,42 +1641,42 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
         codes_sizes.push_back(tx->code.size());
     }
     txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
-    codes_sizes_size = codes_sizes.size() * sizeof(size_t);    
-    assert(txs_persistant.size() == txs_persistant_size);   
+    codes_sizes_size = codes_sizes.size() * sizeof(size_t);
+    assert(txs_persistant.size() == txs_persistant_size);
 
     // ?) Collect account states that enclave does not have its cache and will need them in this batch
-    // for (auto& tx : txs_in_batch) {    
+    // for (auto& tx : txs_in_batch) {
     //     ... TODO
-    // }    
+    // }
 
-    // 2) Execute all TXs from batch in Enclave         
+    // 2) Execute all TXs from batch in Enclave
     size_t accnts_sizes_size, strgs_sizes_size;
     oe_result_t ecall_ret = ecall_run_many_txs_maintained_full_mp3state_singleExec(enclave, &ret,
-                                    (const uint8_t*)txs_persistant.data(), txs_persistant_size, output_results.data(),
-                                    (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
-                                    m_buf.accnts.data(), m_buf.accnts_sizes.data(), &accnts_sizes_size, m_buf.accnts.size(), m_buf.accnts_sizes.size(),
-                                    m_buf.strgs.data(),  m_buf.strgs_sizes.data(), &strgs_sizes_size, m_buf.strgs.size(), m_buf.strgs_sizes.size());                                                                        
+                                                                                   (const uint8_t*)txs_persistant.data(), txs_persistant_size, output_results.data(),
+                                                                                   (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
+                                                                                   m_buf.accnts.data(), m_buf.accnts_sizes.data(), &accnts_sizes_size, m_buf.accnts.size(), m_buf.accnts_sizes.size(),
+                                                                                   m_buf.strgs.data(), m_buf.strgs_sizes.data(), &strgs_sizes_size, m_buf.strgs.size(), m_buf.strgs_sizes.size());
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing batch of TXs in ENCLAVE.");
         return ret;
     }
     assert(accnts_sizes_size == strgs_sizes_size);
-    
-    // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3 
+
+    // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3
     size_t ptr_accnts = 0, ptr_strgs = 0;
-    for (size_t i = 0; i < accnts_sizes_size; i++){                
+    for (size_t i = 0; i < accnts_sizes_size; i++) {
         SimpleAccount* ac = SimpleAccount::fromBytes(&(m_buf.accnts.data()[ptr_accnts]), m_buf.accnts_sizes[i]);
         SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
 
         eevm::NormalGlobalState::StateEntry e = std::make_pair(std::move(*ac), std::move(*st));
         TRACE_HOST("\t new account = %s", e.first.toString(true).c_str());
-        this->m_ledger.m_gs.insert(e);                
-        
+        this->m_ledger.m_gs.insert(e);
+
 
         ptr_accnts += m_buf.accnts_sizes[i];
-        ptr_strgs += m_buf.strgs_sizes[i];        
+        ptr_strgs += m_buf.strgs_sizes[i];
     }
-        
+
     // 4) Fetch the updated global state of E
     PublicSealedData_T pub_evm_state;
     ecall_ret = ecall_read_pub_state(enclave, &ret, &pub_evm_state, sizeof(pub_evm_state));
@@ -1679,7 +1686,7 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     }
 
     // 5) Compare E's state to host's state
-    if(eevm::from_big_endian(pub_evm_state.globStRoot) != this->m_ledger.m_gs.root()){
+    if (eevm::from_big_endian(pub_evm_state.globStRoot) != this->m_ledger.m_gs.root()) {
         error_print("State in Host and Enclave does not match!");
         return ERROR_MP3_DOES_NOT_MATCH;
     }
