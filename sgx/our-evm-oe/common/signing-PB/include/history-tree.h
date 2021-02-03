@@ -10,7 +10,7 @@ public:
     PositionNode& operator=(const PositionNode& other) = default;  // copy operator
     PositionNode& operator=(PositionNode&& other) = default;       // move operator
 
-    uint32_t idxL;  // index of layer of the node from the bottom (starting by 0)
+    size_t idxL;    // index of layer of the node from the bottom (starting by 0)
     uint64_t idxE;  // index of node within the layer (starting by 0)
 
     inline std::string str()
@@ -61,7 +61,7 @@ private:
 protected:
     const dev::h256& computeRootFromSKNs(size_t offsetHeight = 0);  // store root into m_root and returs its reference
 
-    dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector<PositionNode>& skeletonPos, size_t offsetHeight = 0);
+    dev::h256 reduceSkeleton(HashesArray& skeletonNodes, std::vector<PositionNode>& skeletonPos, size_t offsetHeight = 0);
 
     HashesArray m_SKN_cache;              // cache of skeleton hashes of tree - all of them are already fixed (used mostly by E)
     std::vector<PositionNode> m_SKN_pos;  // positions of SKN nodes within the tree (it corresponds to the above array)
@@ -73,14 +73,17 @@ class HistoryTreeAuditor : public HistoryTreeEnc {
 public:
     HistoryTreeAuditor(const eevm::KeccakHash& genesisE)
     {
-        HistoryTreeEnc::add(genesisE);  // set up genesis element; this also updates the root hash
+        add(genesisE);  // set up genesis element; this also updates the root hash
     }
 
-    bool verifyIncProofFull(const uint64_t versionNew, const dev::h256 rootNew, const std::vector<dev::h256>& proofFHs,
+    bool verifyIncProofFull(uint64_t versionNew, const dev::h256& rootNew, const std::vector<dev::h256>& proofFHs,
                             const std::vector<PositionNode>& proofFHPos, bool updateSKN = false);
 
+    friend uint64_t endIdxRange(const PositionNode& pos);
+
 private:
-    void _updateMySkeleton(const dev::h256 rootLeft, uint64_t versionNew, size_t startIdx, const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
+    void _updateMySkeleton(const dev::h256& rootLeft, uint64_t versionNew, size_t startIdx,
+                           const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 };
 
 class HistoryTreeHost : public HistoryTreeEnc {
@@ -159,7 +162,7 @@ inline uint64_t ver2Idx(uint64_t version)
     return version - 1;
 }
 
-uint64_t endIdxRange(const PositionNode& pos)
+inline uint64_t endIdxRange(const PositionNode& pos)
 {
     return pow(2, pos.idxL) * (pos.idxE + 1) - 1;
 }

@@ -72,31 +72,31 @@ int main()
     std::vector<dev::h256> incProofFHs;
     std::vector<PositionNode> incProofFHPos;
     size_t curVer = htree3.getCurVersion();
-    for (size_t i = 1; i < curVer; i++) {
+    for (uint64_t i = 1; i < curVer; i++) {
         incProofFHs.clear();
         incProofFHPos.clear();
         htree3.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
         htree3.printIncProof(i, curVer, incProofFHs, incProofFHPos);
 
         // verification of Inc Proof
-        assert(auditTree.verifyIncProof(i, incProofFHs, incProofFHPos));                
+        assert(auditTree.verifyIncProofFull(i, htree3.getRoot(), incProofFHs, incProofFHPos, false));                
         cout << "------------------\n";
     }
-    cout << "========================================\n";
+    cout << "========================================\n";    
 
     exit(1);
 
     cout << "HistoryTree[Host|Auditor] (incremental proof generation + verification)\n";
     HistoryTreeAuditor auditTree2(genesisHash);
-    size_t curVer = htree3.getCurVersion();
-    for (size_t i = 1; i < curVer; i++) {
+    curVer = htree3.getCurVersion();
+    for (uint64_t i = 1; i < curVer; i++) {
         incProofFHs.clear();
         incProofFHPos.clear();
         htree3.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
         htree3.printIncProof(i, curVer, incProofFHs, incProofFHPos);
 
         // verification of Inc Proof and Update skeleton if correct
-        assert(auditTree.verifyIncProof(i, incProofFHs, incProofFHPos, true));                
+        assert(auditTree2.verifyIncProofFull(i, htree3.getRoot(), incProofFHs, incProofFHPos, true));                
         cout << "------------------\n";
     }
     cout << "========================================\n";

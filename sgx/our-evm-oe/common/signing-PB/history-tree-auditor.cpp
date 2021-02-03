@@ -11,8 +11,8 @@
  * @param proofFHPos - inc proof positions
  * @param updateSKN - update auditor's skeleton and root hash if true 
  */
-bool HistoryTreeAuditor::verifyIncProofFull(const uint64_t versionNew, const dev::h256 rootNew, const std::vector<dev::h256>& proofFHs,
-                                        const std::vector<PositionNode>& proofFHPos, bool updateSKN)
+bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256& rootNew, const std::vector<dev::h256>& proofFHs,
+                                            const std::vector<PositionNode>& proofFHPos, bool updateSKN)
 {
     size_t myVersion = getCurVersion();
     if (versionNew <= 1)
@@ -32,7 +32,7 @@ bool HistoryTreeAuditor::verifyIncProofFull(const uint64_t versionNew, const dev
     while (endIdxRange(proofFHPos[idx]) <= endIdx && idx < proofFHPos.size()) {
         // a) compare inc proof nodes with our local skeleton 'm_SKN_cache' and 'm_SKN_pos' => return false if they differ
         if (idx < m_itemsCnt && (proofFHPos[idx] != m_SKN_pos[idx] || proofFHs[idx] != m_SKN_cache.at(idx)))  // do not check for extended version range
-            return false; // this ensures consitency with the past
+            return false;                                                                                     // this ensures consitency with the past
 
         // b) copy
         tmpSKNCache.push_back(proofFHs[idx]);
@@ -47,7 +47,7 @@ bool HistoryTreeAuditor::verifyIncProofFull(const uint64_t versionNew, const dev
     tmpSKNCache.clear();
     tmpSKNPos.clear();
     tmpSKNCache.push_back(rootLeft);
-    tmpSKNPos.emplace(tmpSKNPos.end(), treeHeight() - 1, 0);  // create position node on the left side of the current height idx
+    tmpSKNPos.push_back({treeHeight() - 1, 0ul});  // create position node on the left side of the current height idx
 
     // 4) copy remaining items (i.e., after idx, inclusive) of inc proof to temporary containers
     for (size_t i = idx; i < proofFHs.size(); i++) {
@@ -69,14 +69,14 @@ bool HistoryTreeAuditor::verifyIncProofFull(const uint64_t versionNew, const dev
     return true;
 }
 
-void HistoryTreeAuditor::_updateMySkeleton(const dev::h256 rootLeft, uint64_t versionNew, size_t startIdx,
+void HistoryTreeAuditor::_updateMySkeleton(const dev::h256 & rootLeft, uint64_t versionNew, size_t startIdx,
                                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos)
 {
     // 1) copy computed root 'rootLeft' to the first position of my skeleton (put it on left)
     m_SKN_cache.clear();
     m_SKN_pos.clear();
     m_SKN_cache.push_back(rootLeft);
-    m_SKN_pos.emplace(m_SKN_pos.end(), treeHeight() - 1, 0);  // create position node on the left side of the current heigth idx
+    m_SKN_pos.push_back({treeHeight() - 1, 0});  // create position node on the left side of the current heigth idx
 
     // 2) copy the remaining FHNodes from passed proof to my skeleton
     for (size_t i = startIdx; i < proofFHs.size(); i++) {

@@ -20,7 +20,8 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 Cpp_Files := \
 	main.cpp \
 	history-tree-host.cpp \
-	history-tree-enc.cpp
+	history-tree-enc.cpp \
+	history-tree-auditor.cpp
 
 Include_Paths := \
 	-I./include \
