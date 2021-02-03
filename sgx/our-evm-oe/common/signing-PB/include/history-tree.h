@@ -3,12 +3,12 @@
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
 
-class FHPositionNode {        
+class PositionNode {        
 public:
-    FHPositionNode(FHPositionNode && other) = default;
-    FHPositionNode(const FHPositionNode & other) = default;
-    FHPositionNode& operator=(const FHPositionNode& other) = default; // copy operator
-    FHPositionNode& operator=(FHPositionNode&& other) = default; // move operator
+    PositionNode(PositionNode && other) = default;
+    PositionNode(const PositionNode & other) = default;
+    PositionNode& operator=(const PositionNode& other) = default; // copy operator
+    PositionNode& operator=(PositionNode&& other) = default; // move operator
     
     unsigned int idxL;      // index of layer of the node from the bottom (starting by 0)
     unsigned long int idxE; // index of node within the layer (starting by 0)
@@ -31,27 +31,33 @@ public:
 
     inline size_t getCurVersion() { return m_itemsCnt; }
 
-    void printFHCache(); 
+    void printSKNCache(); 
 
     void printElements(); 
 
-    inline FHPositionNode & getFHPositionNodeRef(int idx) {
-        assert(m_FH_pos.size() >= (size_t) abs(idx)); // range check
-        idx = (idx < 0 )? m_FH_pos.size() + idx : idx; 
-        return m_FH_pos[idx];
+    inline PositionNode & getSKNPositionNodeRef(int idx) {
+        assert(m_SKN_pos.size() >= (size_t) abs(idx)); // range check
+        idx = (idx < 0 )? m_SKN_pos.size() + idx : idx; 
+        return m_SKN_pos[idx];
     }    
 
 private:
-    const dev::h256 & computeRootFromFHs(); // store root into m_root and returs its reference
-    void _updateFHCache(); // reduces FHCache (called after adding a new item)
+    const dev::h256 & computeRootFromSKNs(); // store root into m_root and returs its reference
+    void _updateSKNCache(); // reduces FHCache (called after adding a new item)
 
 protected: 
-    HashesArray m_FH_cache; // cache of full hashes (used mostly by E)
-    std::vector<FHPositionNode> m_FH_pos; // positions of FH nodes within the tree (it corresponds to the above array)    
+    HashesArray m_SKN_cache; // cache of skeleton hashes of tree - all of them are already fixed (used mostly by E)
+    std::vector<PositionNode> m_SKN_pos; // positions of SKN nodes within the tree (it corresponds to the above array)    
     size_t m_itemsCnt;      // the number of items in the history tree    
     dev::h256 m_root; 
 };
 
+class HistoryTreeAuditor: public HistoryTreeEnc {
+public:
+
+    bool verifyIncProof(const unsigned long int versionB, std::vector<dev::h256> & proofFHs, std::vector<PositionNode> & proofFHPos);
+
+};
 
 class HistoryTreeHost: public HistoryTreeEnc {
 public:
@@ -64,7 +70,7 @@ public:
 
     void add(const eevm::KeccakHash& a); 
 
-    int buildIncProof(const unsigned long int versionA, const  unsigned long int versionB, std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);   
+    int buildIncProof(const unsigned long int versionA, const  unsigned long int versionB, std::vector<dev::h256> & proofFHs, std::vector<PositionNode> & proofFHPos);   
 
     inline HashesArray & getElements() { return m_layers[0]; }  // excluding stub (if any) 
     
@@ -93,7 +99,9 @@ public:
     void printLayers();
     void printElements();
     void printIncProof(const unsigned long int versionA, const  unsigned long int versionB, 
-                std::vector<dev::h256> & proofFHs, std::vector<FHPositionNode> & proofFHPos);
+                std::vector<dev::h256> & proofFHs, std::vector<PositionNode> & proofFHPos);
+    
+    friend size_t ver2Idx(size_t version);
 
 private:        
     void _updateLayersAndRoot();
@@ -112,3 +120,5 @@ private:
     std::vector<HashesArray> m_layers; // cached layers of non-terminal nodes of the tree - they serve for fast provision of proofs to C
     ReduceType m_reduceType;
 };
+
+size_t ver2Idx(size_t version);

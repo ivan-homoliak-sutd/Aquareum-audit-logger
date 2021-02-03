@@ -8,12 +8,12 @@ using namespace std;
 using namespace eevm;
 
 int main() {            
-    int ITERS = 8;    
+    int ITERS = 19;    
 
     dev::h256 root1, root2, root3;    
     std::string seedStr = "test ";
 
-    // test of Enclave reduction of FHs (without stubs)
+    // test of Enclave reduction of SKNs (without stubs)
     cout << "HistoryTreeEnc...\n"; 
     HistoryTreeEnc htree;
     for(int i = 0; i < ITERS; i++){        
@@ -23,7 +23,7 @@ int main() {
         htree.add(ehash);        
         root1 = htree.getRoot();
         cout << "root: " << htree.getRoot().hex().substr(0, 6) << endl;
-        htree.printFHCache();
+        htree.printSKNCache();
         cout << "------------------\n";
     }        
     cout << "========================================\n";    
@@ -38,11 +38,11 @@ int main() {
         root2 = htree2.getRoot();
         cout << "root: " << htree2.getRoot().hex().substr(0, 6) << endl;        
         htree2.printLayers();
-        // htree2.printFHCache();
+        // htree2.printSKNCache();
         cout << "------------------\n";
     }    
-    cout << "========================================\n";    
     assert(root1 == root2);
+    cout << "========================================\n";        
 
     //  test of Host history tree reduction of FHs (wit stubs)
     cout << "HistoryTreeHost (partial reduce)\n";
@@ -54,29 +54,23 @@ int main() {
         root3 = htree3.getRoot();
         cout << "root: " << htree3.getRoot().hex().substr(0, 6) << endl;        
         htree3.printLayers();
-        // htree3.printFHCache();
+        // htree3.printSKNCache();
         cout << "------------------\n";
     }    
     assert(root2 == root3);
-
     cout << "========================================\n";    
     
     cout << "HistoryTreeHost (incremental proof generation)\n";
-
-    std::vector<dev::h256> proofFHs;
-    std::vector<FHPositionNode> proofFHPos;
+    std::vector<dev::h256> incProofFHs;
+    std::vector<PositionNode> incProofFHPos;
     size_t curVer = htree3.getCurVersion();
     for (size_t i = 1; i < curVer; i++) {        
-        proofFHs.clear();
-        proofFHPos.clear();
+        incProofFHs.clear();
+        incProofFHPos.clear();
 
-        htree3.buildIncProof(i, curVer, proofFHs, proofFHPos);
-        htree3.printIncProof(i, curVer, proofFHs, proofFHPos);     
+        htree3.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
+        htree3.printIncProof(i, curVer, incProofFHs, incProofFHPos);     
         cout << "------------------\n";           
     }
-    
-
-
-
     return 0;
 }
