@@ -4,10 +4,10 @@
 #include <list>
 
 /**
- * @brief Adds entry to m_layers and updates the full tree in m_layers as well. 
+ * @brief Adds entry to m_layers and updates the full tree in m_layers as well.
  * Additionally, calls parent method to update SKN cache (i.e., current incremental proof)
- * 
- * @param a 
+ *
+ * @param a
  */
 void HistoryTreeHost::add(const eevm::KeccakHash& a)
 {
@@ -18,8 +18,8 @@ void HistoryTreeHost::add(const eevm::KeccakHash& a)
 }
 
 /**
- * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after processing. 
- * 
+ * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after processing.
+ *
  */
 void HistoryTreeHost::_updateLayersAndRoot()
 {
@@ -50,8 +50,8 @@ void HistoryTreeHost::_updateLayersAndRoot()
 
 /**
  * @brief In contrast to _fullReduceSingleLayer Optimized by skipping of computations that were already done before (using SKN cache).
- * 
- * @param idxL - index of the current layer to be reduced 
+ *
+ * @param idxL - index of the current layer to be reduced
  */
 void HistoryTreeHost::_partialReduceSingleLayer(int idxL)
 {
@@ -72,8 +72,8 @@ void HistoryTreeHost::_partialReduceSingleLayer(int idxL)
 /**
  * @brief It reduces the full current layer of history tree into the next (above) layer; including root hash (i.e., the highest layer)
  * It can be used for fast loading of data from disk by function loadTree()
- * 
- * @param idxL - index of the current layer to be reduced 
+ *
+ * @param idxL - index of the current layer to be reduced
  */
 void HistoryTreeHost::_fullReduceSingleLayer(int idxL)
 {
@@ -216,9 +216,9 @@ void HistoryTreeHost::printIncProof(const unsigned long int versionA, const unsi
 
 /**
  * @brief Converts domain of versions to domain if indices in tree
- * 
- * @param version 
- * @return size_t 
+ *
+ * @param version
+ * @return size_t
  */
 size_t ver2Idx(size_t version)
 {

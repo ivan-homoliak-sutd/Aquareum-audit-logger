@@ -27,7 +27,7 @@ Include_Paths := \
 	-I../include \
 	-I../eEVM/3rdparty/intx/include \
 	-I../eEVM/3rdparty \
-	-I../eEVM/include 
+	-I../eEVM/include
 
 build:
 	$(CXX) -c -g -Wall -Werror $(CXX_FLAGS) $(Include_Paths) -std=$(CXX_STANDARD) $(Cpp_Files)

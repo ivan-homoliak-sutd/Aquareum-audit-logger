@@ -9,7 +9,7 @@ using namespace eevm;
 
 int main()
 {
-    int ITERS = 19;
+    int ITERS = 49;
 
     dev::h256 root1, root2, root3;
     std::string seedStr = "test ";
