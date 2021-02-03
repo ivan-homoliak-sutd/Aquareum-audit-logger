@@ -30,7 +30,7 @@ bool _evm_initialized = false;
 
 Sealing m_sealer;
 AQLedger m_ledger;
-eevm::NormalGlobalState *m_gs = NULL;  // the partial global state of the ledger (maintained in memory of enclave)
+eevm::NormalGlobalState* m_gs = NULL;  // the partial global state of the ledger (maintained in memory of enclave)
 
 
 ///////////////////// AUX //////////////////
@@ -113,9 +113,9 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("Initializing EVM enclave.");
 
-        if(MODE::FullStateMaintained == DEFAULT_MODE){
-            m_gs = new eevm::NormalGlobalState(); // create MP3 object - TODO: if sealed file exists, initiate it from it (MP3 DB should contain only some cached data).
-        }        
+        if (MODE::FullStateMaintained == DEFAULT_MODE) {
+            m_gs = new eevm::NormalGlobalState();  // create MP3 object - TODO: if sealed file exists, initiate it from it (MP3 DB should contain only some cached data).
+        }
 
         oe_result_t ocall_status;
         int ocall_ret, lib_ret;
@@ -150,8 +150,8 @@ int ecall_initialize_evm(secp256k1_pubkey* enc_pk, size_t enc_pk_size)
             sealed_data_t* sealed_data = NULL;
             size_t sealed_data_size = 0;
             lib_ret = m_sealer.seal_data(POLICY_UNIQUE, (const unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                        (const unsigned char*)evm_state_unsealed, data_size,
-                                        &sealed_data, &sealed_data_size);
+                                         (const unsigned char*)evm_state_unsealed, data_size,
+                                         &sealed_data, &sealed_data_size);
             if (OE_OK != lib_ret) {
                 TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
                 return ERR_FAIL_SEAL_STATE;
@@ -228,8 +228,8 @@ int ecall_sync_evm_sealed_state_to_disk(void)
         sealed_data_t* sealed_data = NULL;
         size_t sealed_data_size = 0;
         int lib_ret = m_sealer.seal_data(POLICY_UNIQUE, (unsigned char*)&STATE_SEAL_MSG, STATE_SEAL_MSG_LEN,
-                                        (unsigned char*)&m_evm_state, data_size,
-                                        &sealed_data, &sealed_data_size);
+                                         (unsigned char*)&m_evm_state, data_size,
+                                         &sealed_data, &sealed_data_size);
         if (OE_OK != lib_ret) {
             TRACE_ENCLAVE("sealing was not successfull, %d", lib_ret);
             return ERR_FAIL_SEAL_STATE;
@@ -270,10 +270,10 @@ int ecall_read_memory_stats(StorageStatsMP3DB* evm_mem_stats, size_t evm_mem_sta
     try {
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("reading memory stats of MP3 DB in enclave.");
-        if(NULL == m_gs){
-            return ERR_NOT_FSMAINTAINED_MODE;            
-        } 
-                
+        if (NULL == m_gs) {
+            return ERR_NOT_FSMAINTAINED_MODE;
+        }
+
         assert(sizeof(StorageStatsMP3DB) == sizeof(dev::StateCacheDB::StorageStatsMP3DB));
         (*evm_mem_stats) = *reinterpret_cast<StorageStatsMP3DB*>(&(m_gs->db()->m_stats));
 
@@ -285,14 +285,15 @@ int ecall_read_memory_stats(StorageStatsMP3DB* evm_mem_stats, size_t evm_mem_sta
     }
 }
 
-int ecall_purge_stale_mp3_entries (){
+int ecall_purge_stale_mp3_entries()
+{
     try {
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("Purging stale entries in MP3 DB.");
-        if(NULL == m_gs){
-            return ERR_NOT_FSMAINTAINED_MODE;            
-        } 
-                
+        if (NULL == m_gs) {
+            return ERR_NOT_FSMAINTAINED_MODE;
+        }
+
         m_gs->db()->purge();
 
         print_enc_sep(EncExec::END);
@@ -429,7 +430,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
  */
 int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
                                         const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
-                                        const uint8_t* gs_root_h, size_t root_size, // from here below is partial MP3 DB
+                                        const uint8_t* gs_root_h, size_t root_size,  // from here below is partial MP3 DB
                                         const uint8_t* db_data, size_t db_data_size,
                                         const uint8_t* db_data_aux, size_t db_data_aux_size,
                                         const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
@@ -462,10 +463,10 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
         MerkleTreeArray rcps_hashes;
         for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
-            ret = m_ledger.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);            
-            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
-                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));                
-                rcps_hashes.add(rcpHash);                
+            ret = m_ledger.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));
+                rcps_hashes.add(rcpHash);
             }
             codes_offset += codes_sizes[i];
         }
@@ -503,9 +504,9 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
  * This function prcesses TXs in batches and thus creates the blocks.
  * The state of EVM is fully stored and maintained in the enclave.
  */
-int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_size, 
-                    const uint8_t* codes, size_t codes_sum_size, 
-                    const size_t* codes_sizes, size_t codes_sizes_size)                                        
+int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_size,
+                                                const uint8_t* codes, size_t codes_sum_size,
+                                                const size_t* codes_sizes, size_t codes_sizes_size)
 {
     try {
         print_enc_sep(EncExec::START);
@@ -519,15 +520,15 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         MerkleTreeArray rcps_hashes;
         for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
-            ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);            
-            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
-                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));                
-                rcps_hashes.add(rcpHash);                
-            }            
-            codes_offset += codes_sizes[i]; 
+            ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));
+                rcps_hashes.add(rcpHash);
+            }
+            codes_offset += codes_sizes[i];
             // m_gs->db()->purge(); // this is less efficient than doing it after batch
         }
-        assert(codes_offset == codes_sum_size);        
+        assert(codes_offset == codes_sum_size);
 
         // 2) Update the current root hash of the global MP3 state in E
         memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
@@ -544,8 +545,8 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         m_evm_state.pub.idCurrent++;
 
         // 6) Clean up unused entries in MP3 db - should be done manually from host
-        m_gs->db()->purge(); 
-        
+        m_gs->db()->purge();
+
         print_enc_sep(EncExec::END);
         return ret;
     } catch (const std::exception& e) {
@@ -563,86 +564,84 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
  * provides host with the list of updated and modified AS objects, which are 
  * stored to untrusted memory 'updated_and_new_accnts' and 'updated_and_new_strgs'
  */
-int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, size_t txs_size, uint8_t * output_results,
-                    const uint8_t* codes, size_t codes_sum_size, 
-                    const size_t* codes_sizes, size_t codes_sizes_size,
-                    uint8_t * updated_and_new_accnts, size_t * accnts_sizes, size_t * accnts_sizes_size, size_t MAX_SIZE_accnts, size_t MAX_SIZE_accnts_sizes, 
-                    uint8_t * updated_and_new_strgs, size_t * strgs_sizes, size_t * strgs_sizes_size, size_t MAX_SIZE_strgs, size_t MAX_SIZE_strgs_sizes)                                        
+int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, size_t txs_size, uint8_t* output_results,
+                                                           const uint8_t* codes, size_t codes_sum_size,
+                                                           const size_t* codes_sizes, size_t codes_sizes_size,
+                                                           uint8_t* updated_and_new_accnts, size_t* accnts_sizes, size_t* accnts_sizes_size, size_t MAX_SIZE_accnts, size_t MAX_SIZE_accnts_sizes,
+                                                           uint8_t* updated_and_new_strgs, size_t* strgs_sizes, size_t* strgs_sizes_size, size_t MAX_SIZE_strgs, size_t MAX_SIZE_strgs_sizes)
 {
     try {
         print_enc_sep(EncExec::START);
         TRACE_ENCLAVE("executing many TXs with full MP3 maintained in enclave.");
 
-        int32_t ret;        
+        int32_t ret;
         size_t numberOfTxs = txs_size / sizeof(PersistantTxProxy_T);
 
         // 0) perform memory location check - must be STRICTLY outside of the enlclave (i.e., not overlapping with E)
-        if(!oe_is_outside_enclave(output_results, 32 * numberOfTxs)) // we know this size beforehand: 32B is the size per one output
+        if (!oe_is_outside_enclave(output_results, 32 * numberOfTxs))  // we know this size beforehand: 32B is the size per one output
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
-        if(!oe_is_outside_enclave(updated_and_new_accnts, MAX_SIZE_accnts)) // check the max size allocated in host
+        if (!oe_is_outside_enclave(updated_and_new_accnts, MAX_SIZE_accnts))  // check the max size allocated in host
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
-        if(!oe_is_outside_enclave(accnts_sizes, MAX_SIZE_accnts_sizes)) // check the max size allocated in host
+        if (!oe_is_outside_enclave(accnts_sizes, MAX_SIZE_accnts_sizes))  // check the max size allocated in host
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
-        if(!oe_is_outside_enclave(updated_and_new_strgs, MAX_SIZE_strgs)) // check the max size allocated in host
+        if (!oe_is_outside_enclave(updated_and_new_strgs, MAX_SIZE_strgs))  // check the max size allocated in host
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
-        if(!oe_is_outside_enclave(strgs_sizes, MAX_SIZE_strgs_sizes)) // check the max size allocated in host
+        if (!oe_is_outside_enclave(strgs_sizes, MAX_SIZE_strgs_sizes))  // check the max size allocated in host
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
-        
+
         // 1) Start logging of new/updated addresses - after execution of EVM, process the set of addresses and fetch final ASes
         std::unordered_set<eevm::Address> newAndUpdatedAddrs;
-        m_gs->startASLogging(&newAndUpdatedAddrs); // start logging of account state into protected local set
-        
+        m_gs->startASLogging(&newAndUpdatedAddrs);  // start logging of account state into protected local set
+
 
         // 2) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
         MerkleTreeArray rcps_hashes;
         for (size_t i = 0; i < numberOfTxs; i++) {
-            
             PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
-            ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes, &output_results[i * 32]);            
-            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)                
-                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));                
-                rcps_hashes.add(rcpHash);                
-            }            
-            codes_offset += codes_sizes[i]; 
+            ret = m_ledger.execute_tx_mp3state_full(m_gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes, &output_results[i * 32]);
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));
+                rcps_hashes.add(rcpHash);
+            }
+            codes_offset += codes_sizes[i];
             // m_gs->db()->purge(); // this is less efficient than doing it after batch
-            
         }
-        assert(codes_offset == codes_sum_size);           
-        m_gs->finishASLogging(); 
+        assert(codes_offset == codes_sum_size);
+        m_gs->finishASLogging();
 
 
         // check size of sizes buffers and reallocate by OCALL if needed
-        if(newAndUpdatedAddrs.size() > MAX_SIZE_accnts_sizes) 
-            throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");        
+        if (newAndUpdatedAddrs.size() > MAX_SIZE_accnts_sizes)
+            throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");
 
-        // 3) serialize logged addresses into [user_check] buffers of host memory                       
-        size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;         
-        for(auto& addr: newAndUpdatedAddrs){
-            auto newAs = m_gs->get(addr);            
-            
+        // 3) serialize logged addresses into [user_check] buffers of host memory
+        size_t i = 0, sum_size_strgs = 0, sum_size_accnts = 0;
+        for (auto& addr : newAndUpdatedAddrs) {
+            auto newAs = m_gs->get(addr);
+
             TRACE_ENCLAVE("\t [%ld] new account = %s", i, newAs.acc.toString(true).c_str());
 
-            // a) copy storage object to the host buffer 
-            if(newAs.st.sizeB() + sum_size_strgs > MAX_SIZE_strgs) 
-                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");            
+            // a) copy storage object to the host buffer
+            if (newAs.st.sizeB() + sum_size_strgs > MAX_SIZE_strgs)
+                throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");
             size_t s = newAs.st.toBytes(updated_and_new_strgs + sum_size_strgs);
             *(strgs_sizes + i) = s;
-            sum_size_strgs += s;            
+            sum_size_strgs += s;
 
             // b) copy account object to the host buffer (it contains address)
             s = newAs.acc.sizeB();
-            if(s + sum_size_accnts > MAX_SIZE_accnts) 
+            if (s + sum_size_accnts > MAX_SIZE_accnts)
                 throw std::logic_error("Not implemented - host buffer should be reallocated in OCALL (oe_host_realloc), while returing a new data pointer (with orig data in location it points to).");
-            newAs.acc.toBytes(updated_and_new_accnts + sum_size_accnts); 
+            newAs.acc.toBytes(updated_and_new_accnts + sum_size_accnts);
             *(accnts_sizes + i) = s;
-            sum_size_accnts += s;            
-        
+            sum_size_accnts += s;
+
             i++;
-        }                
+        }
         *strgs_sizes_size = i;
-        *accnts_sizes_size = i;        
+        *accnts_sizes_size = i;
 
         // 4) Update the current root hash of the global MP3 state in E
         memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
@@ -659,8 +658,8 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t * txs, 
         m_evm_state.pub.idCurrent++;
 
         // 8) Clean up unused entries in MP3 db (it is fastest when doing after each block)
-        m_gs->db()->purge(); 
-        
+        m_gs->db()->purge();
+
         print_enc_sep(EncExec::END);
         return ret;
     } catch (const std::exception& e) {
