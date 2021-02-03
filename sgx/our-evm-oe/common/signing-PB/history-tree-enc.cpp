@@ -3,10 +3,10 @@
 #include "history-tree.h"
 
 /**
-     * @brief It consistently adds element to the history tree, but does not store it.
+     * @brief It consistently adds element to the history tree, but does not store it. 
      * It stores only incremental proof (i.e., m_SKN_cache), and thus saving the space
-     *
-     * @param a - hash of the element to add
+     * 
+     * @param a - hash of the element to add 
      */
 void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 {
@@ -24,7 +24,7 @@ void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 }
 
 /**
-     * @brief After adding the entry to m_SKN_cache, we have to call this function, which updates the current SKNCache (i.e., most recent incremental proof)
+     * @brief After adding the entry to m_SKN_cache, we have to call this function, which updates the current SKNCache (i.e., most recent incremental proof)     
      */
 void HistoryTreeEnc::_updateSKNCache()
 {
@@ -51,9 +51,9 @@ void HistoryTreeEnc::_updateSKNCache()
 }
 
 /**
-     * @brief It computes root hash from skeleton 'm_SKN_cache' and stores it into m_root.
+     * @brief It computes root hash from skeleton 'm_SKN_cache' and stores it into m_root. 
      * It also adds stubs for odd size layers to be compatible with incremental proofs higher than (+1) - utilized in HistoryTreeHost
-     *
+     * 
      */
 const dev::h256& HistoryTreeEnc::computeRootFromSKNs()
 {

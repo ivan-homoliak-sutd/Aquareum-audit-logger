@@ -2,12 +2,12 @@
 #include "aleth-mp3/FixedHash.h"
 #include "eEVM/constants.h"
 #include "eEVM/util.h"
-
+        
 // its preserves m_hashes
 dev::h256 MerkleTreeArray::computeRoot()
 {
     HashesArray tmpHashes(m_hashes);
-
+    
     if (tmpHashes.size() == 0) {
         return EMPTY_HASH_OBJ;
     }
