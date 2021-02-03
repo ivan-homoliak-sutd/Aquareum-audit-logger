@@ -594,6 +594,8 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         m_gs->startASLogging(&newAndUpdatedAddrs);  // start logging of account state into protected local set
 
 
+        // auto start_t = chrono::steady_clock::now();
+
         // 2) Execute TXs in E one by one (while updating the protected global state)
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;

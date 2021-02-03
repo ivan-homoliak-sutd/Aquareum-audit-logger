@@ -867,7 +867,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (!correct_token_cnt(command_s, {2, 3, 4}, &tokens, &tokenCnt))
                 continue;
 
-            uint accntsCount = 5;  // default number of accounts involved in transactions
+            uint accntsCount = 1000;  // default number of accounts involved in transactions
             uint n = 10;           // default number of transactions
             uint b = 10;           // default number of TXs in one batch that is processed by E
             uint repetitions;

@@ -10,14 +10,23 @@ public:
     PositionNode& operator=(const PositionNode& other) = default;  // copy operator
     PositionNode& operator=(PositionNode&& other) = default;       // move operator
 
-    unsigned int idxL;       // index of layer of the node from the bottom (starting by 0)
-    unsigned long int idxE;  // index of node within the layer (starting by 0)
+    uint32_t idxL;  // index of layer of the node from the bottom (starting by 0)
+    uint64_t idxE;  // index of node within the layer (starting by 0)
 
     inline std::string str()
     {
         std::stringstream ss;
         ss << " [" << idxL << "," << idxE << "]";
         return ss.str();
+    }
+
+    bool operator==(const PositionNode& other) const
+    {
+        return other.idxL == this->idxL && other.idxE == this->idxE;
+    }
+    bool operator!=(const PositionNode& other) const
+    {
+        return !(other == *this);
     }
 };
 
@@ -33,7 +42,7 @@ public:
 
     inline const size_t treeHeight() const { return ceil(log2(m_itemsCnt)) + 1; }  // includes also stub nodes (if any)
 
-    inline size_t getCurVersion() { return m_itemsCnt; }
+    inline uint64_t getCurVersion() { return m_itemsCnt; }
 
     void printSKNCache();
 
@@ -47,19 +56,31 @@ public:
     }
 
 private:
-    const dev::h256& computeRootFromSKNs();  // store root into m_root and returs its reference
-    void _updateSKNCache();                  // reduces FHCache (called after adding a new item)
+    void _updateSKNCache();  // reduces FHCache (called after adding a new item)
 
 protected:
+    const dev::h256& computeRootFromSKNs(size_t offsetHeight = 0);  // store root into m_root and returs its reference
+
+    dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector<PositionNode>& skeletonPos, size_t offsetHeight = 0);
+
     HashesArray m_SKN_cache;              // cache of skeleton hashes of tree - all of them are already fixed (used mostly by E)
     std::vector<PositionNode> m_SKN_pos;  // positions of SKN nodes within the tree (it corresponds to the above array)
-    size_t m_itemsCnt;                    // the number of items in the history tree
+    uint64_t m_itemsCnt;                  // the number of items in the history tree
     dev::h256 m_root;
 };
 
 class HistoryTreeAuditor : public HistoryTreeEnc {
 public:
-    bool verifyIncProof(const unsigned long int versionB, std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos);
+    HistoryTreeAuditor(const eevm::KeccakHash& genesisE)
+    {
+        HistoryTreeEnc::add(genesisE);  // set up genesis element; this also updates the root hash
+    }
+
+    bool verifyIncProofFull(const uint64_t versionNew, const dev::h256 rootNew, const std::vector<dev::h256>& proofFHs,
+                            const std::vector<PositionNode>& proofFHPos, bool updateSKN = false);
+
+private:
+    void _updateMySkeleton(const dev::h256 rootLeft, uint64_t versionNew, size_t startIdx, const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 };
 
 class HistoryTreeHost : public HistoryTreeEnc {
@@ -73,7 +94,7 @@ public:
 
     void add(const eevm::KeccakHash& a);
 
-    int buildIncProof(const unsigned long int versionA, const unsigned long int versionB, std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos);
+    int buildIncProof(const uint64_t versionA, const uint64_t versionB, std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos);
 
     inline HashesArray& getElements() { return m_layers[0]; }  // excluding stub (if any)
 
@@ -87,14 +108,14 @@ public:
         return m_root;
     }
 
-    inline dev::h256&& getNode(int idxLayer, unsigned long int idxElem)
+    inline dev::h256&& getNode(int idxLayer, uint64_t idxElem)
     {
         assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
         return m_layers[idxLayer].at(idxElem);
     }
 
-    inline const uint8_t* getNodeData(int idxLayer, unsigned long int idxElem)
+    inline const uint8_t* getNodeData(int idxLayer, uint64_t idxElem)
     {
         assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
@@ -107,7 +128,7 @@ public:
 
     void printLayers();
     void printElements();
-    void printIncProof(const unsigned long int versionA, const unsigned long int versionB,
+    void printIncProof(const uint64_t versionA, const uint64_t versionB,
                        std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos);
 
     friend size_t ver2Idx(size_t version);
@@ -131,4 +152,14 @@ private:
     ReduceType m_reduceType;
 };
 
-size_t ver2Idx(size_t version);
+// converts domain of versions to domain of indices in tree
+inline uint64_t ver2Idx(uint64_t version)
+{
+    assert(version >= 1);
+    return version - 1;
+}
+
+uint64_t endIdxRange(const PositionNode& pos)
+{
+    return pow(2, pos.idxL) * (pos.idxE + 1) - 1;
+}

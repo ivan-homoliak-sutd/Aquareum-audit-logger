@@ -16,6 +16,12 @@ public:
     HashesArray(HashesArray const& other) = default;  // copy constructor
     //     :m_data(other.m_data), m_size(other.m_size) {}
 
+    inline void clear()
+    {
+        m_data.clear();
+        m_size = 0;
+    }
+
     inline void push_back(const dev::h256& a)
     {
         m_data.insert(m_data.end(), a.begin(), a.end());

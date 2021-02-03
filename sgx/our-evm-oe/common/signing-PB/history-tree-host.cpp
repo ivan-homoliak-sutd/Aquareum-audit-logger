@@ -91,23 +91,20 @@ void HistoryTreeHost::_fullReduceSingleLayer(int idxL)
     }
 }
 
-int HistoryTreeHost::buildIncProof(const unsigned long int versionA, const unsigned long int versionB,
+int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versionB,
                                    std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos)
 {
     // 0) initial checks & allocation
     size_t curVer = getCurVersion();
-    if (versionB < 2 || versionA < 1) {
-        throw std::logic_error("Only inc proofs against the current version are supported.");
-    }
-    if (versionB != curVer) {
+    if (versionB < 2 || versionA < 1)
+        throw std::domain_error("Only inc proofs against the current version are supported.");
+    if (versionB != curVer)
         throw std::logic_error("Only incremental proofs against the current version are supported.");
-    }
-    if (versionA >= versionB) {
-        throw std::logic_error("Version A must be always smaller than version B.");
-    }
-    if (proofFHs.size() != 0 || proofFHPos.size() != 0) {
-        throw std::logic_error("Non-zero size of output proofs.");
-    }
+    if (versionA >= versionB)
+        throw std::invalid_argument("Version A must be always smaller than version B.");
+    if (proofFHs.size() != 0 || proofFHPos.size() != 0)
+        throw std::invalid_argument("Non-zero size of output proofs.");
+
 
     // 1) find the item in the current SKN cache (and position) that "covers" the last element of versionA
     size_t rangeStart, rangeEnd;
@@ -134,12 +131,12 @@ int HistoryTreeHost::buildIncProof(const unsigned long int versionA, const unsig
         // proceed in trail towards versionA
 
         // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
-        unsigned long int rightIdxInLower = 2 * targetNode.idxE + 1;                                    // idx of right node in the lower layer (2x faster indexing)
+        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                    // idx of right node in the lower layer (2x faster indexing)
         tmpPos.insert(targetIt, PositionNode({targetNode.idxL - 1, rightIdxInLower}));                  // inserts at target iterator (right Position node)
         *std::prev(targetIt, 2) = std::move(PositionNode({targetNode.idxL - 1, rightIdxInLower - 1}));  // replace the penultimate node - it is just unfolded   (left Position node)
 
         // b) get right ranges of indices covered by a left and right currently unfolded nodes
-        auto rangeEndLeft = pow(2, std::prev(targetIt)->idxL) * (rightIdxInLower)-1;
+        auto rangeEndLeft = pow(2, std::prev(targetIt)->idxL) * rightIdxInLower - 1;
         auto rangeEndRight = pow(2, std::prev(targetIt)->idxL) * (rightIdxInLower + 1) - 1;
 
         // c) if we are not at bottom yet, then continue in descent
@@ -197,7 +194,7 @@ void HistoryTreeHost::printLayers()
     }
 }
 
-void HistoryTreeHost::printIncProof(const unsigned long int versionA, const unsigned long int versionB,
+void HistoryTreeHost::printIncProof(const uint64_t versionA, const uint64_t versionB,
                                     std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos)
 {
     std::cout << "Printing Inc proof (" << versionA << "," << versionB << "):\n";
@@ -212,16 +209,4 @@ void HistoryTreeHost::printIncProof(const unsigned long int versionA, const unsi
         std::cout << proofFHPos[i].str() << ", ";
     }
     std::cout << "\n";
-}
-
-/**
- * @brief Converts domain of versions to domain if indices in tree
- * 
- * @param version 
- * @return size_t 
- */
-size_t ver2Idx(size_t version)
-{
-    assert(version >= 1);
-    return version - 1;
 }
