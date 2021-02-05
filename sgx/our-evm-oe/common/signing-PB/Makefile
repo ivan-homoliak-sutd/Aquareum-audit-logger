@@ -28,12 +28,11 @@ Include_Paths := \
 	-I../include \
 	-I../eEVM/3rdparty/intx/include \
 	-I../eEVM/3rdparty \
-	-I../eEVM/include 
+	-I../eEVM/include
 
 build:
 	$(CXX) -c -g -Wall -Werror $(CXX_FLAGS) $(Include_Paths) -std=$(CXX_STANDARD) $(Cpp_Files)
-	#@ echo "Compilers used: $(EEVM_OBJECTS)"
-	$(CXX) -std=$(CXX_STANDARD) -o test main.o history-tree-enc.o history-tree-host.o  $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o test main.o history-tree-enc.o history-tree-host.o history-tree-auditor.o  $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 run:
 	./test

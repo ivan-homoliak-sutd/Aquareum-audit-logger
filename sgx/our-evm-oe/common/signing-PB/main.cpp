@@ -3,23 +3,27 @@
 
 #include "history-tree.h"
 #include "merkle-tree.h"
+// #include "stacktrace.h"
 
 using namespace std;
 using namespace eevm;
 
-int main()
+
+/**
+ * @brief Compares reduce of skeleton nodes of 'HistoryTreeEnc' with full reduce and partial reduce in 'HistoryTreeHost' on equality.
+ *
+ * @param seedStr
+ * @param ITERS
+ */
+void testReduce(const std::string& seedStr, uint64_t ITERS)
 {
-    int ITERS = 19;
-
+    cout << "TEST 1\n";
     dev::h256 root1, root2, root3;
-    std::string seedStr = "test ";
-    std::string genesisData = seedStr + "0";
-    eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
-    // test of Enclave reduction of SKNs (without stubs)
+    // Enclave reduction of SKNs (without stubs)
     cout << "HistoryTreeEnc...\n";
     HistoryTreeEnc htree;
-    for (int i = 0; i < ITERS; i++) {
+    for (uint64_t i = 0; i < ITERS; i++) {
         string s = seedStr + std::to_string(i);
         cout << "[i = " << i << "]"
              << " adding: " << s << "\n";
@@ -32,10 +36,10 @@ int main()
     }
     cout << "========================================\n";
 
-    //  test of Host history tree reduction of FHs (wit stubs)
+    // Host history tree reduction of FHs (with stubs)
     cout << "HistoryTreeHost (full reduce)\n";
     HistoryTreeHost htree2(HistoryTreeHost::ReduceType::FULL);
-    for (int i = 0; i < ITERS; i++) {
+    for (uint64_t i = 0; i < ITERS; i++) {
         string s = seedStr + std::to_string(i);
         cout << "[i = " << i << "]"
              << " adding: " << s << "\n";
@@ -49,58 +53,92 @@ int main()
     assert(root1 == root2);
     cout << "========================================\n";
 
-    //  test of Host history tree reduction of FHs (wit stubs)
+    //  test of Host history tree reduction of FHs (with stubs)
     cout << "HistoryTreeHost (partial reduce)\n";
-    HistoryTreeHost htree3(HistoryTreeHost::ReduceType::PARTIAL);
-    for (int i = 0; i < ITERS; i++) {
+    HistoryTreeHost proverTree(HistoryTreeHost::ReduceType::PARTIAL);
+    for (uint64_t i = 0; i < ITERS; i++) {
         string s = seedStr + std::to_string(i);
 
         cout << "[i = " << i << "]"
              << " adding: " << s << "\n";
-        htree3.add(keccak_256(s));
-        root3 = htree3.getRoot();
-        cout << "root: " << htree3.getRoot().hex().substr(0, 6) << endl;
-        htree3.printLayers();
-        // htree3.printSKNCache();
+        proverTree.add(keccak_256(s));
+        root3 = proverTree.getRoot();
+        cout << "root: " << proverTree.getRoot().hex().substr(0, 6) << endl;
+        proverTree.printLayers();
+        // proverTree.printSKNCache();
         cout << "------------------\n";
     }
     assert(root2 == root3);
     cout << "========================================\n";
+}
+
+void testVerificationOfIncPeoofs(const std::string& seedStr, uint64_t ITERS, const std::string& genesisData)
+{
+    cout << "TEST 2\n";
+    dev::h256 rootProover;
+    eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
     cout << "HistoryTree[Host|Auditor] (incremental proof generation + verification)\n";
-    HistoryTreeAuditor auditTree(genesisHash);
+    size_t verifVersion = 1;
     std::vector<dev::h256> incProofFHs;
     std::vector<PositionNode> incProofFHPos;
-    size_t curVer = htree3.getCurVersion();
-    for (uint64_t i = 1; i < curVer; i++) {
+    HistoryTreeHost proverTree(HistoryTreeHost::ReduceType::PARTIAL);
+    HistoryTreeAuditor verifierTree(genesisHash);
+    proverTree.add(genesisHash);            // add the same genesis element as in verifierTree
+    for (uint64_t i = 1; i < ITERS; i++) {  // start from 1, since genesis element was already added to 'verifierTree' and 'prooverTree'
+        assert(verifVersion == 1);
+        string s = seedStr + std::to_string(i);
+        cout << "[i = " << i << "]"
+             << " adding: " << s << "\n";
+        size_t proverVer = proverTree.getCurVersion();
+
         incProofFHs.clear();
         incProofFHPos.clear();
-        htree3.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
-        htree3.printIncProof(i, curVer, incProofFHs, incProofFHPos);
+        proverTree.buildIncProof(verifVersion, proverVer, incProofFHs, incProofFHPos);
+        proverTree.printIncProof(verifVersion, proverVer, incProofFHs, incProofFHPos);
 
-        // verification of Inc Proof
-        assert(auditTree.verifyIncProofFull(i, htree3.getRoot(), incProofFHs, incProofFHPos, false));                
-        cout << "------------------\n";
-    }
-    cout << "========================================\n";    
-
-    exit(1);
-
-    cout << "HistoryTree[Host|Auditor] (incremental proof generation + verification)\n";
-    HistoryTreeAuditor auditTree2(genesisHash);
-    curVer = htree3.getCurVersion();
-    for (uint64_t i = 1; i < curVer; i++) {
-        incProofFHs.clear();
-        incProofFHPos.clear();
-        htree3.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
-        htree3.printIncProof(i, curVer, incProofFHs, incProofFHPos);
-
-        // verification of Inc Proof and Update skeleton if correct
-        assert(auditTree2.verifyIncProofFull(i, htree3.getRoot(), incProofFHs, incProofFHPos, true));                
+        // verification of Inc Proof and update of verifier's skeleton if correct
+        if (!verifierTree.verifyIncProofFull(i, proverTree.getRoot(), incProofFHs, incProofFHPos, false)) {
+            throw logic_error("Incorrect inc. proof provided to verifier.");
+        }
+        proverTree.add(keccak_256(s));  // increase version of proover by adding a new element
         cout << "------------------\n";
     }
     cout << "========================================\n";
+}
 
+int main()
+{
+    uint64_t ITERS = 8;
+
+    std::string seedStr = "test ";
+    std::string genesisData = seedStr + "0";
+
+    try {
+        testReduce(seedStr, ITERS);
+        testVerificationOfIncPeoofs(seedStr, ITERS, genesisData);
+    } catch (const std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << '\n';
+        // auto s = backtrace();
+        // std::cerr << "backtrace(): \n"
+        //   << s << '\n';
+    }
+
+
+    // cout << "HistoryTree[Host|Auditor] (incremental proof generation + verification)\n";
+    // HistoryTreeAuditor auditTree(genesisHash);
+    // curVer = proverTree.getCurVersion();
+    // for (uint64_t i = 1; i < curVer; i++) {
+    //     incProofFHs.clear();
+    //     incProofFHPos.clear();
+    //     proverTree.buildIncProof(i, curVer, incProofFHs, incProofFHPos);
+    //     proverTree.printIncProof(i, curVer, incProofFHs, incProofFHPos);
+
+    //     // verification of Inc Proof
+    //     assert(auditTree.verifyIncProofFull(curVer, proverTree.getRoot(), incProofFHs, incProofFHPos, false));
+    //     cout << "------------------\n";
+    // }
+    // cout << "========================================\n";
 
     return 0;
 }

@@ -42,7 +42,7 @@ public:
         }
     }
 
-    inline dev::h256&& at(int idx) { return std::move(dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer)); }
+    inline dev::h256 at(int idx) { return dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer); }
 
     inline const size_t size() { return m_size; }
 

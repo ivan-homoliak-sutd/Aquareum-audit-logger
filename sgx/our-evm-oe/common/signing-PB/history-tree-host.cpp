@@ -4,10 +4,10 @@
 #include <list>
 
 /**
- * @brief Adds entry to m_layers and updates the full tree in m_layers as well. 
+ * @brief Adds entry to m_layers and updates the full tree in m_layers as well.
  * Additionally, calls parent method to update SKN cache (i.e., current incremental proof)
- * 
- * @param a 
+ *
+ * @param a
  */
 void HistoryTreeHost::add(const eevm::KeccakHash& a)
 {
@@ -18,8 +18,8 @@ void HistoryTreeHost::add(const eevm::KeccakHash& a)
 }
 
 /**
- * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after processing. 
- * 
+ * @brief It updates all (cached) layers of the tree, including root. It inserts temporary stubs, which are removed after processing.
+ *
  */
 void HistoryTreeHost::_updateLayersAndRoot()
 {
@@ -50,8 +50,8 @@ void HistoryTreeHost::_updateLayersAndRoot()
 
 /**
  * @brief In contrast to _fullReduceSingleLayer Optimized by skipping of computations that were already done before (using SKN cache).
- * 
- * @param idxL - index of the current layer to be reduced 
+ *
+ * @param idxL - index of the current layer to be reduced
  */
 void HistoryTreeHost::_partialReduceSingleLayer(int idxL)
 {
@@ -72,8 +72,8 @@ void HistoryTreeHost::_partialReduceSingleLayer(int idxL)
 /**
  * @brief It reduces the full current layer of history tree into the next (above) layer; including root hash (i.e., the highest layer)
  * It can be used for fast loading of data from disk by function loadTree()
- * 
- * @param idxL - index of the current layer to be reduced 
+ *
+ * @param idxL - index of the current layer to be reduced
  */
 void HistoryTreeHost::_fullReduceSingleLayer(int idxL)
 {
@@ -96,15 +96,15 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
 {
     // 0) initial checks & allocation
     size_t curVer = getCurVersion();
-    if (versionB < 2 || versionA < 1)
-        throw std::domain_error("Only inc proofs against the current version are supported.");
+    if (versionB < 1 || versionA < 1)
+        throw std::domain_error("Version A and version B in inc proof must greater than 1 and current.");
     if (versionB != curVer)
-        throw std::logic_error("Only incremental proofs against the current version are supported.");
-    if (versionA >= versionB)
-        throw std::invalid_argument("Version A must be always smaller than version B.");
+        throw std::logic_error("Only inc proofs against the current version are supported.");
     if (proofFHs.size() != 0 || proofFHPos.size() != 0)
         throw std::invalid_argument("Non-zero size of output proofs.");
-
+    if (versionA == versionB) {  // return empty inc proof for the same versions
+        return 0;
+    }
 
     // 1) find the item in the current SKN cache (and position) that "covers" the last element of versionA
     size_t rangeStart, rangeEnd;
@@ -131,7 +131,7 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
         // proceed in trail towards versionA
 
         // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
-        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                    // idx of right node in the lower layer (2x faster indexing)
+        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                             // idx of right node in the lower layer (2x faster indexing)
         tmpPos.insert(targetIt, PositionNode({targetNode.idxL - 1, rightIdxInLower}));                  // inserts at target iterator (right Position node)
         *std::prev(targetIt, 2) = std::move(PositionNode({targetNode.idxL - 1, rightIdxInLower - 1}));  // replace the penultimate node - it is just unfolded   (left Position node)
 
@@ -197,7 +197,7 @@ void HistoryTreeHost::printLayers()
 void HistoryTreeHost::printIncProof(const uint64_t versionA, const uint64_t versionB,
                                     std::vector<dev::h256>& proofFHs, std::vector<PositionNode>& proofFHPos)
 {
-    std::cout << "Printing Inc proof (" << versionA << "," << versionB << "):\n";
+    std::cout << "Printing Inc proof <" << versionA << "-" << versionB << ">:\n";
     std::cout << "Proof nodes: ";
     for (size_t i = 0; i < proofFHs.size(); i++) {
         std::cout << proofFHs[i].hex().substr(0, 6) << ", ";

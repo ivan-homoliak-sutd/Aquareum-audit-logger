@@ -3,10 +3,10 @@
 #include "history-tree.h"
 
 /**
- * @brief It consistently adds element to the history tree, but does not store it. 
+ * @brief It consistently adds element to the history tree, but does not store it.
  * It stores only incremental proof (i.e., m_SKN_cache), and thus saving the space
- * 
- * @param a - hash of the element to add 
+ *
+ * @param a - hash of the element to add
  */
 void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 {
@@ -24,7 +24,7 @@ void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 }
 
 /**
- * @brief After adding the entry to m_SKN_cache, we have to call this function, which updates the current SKNCache (i.e., most recent incremental proof)     
+ * @brief After adding the entry to m_SKN_cache, we have to call this function, which updates the current SKNCache (i.e., most recent incremental proof)
  */
 void HistoryTreeEnc::_updateSKNCache()
 {
@@ -51,7 +51,7 @@ void HistoryTreeEnc::_updateSKNCache()
 }
 
 /**
- * @brief It computes root hash from skeleton 'm_SKN_cache' and stores it into m_root. 
+ * @brief It computes root hash from skeleton 'm_SKN_cache' and stores it into m_root.
  *
  * @param offsetHeight [default = 0] - shifting of the tree height by this number (useful in proof verification with higher trees than ours)
  * @return const dev::h256& - new root hash
@@ -77,11 +77,11 @@ const dev::h256& HistoryTreeEnc::computeRootFromSKNs(size_t offsetHeight)
 /**
  * @brief It reduces (in place) passed skeleton arrays to the root.
  * It also adds stubs for odd size layers to be compatible with incremental proofs higher than (+1) - utilized in HistoryTreeHost
- * 
- * @param skeletonNodes 
- * @param skeletonPos 
+ *
+ * @param skeletonNodes
+ * @param skeletonPos
  * @param offsetHeight [default = 0] - shifting of the tree height by this number
- * @return dev::h256 
+ * @return dev::h256
  */
 dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector<PositionNode>& skeletonPos, size_t offsetHeight)
 {
@@ -110,7 +110,7 @@ dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector
         lowestSKNPosNode = skeletonPos[skeletonPos.size() - 1];
     }
     auto root = dev::h256(skeletonNodes.data(), dev::h256::ConstructFromPointer);
-    return std::move(root);
+    return root;
 }
 
 

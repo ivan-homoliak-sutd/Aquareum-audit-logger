@@ -2,6 +2,7 @@
 
 #include "aleth-mp3/FixedHash.h"
 #include "merkle-tree.h"
+#include <list>
 
 class PositionNode {
 public:
@@ -40,7 +41,7 @@ public:
 
     inline virtual const dev::h256& getRoot() { return m_root; }  // the root hash - note it is valid only after calling computeRootFromFH()
 
-    inline const size_t treeHeight() const { return ceil(log2(m_itemsCnt)) + 1; }  // includes also stub nodes (if any)
+    inline const size_t treeHeight() const { return (m_itemsCnt != 1) ? ceil(log2(m_itemsCnt)) + 1 : 2; }  // includes also stub nodes (if any)
 
     inline uint64_t getCurVersion() { return m_itemsCnt; }
 
@@ -80,10 +81,13 @@ public:
                             const std::vector<PositionNode>& proofFHPos, bool updateSKN = false);
 
     friend uint64_t endIdxRange(const PositionNode& pos);
+    friend size_t ver2Height(uint64_t version);
 
 private:
     void _updateMySkeleton(const dev::h256& rootLeft, uint64_t versionNew, size_t startIdx,
                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
+
+    void _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew);
 };
 
 class HistoryTreeHost : public HistoryTreeEnc {
@@ -111,7 +115,7 @@ public:
         return m_root;
     }
 
-    inline dev::h256&& getNode(int idxLayer, uint64_t idxElem)
+    inline dev::h256 getNode(int idxLayer, uint64_t idxElem)
     {
         assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
@@ -165,4 +169,10 @@ inline uint64_t ver2Idx(uint64_t version)
 inline uint64_t endIdxRange(const PositionNode& pos)
 {
     return pow(2, pos.idxL) * (pos.idxE + 1) - 1;
+}
+
+inline size_t ver2Height(uint64_t version)
+{
+    assert(version != 0);
+    return (version != 1) ? ceil(log2(version)) + 1 : 2;
 }
