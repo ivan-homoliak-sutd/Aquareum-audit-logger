@@ -85,11 +85,11 @@ public:
     friend bool isLeft(const PositionNode& pos);
 
 private:
-    void _updateMySkeleton(const dev::h256& rootLeft, uint64_t versionNew, size_t startIdx,
+    void _updateMySkeleton(dev::h256&& rootLeft, const dev::h256& rootNew, uint64_t versionNew, size_t startRIdx,
                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 
-    void _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew);
-    void _reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx)
+    dev::h256 _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t* rightStartRevIdx);
+    void _reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx);
 };
 
 class HistoryTreeHost : public HistoryTreeEnc {
