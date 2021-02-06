@@ -66,22 +66,85 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
     return true;
 }
 
+/**
+ * @brief Reduces the proof in place, while leaving the resulting root node in the input lists.
+ * 
+ * @param proofFHs 
+ * @param proofFHPos 
+ * @param versionNew 
+ */
 void HistoryTreeAuditor::_reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew)
 {
-    size_t maxLayerIdx = ver2Height(versionNew) - 1;
-
     // 1) process the left part of the proof (corresponding to our current version) until the new height - 1 is not reached
-    auto& curSKN = HistoryTreeEnc::getSKNPositionNodeRef(-1); 
-    size_t curLayerIdx = curSKN.idxL;
-    // find iterator pointing on the current element at the bottom of left part
-    // auto itCur = std::find_if(proofFHPos.begin(), proofFHPos.end(), [](PositionNode& p) { curSKN == endIdxRange(p); });
-    while (curLayerIdx < maxLayerIdx) {
-        // dexide based on left or right side
+    _reduceIncProofStartingAt(proofFHs, proofFHPos, versionNew, m_SKN_pos.size() - 1);
+
+    // 2) process the right part of the proof (corresponding to a new version) until the new height - 1 is not reached
+    _reduceIncProofStartingAt(proofFHs, proofFHPos, versionNew, proofFHPos.size() - 1);
+
+    // 3) combine left and right parts to a root hash
+    assert(2 == proofFHs.size() && 2 == proofFHPos.size());
+
+    
+
+}
+
+void HistoryTreeAuditor::_reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx)
+{
+    // 1) find iterators pointing on the last element of our skeleton 'm_SKN_pos' and 'm_SKN_cache'
+    auto itCurPos = std::next(proofFHPos.begin(), startAtIdx);
+    auto itCurFH = std::next(proofFHs.begin(), startAtIdx);
+
+    // 2) process a selected part of the proof (by 'startAtIdx') until the new height - 1 is not reached
+    int maxLayerIdx = ver2Height(versionNew) - 2;
+    assert(maxLayerIdx > 0);
+    auto& lastSKN = HistoryTreeEnc::getSKNPositionNodeRef(-1);
+    size_t curLayerIdx = lastSKN.idxL;
+    while (curLayerIdx < size_t(maxLayerIdx)) {
+        // reduce the current node with its left/right sibling based on its index in the layer
+        if (isLeft(*itCurPos)) {
+            // a1) append stub if we reached the end of the proof
+            if(proofFHPos.end() == std::next(itCurPos)){
+                proofFHPos.push_back(PositionNode({itCurPos->idxL, itCurPos->idxE + 1}));
+                proofFHs.push_back(EMPTY_HASH_OBJ);
+            }
+
+            // a2) check the validity of position in the proof    
+            if (*std::next(itCurPos) != PositionNode({itCurPos->idxL, itCurPos->idxE + 1}))
+                throw std::invalid_argument("Invalid position in (reduced) proof - expected sibling at the same layer.");
+
+            // a3) reduce 2 position nodes
+            *itCurPos = std::move(PositionNode({itCurPos->idxL + 1, itCurPos->idxE / 2}));  // replace the current position node by a reduction of siblings
+            proofFHPos.erase(std::next(itCurPos));                                          // remove the right sibling
+
+            // a4) reduce 2 hashes of FHs
+            uint8_t srcBuf[2 * HASH_SIZE];
+            memcpy(srcBuf, itCurFH->data(), HASH_SIZE);
+            memcpy(srcBuf + HASH_SIZE, std::next(itCurFH)->data(), HASH_SIZE);
+            eevm::keccak_256(srcBuf, 2 * HASH_SIZE, itCurFH->data());
+            proofFHs.erase(std::next(itCurFH));
+        } else {
+            // b1) check the validity of position in the proof    
+            if (*std::prev(itCurPos) != PositionNode({itCurPos->idxL, itCurPos->idxE - 1}))
+                throw std::invalid_argument("Invalid position in (reduced) proof - expected sibling at the same layer.");
+
+            // b2) reduce 2 positions nodes
+            *std::prev(itCurPos) = std::move(PositionNode({itCurPos->idxL + 1, itCurPos->idxE / 2}));  // replace the current position node by a reduction of siblings
+            itCurPos = std::prev(proofFHPos.erase(itCurPos));                                          // remove the current position node => we need to update the current iterator
+
+            // b3) reduce 2 hashes of FHs
+            uint8_t srcBuf[2 * HASH_SIZE];
+            memcpy(srcBuf, std::prev(itCurFH)->data(), HASH_SIZE);
+            memcpy(srcBuf + HASH_SIZE, itCurFH->data(), HASH_SIZE);
+            eevm::keccak_256(srcBuf, 2 * HASH_SIZE, std::prev(itCurFH)->data());
+            itCurFH = std::prev(proofFHs.erase(itCurFH));  // remove the current FH node => we need to update the current iterator
+        }
         curLayerIdx++;
     }
-
-    // process the right part of the proof
+    assert(proofFHPos.size() == proofFHs.size());
 }
+
+
+// auto itCurPos = std::find_if(std::begin(proofFHPos), std::end(proofFHPos), [](PositionNode& p) { return lastSKN == endIdxRange(p); });
 
 void HistoryTreeAuditor::_updateMySkeleton(const dev::h256& rootLeft, uint64_t versionNew, size_t startIdx,
                                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos)

@@ -82,12 +82,14 @@ public:
 
     friend uint64_t endIdxRange(const PositionNode& pos);
     friend size_t ver2Height(uint64_t version);
+    friend bool isLeft(const PositionNode& pos);
 
 private:
     void _updateMySkeleton(const dev::h256& rootLeft, uint64_t versionNew, size_t startIdx,
                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 
     void _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew);
+    void _reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx)
 };
 
 class HistoryTreeHost : public HistoryTreeEnc {
@@ -175,4 +177,9 @@ inline size_t ver2Height(uint64_t version)
 {
     assert(version != 0);
     return (version != 1) ? ceil(log2(version)) + 1 : 2;
+}
+
+inline bool isLeft(const PositionNode& pos)
+{
+    return 1 == (pos.idxE + 1) % 2;
 }
