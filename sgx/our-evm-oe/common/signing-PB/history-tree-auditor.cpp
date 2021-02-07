@@ -74,7 +74,7 @@ void HistoryTreeAuditor::_updateMySkeleton(dev::h256&& rootLeft, const dev::h256
     m_SKN_cache.clear();
     m_SKN_pos.clear();
     m_SKN_cache.push_back(rootLeft);
-    m_SKN_pos.push_back({treeHeight() - 1, 0});  // create position node on the left side of the current heigth idx
+    m_SKN_pos.push_back(PositionNode(treeHeight() - 1, 0));  // create position node on the left side of the current heigth idx
 
     // 2) copy the remaining FHNodes from passed proof to my skeleton
     for (size_t i = proofFHs.size() - startRIdx; i < proofFHs.size(); i++) {
@@ -127,25 +127,24 @@ void HistoryTreeAuditor::_reduceIncProofStartingAt(std::list<dev::h256>& proofFH
 
     // 2) process a selected part of the proof (by 'startAtIdx') until the new height - 1 is not reached
     int maxLayerIdx = ver2Height(versionNew) - 2;
-    assert(maxLayerIdx > 0);
-    auto& lastSKN = HistoryTreeEnc::getSKNPositionNodeRef(-1);
-    size_t curLayerIdx = lastSKN.idxL;
+    assert(maxLayerIdx >= 0);
+    size_t curLayerIdx = itCurPos->idxL;
     while (curLayerIdx < size_t(maxLayerIdx)) {
         // reduce the current node with its left/right sibling based on its index in the layer
         if (isLeft(*itCurPos)) {
             // a1) append stub if we reached the end of the proof
             if (proofFHPos.end() == std::next(itCurPos)) {
-                proofFHPos.push_back(PositionNode({itCurPos->idxL, itCurPos->idxE + 1}));
+                proofFHPos.push_back(PositionNode(itCurPos->idxL, itCurPos->idxE + 1));
                 proofFHs.push_back(EMPTY_HASH_OBJ);
             }
 
             // a2) check the validity of position in the proof
-            if (*std::next(itCurPos) != PositionNode({itCurPos->idxL, itCurPos->idxE + 1}))
+            if (*std::next(itCurPos) != PositionNode(itCurPos->idxL, itCurPos->idxE + 1))
                 throw std::invalid_argument("Invalid position in (reduced) proof - expected sibling at the same layer.");
 
             // a3) reduce 2 position nodes
-            *itCurPos = std::move(PositionNode({itCurPos->idxL + 1, itCurPos->idxE / 2}));  // replace the current position node by a reduction of siblings
-            proofFHPos.erase(std::next(itCurPos));                                          // remove the right sibling
+            *itCurPos = PositionNode(itCurPos->idxL + 1, itCurPos->idxE / 2);  // replace the current position node by a reduction of siblings
+            proofFHPos.erase(std::next(itCurPos));                               // remove the right sibling
 
             // a4) reduce 2 hashes of FHs
             uint8_t srcBuf[2 * HASH_SIZE];
@@ -155,12 +154,12 @@ void HistoryTreeAuditor::_reduceIncProofStartingAt(std::list<dev::h256>& proofFH
             proofFHs.erase(std::next(itCurFH));
         } else {
             // b1) check the validity of position in the proof
-            if (*std::prev(itCurPos) != PositionNode({itCurPos->idxL, itCurPos->idxE - 1}))
+            if (*std::prev(itCurPos) != PositionNode(itCurPos->idxL, itCurPos->idxE - 1))
                 throw std::invalid_argument("Invalid position in (reduced) proof - expected sibling at the same layer.");
 
             // b2) reduce 2 positions nodes
-            *std::prev(itCurPos) = std::move(PositionNode({itCurPos->idxL + 1, itCurPos->idxE / 2}));  // replace the current position node by a reduction of siblings
-            itCurPos = std::prev(proofFHPos.erase(itCurPos));                                          // remove the current position node => we need to update the current iterator
+            *std::prev(itCurPos) = PositionNode(itCurPos->idxL + 1, itCurPos->idxE / 2);  // replace the current position node by a reduction of siblings
+            itCurPos = std::prev(proofFHPos.erase(itCurPos));                               // remove the current position node => we need to update the current iterator
 
             // b3) reduce 2 hashes of FHs
             uint8_t srcBuf[2 * HASH_SIZE];

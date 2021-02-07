@@ -12,7 +12,7 @@ void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 {
     // 1) add new element
     m_SKN_cache.push_back(a);
-    m_SKN_pos.push_back({0, m_itemsCnt});  // insert as the last node in the bottom layer
+    m_SKN_pos.push_back(PositionNode(0, m_itemsCnt));  // insert as the last node in the bottom layer
     m_itemsCnt++;
 
     // 2) reduce items of SKN cache to get (+1) Incremental proof in it
@@ -37,7 +37,7 @@ void HistoryTreeEnc::_updateSKNCache()
                 assert(m_SKN_pos[idxLast].idxL == m_SKN_pos[idxLast - 1].idxL);  // two last nodes in SKN positions must be in the same layer
 
                 // a) reduce 2 last positions of SKN nodes
-                m_SKN_pos[idxLast - 1] = PositionNode({m_SKN_pos[idxLast - 1].idxL + 1, m_SKN_pos[idxLast - 1].idxE / 2});  // increase the layer and decrease the FHNode idx (by /2)
+                m_SKN_pos[idxLast - 1] = PositionNode(m_SKN_pos[idxLast - 1].idxL + 1, m_SKN_pos[idxLast - 1].idxE / 2);  // increase the layer and decrease the FHNode idx (by /2)
                 m_SKN_pos.pop_back();
 
                 // b) reduce 2 last SKN nodes themeselves
@@ -62,11 +62,11 @@ const dev::h256& HistoryTreeEnc::computeRootFromSKNs(size_t offsetHeight)
         return m_root;  // root is initialized to  EMPTY_HASH_OBJ
 
     // 1) copy SKN cache and their positions to local temporary containers
-    HashesArray tmpSKNCache;
+    HashesArray tmpSKNCache = HashesArray();
     std::vector<PositionNode> tmpSKNPos;
     for (size_t i = 0; i < m_SKN_cache.size(); ++i) {
-        tmpSKNCache.push_back(std::move(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(i)), dev::h256::ConstructFromPointer)));
-        tmpSKNPos.push_back(m_SKN_pos[i]);
+        tmpSKNCache.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(i)), dev::h256::ConstructFromPointer));        
+        tmpSKNPos.push_back(PositionNode(m_SKN_pos[i].idxL, m_SKN_pos[i].idxE));
     }
 
     // 2) reduce the skeleton wihtin local arrays (in place)
@@ -87,18 +87,18 @@ dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector
 {
     // 1) compute the root hash from the tmp array of SKNs and their positions - insert stubs if odd (according to positions)
     auto height = treeHeight() + offsetHeight;
-    auto& lowestSKNPosNode = skeletonPos[skeletonPos.size() - 1];
-    for (size_t iL = lowestSKNPosNode.idxL; iL < height - 1; iL++) {  // start at the position of the current layer taken from the last PositionNode (since it is the lowest one)
+    auto* lowestSKNPosNode = &skeletonPos[skeletonPos.size() - 1];
+    for (size_t iL = lowestSKNPosNode->idxL; iL < height - 1; iL++) {  // start at the position of the current layer taken from the last PositionNode (since it is the lowest one)
 
         // a) add stub SKNNode and its position if there is an odd number of elements in the layer
-        if (0 != (lowestSKNPosNode.idxE + 1) % 2) {
+        if (0 != (lowestSKNPosNode->idxE + 1) % 2) {
             skeletonNodes.push_back(EMPTY_HASH_OBJ);
-            skeletonPos.push_back({lowestSKNPosNode.idxL, lowestSKNPosNode.idxE + 1});
+            skeletonPos.push_back(PositionNode(lowestSKNPosNode->idxL, lowestSKNPosNode->idxE + 1));
         }
 
         // b) reduce positions of SKNNodes (into the above layer)
         int idxLast = skeletonPos.size() - 1;
-        skeletonPos[idxLast - 1] = PositionNode({skeletonPos[idxLast - 1].idxL + 1, skeletonPos[idxLast - 1].idxE / 2});  // increase the layer and decrease the FHNode idx (by /2)
+        skeletonPos[idxLast - 1] = PositionNode(skeletonPos[idxLast - 1].idxL + 1, skeletonPos[idxLast - 1].idxE / 2);  // increase the layer and decrease the FHNode idx (by /2)
         skeletonPos.pop_back();
 
         // c) reduce SKNNodes themselves (into the above layer)
@@ -107,7 +107,7 @@ dev::h256 HistoryTreeEnc::reduceSkeleton(HashesArray& skeletonNodes, std::vector
         skeletonNodes.pop_back();
 
         // d) update the lowest SKN position node
-        lowestSKNPosNode = skeletonPos[skeletonPos.size() - 1];
+        lowestSKNPosNode = &skeletonPos[skeletonPos.size() - 1];
     }
     auto root = dev::h256(skeletonNodes.data(), dev::h256::ConstructFromPointer);
     return root;

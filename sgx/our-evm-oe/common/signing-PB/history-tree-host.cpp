@@ -124,16 +124,16 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
     assert(rangeStart != rangeEnd);
 
     // 3) descend the target node - unfold found SKNode (to a pair of SKNodes) until the last element of version A is not the rightmost covered element by some unfolded FHNode
-    auto targetNode = m_SKN_pos[iOFH];           // target node to unfold
-    std::list<PositionNode> tmpPos{targetNode};  // temporary list to keep unfolded positions in (it extends and shrinks)
-    auto targetIt = tmpPos.end();                // point before the element to insert into list
+    auto& targetNode = m_SKN_pos[iOFH];                                           // target node to unfold
+    std::list<PositionNode> tmpPos{const_cast<const PositionNode&>(targetNode)};  // temporary list to keep unfolded positions in (it extends and shrinks)
+    auto targetIt = tmpPos.end();                                                 // point before the element to insert into list
     while (true) {
         // proceed in trail towards versionA
 
         // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
-        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                             // idx of right node in the lower layer (2x faster indexing)
-        tmpPos.insert(targetIt, PositionNode({targetNode.idxL - 1, rightIdxInLower}));                  // inserts at target iterator (right Position node)
-        *std::prev(targetIt, 2) = std::move(PositionNode({targetNode.idxL - 1, rightIdxInLower - 1}));  // replace the penultimate node - it is just unfolded   (left Position node)
+        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                  // idx of right node in the lower layer (2x faster indexing)
+        tmpPos.insert(targetIt, PositionNode(targetNode.idxL - 1, rightIdxInLower));         // inserts at target iterator (right Position node)
+        *std::prev(targetIt, 2) = PositionNode(targetNode.idxL - 1, rightIdxInLower - 1);  // replace the penultimate node - it is just unfolded   (left Position node)
 
         // b) get right ranges of indices covered by a left and right currently unfolded nodes
         auto rangeEndLeft = pow(2, std::prev(targetIt)->idxL) * rightIdxInLower - 1;

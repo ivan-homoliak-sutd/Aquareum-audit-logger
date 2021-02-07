@@ -6,10 +6,39 @@
 
 class PositionNode {
 public:
-    PositionNode(PositionNode&& other) = default;
-    PositionNode(const PositionNode& other) = default;
-    PositionNode& operator=(const PositionNode& other) = default;  // copy operator
-    PositionNode& operator=(PositionNode&& other) = default;       // move operator
+    PositionNode(const size_t _idxL, const uint64_t _idxE)
+    {
+        std::cerr << "PositionNode::def_cons"
+                  << "\n";
+        idxL = _idxL;
+        idxE = _idxE;
+    }
+
+    PositionNode(const PositionNode& other)
+      : idxL(other.idxL), idxE(other.idxE)
+    {
+        std::cerr << "PositionNode::copy_cons"
+                  << "\n";
+    }
+    PositionNode(PositionNode&& other)
+    {
+        std::cerr << "PositionNode::move_cons"
+                  << "\n";
+        this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
+        this->idxE = std::exchange(other.idxE, 9999);
+    }
+    PositionNode(PositionNode& other) = delete;                   // copy assignment operator with copy-and-swap idiom => disabled
+    PositionNode& operator=(const PositionNode& other) = default;  // copy assignment operator
+    PositionNode& operator=(PositionNode&& other) noexcept         // move assignment operator
+    {
+        std::cerr << "PositionNode::move_assgn_oper"
+                  << "\n";
+        if (this != &other) {
+            this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
+            this->idxE = std::exchange(other.idxE, 9999);
+        }
+        return *this;
+    }
 
     size_t idxL;    // index of layer of the node from the bottom (starting by 0)
     uint64_t idxE;  // index of node within the layer (starting by 0)
@@ -73,6 +102,7 @@ protected:
 class HistoryTreeAuditor : public HistoryTreeEnc {
 public:
     HistoryTreeAuditor(const eevm::KeccakHash& genesisE)
+      : HistoryTreeEnc()
     {
         add(genesisE);  // set up genesis element; this also updates the root hash
     }

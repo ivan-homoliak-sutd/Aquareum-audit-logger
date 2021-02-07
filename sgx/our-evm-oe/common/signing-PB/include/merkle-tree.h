@@ -20,7 +20,7 @@ public:
     {
         m_data.clear();
         m_size = 0;
-    }
+    }    
 
     inline void push_back(const dev::h256& a)
     {
