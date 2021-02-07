@@ -72,35 +72,52 @@ void testReduce(const std::string& seedStr, uint64_t ITERS)
     cout << "========================================\n";
 }
 
-void testVerificationOfIncPeoofs(const std::string& seedStr, uint64_t ITERS, const std::string& genesisData)
+void testVerificationOfIncProofs(const std::string& seedStr, uint64_t ITERS, const std::string& genesisData)
 {
     cout << "TEST 2\n";
     dev::h256 rootProover;
     eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
     cout << "HistoryTree[Host|Auditor] (incremental proof generation + verification)\n";
-    size_t verifVersion = 1;
+    size_t verifVersion = 1 + 0;
+    size_t verif2Version = 1; // this verifier always updates the skeleton
     std::vector<dev::h256> incProofFHs;
     std::vector<PositionNode> incProofFHPos;
     HistoryTreeHost proverTree(HistoryTreeHost::ReduceType::PARTIAL);
+    HistoryTreeAuditor verifierTree2(genesisHash); // does updates of skeleton
+    
     HistoryTreeAuditor verifierTree(genesisHash);
+    
     proverTree.add(genesisHash);            // add the same genesis element as in verifierTree
+    
     for (uint64_t i = 1; i < ITERS; i++) {  // start from 1, since genesis element was already added to 'verifierTree' and 'prooverTree'
         assert(verifVersion == 1);
+        assert(verif2Version == i);
         string s = seedStr + std::to_string(i);
-        cout << "[i = " << i << "]"
+        cout << "[i = " << i << "] "
              << " adding: " << s << "\n";
-        size_t proverVer = proverTree.getCurVersion();
+        size_t proverVer = proverTree.getCurVersion();        
 
+        // a) [not updating verifier] generation & verification of Inc Proof - do not update verifier's skeleton if correct
         incProofFHs.clear();
         incProofFHPos.clear();
         proverTree.buildIncProof(verifVersion, proverVer, incProofFHs, incProofFHPos);
-        proverTree.printIncProof(verifVersion, proverVer, incProofFHs, incProofFHPos);
-
-        // verification of Inc Proof and update of verifier's skeleton if correct
+        proverTree.printIncProof(verifVersion, proverVer, incProofFHs, incProofFHPos);        
         if (!verifierTree.verifyIncProofFull(i, proverTree.getRoot(), incProofFHs, incProofFHPos, false)) {
             throw logic_error("Incorrect inc. proof provided to verifier.");
         }
+
+        // b) [updating verifier] generation & verification of Inc Proof - does update verifier's skeleton if correct | the proofs should be empty
+        incProofFHs.clear();
+        incProofFHPos.clear();
+        proverTree.buildIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
+        assert(0 == incProofFHs.size() && 0 == incProofFHPos.size());
+        proverTree.printIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
+
+        if (!verifierTree2.verifyIncProofFull(i, proverTree.getRoot(), incProofFHs, incProofFHPos, true)) {
+            throw logic_error("Incorrect inc. proof provided to verifier.");
+        }
+
         proverTree.add(keccak_256(s));  // increase version of proover by adding a new element
         cout << "------------------\n";
     }
@@ -109,14 +126,14 @@ void testVerificationOfIncPeoofs(const std::string& seedStr, uint64_t ITERS, con
 
 int main()
 {
-    uint64_t ITERS = 8;
+    uint64_t ITERS = 30;
 
     std::string seedStr = "test ";
     std::string genesisData = seedStr + "0";
 
     try {
         testReduce(seedStr, ITERS);
-        testVerificationOfIncPeoofs(seedStr, ITERS, genesisData);
+        testVerificationOfIncProofs(seedStr, ITERS, genesisData);
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         // auto s = backtrace();
