@@ -27,7 +27,7 @@ public:
         this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
         this->idxE = std::exchange(other.idxE, 9999);
     }
-    PositionNode(PositionNode& other) = delete;                   // copy assignment operator with copy-and-swap idiom => disabled
+    PositionNode(PositionNode& other) = delete;                    // copy assignment operator with copy-and-swap idiom => disabled
     PositionNode& operator=(const PositionNode& other) = default;  // copy assignment operator
     PositionNode& operator=(PositionNode&& other) noexcept         // move assignment operator
     {
@@ -147,14 +147,14 @@ public:
         return m_root;
     }
 
-    inline dev::h256 getNode(int idxLayer, uint64_t idxElem)
+    inline dev::h256 getNode(int idxLayer, int64_t idxElem)
     {
         assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
         return m_layers[idxLayer].at(idxElem);
     }
 
-    inline const uint8_t* getNodeData(int idxLayer, uint64_t idxElem)
+    inline const uint8_t* getNodeData(int idxLayer, int64_t idxElem)
     {
         assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
