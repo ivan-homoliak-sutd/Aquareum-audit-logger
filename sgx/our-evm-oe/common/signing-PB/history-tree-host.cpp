@@ -106,7 +106,7 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
         return 0;
     }
 
-    // 1) find the item in the current SKN cache (and position) that "covers" the last element of versionA
+    // 1) [LEFT FROM TARGET] - find the item in the current SKN cache (and position) that "covers" the last element of versionA
     size_t rangeStart, rangeEnd;
     size_t iOFH = 0;  // idx pointing to original skelton nodes SKN
     for (; iOFH < m_SKN_pos.size(); iOFH++) {
@@ -123,17 +123,18 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
     }
     assert(rangeStart != rangeEnd);
 
-    // 3) descend the target node - unfold found SKNode (to a pair of SKNodes) until the last element of version A is not the rightmost covered element by some unfolded FHNode
-    auto& targetNode = m_SKN_pos[iOFH];                                           // target node to unfold
-    std::list<PositionNode> tmpPos{const_cast<const PositionNode&>(targetNode)};  // temporary list to keep unfolded positions in (it extends and shrinks)
+    // 3) [TARGET] - descend the target node - unfold found SKNode (to a pair of SKNodes) until the last element of version A is not the rightmost covered element by some unfolded FHNode
+    auto* targetNode = &m_SKN_pos[iOFH];                                           // target node to unfold
+    std::list<PositionNode> tmpPos;  // temporary list to keep unfolded positions in (it extends and shrinks)
+    tmpPos.push_back(*targetNode);
     auto targetIt = tmpPos.end();                                                 // point before the element to insert into list
-    while (true) {
+    while (rangeEnd != ver2Idx(versionA)) {
         // proceed in trail towards versionA
 
         // a) unfold the Position Node and insert it into proof as 2 new positions Nodes of the lower layer (while replacing the current one)
-        uint64_t rightIdxInLower = 2 * targetNode.idxE + 1;                                  // idx of right node in the lower layer (2x faster indexing)
-        tmpPos.insert(targetIt, PositionNode(targetNode.idxL - 1, rightIdxInLower));         // inserts at target iterator (right Position node)
-        *std::prev(targetIt, 2) = PositionNode(targetNode.idxL - 1, rightIdxInLower - 1);  // replace the penultimate node - it is just unfolded   (left Position node)
+        uint64_t rightIdxInLower = 2 * targetNode->idxE + 1;                                  // idx of right node in the lower layer (2x faster indexing)
+        tmpPos.insert(targetIt, PositionNode(targetNode->idxL - 1, rightIdxInLower));         // inserts at target iterator (right Position node)
+        *std::prev(targetIt, 2) = PositionNode(targetNode->idxL - 1, rightIdxInLower - 1);  // replace the penultimate node - it is just unfolded   (left Position node)
 
         // b) get right ranges of indices covered by a left and right currently unfolded nodes
         auto rangeEndLeft = pow(2, std::prev(targetIt)->idxL) * rightIdxInLower - 1;
@@ -142,17 +143,17 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
         // c) if we are not at bottom yet, then continue in descent
         if (ver2Idx(versionA) <= rangeEndLeft) {
             rangeEnd = rangeEndLeft;
-            targetNode = *std::prev(targetIt, 2);  // descend to left
+            targetNode = &*std::prev(targetIt, 2);  // descend to left
             targetIt--;                            // set the iterator just after the target node
         } else {
             rangeEnd = rangeEndRight;
-            targetNode = *std::prev(targetIt);  // descend to right
+            targetNode = &*std::prev(targetIt);  // descend to right
             // targetIt -= 0; // iterator is already set just after the target node
         }
 
         // d) if we reached rightmost node that is complete in terms of powers
-        if (rangeEnd == ver2Idx(versionA))
-            break;
+        // if (rangeEnd == ver2Idx(versionA))
+        //     break;
     }
 
     // 4) tmpPos now contains unfolded elements that need to be copied to output proofs
@@ -161,7 +162,7 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
         proofFHPos.push_back(t);
     }
 
-    // 5) copy the remaining SKN nodes from the original SKN cache, which are on the right from the target SKNode
+    // 5) [RIGHT FROM TARGET] - copy the remaining SKN nodes from the original SKN cache, which are on the right from the target SKNode
     iOFH++;  // adjust the idx to all next FHNodes that can be directly copied
     for (; iOFH < m_SKN_pos.size(); iOFH++) {
         proofFHs.push_back(std::move(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer)));

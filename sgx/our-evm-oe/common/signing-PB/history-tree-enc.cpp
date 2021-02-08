@@ -66,7 +66,9 @@ const dev::h256& HistoryTreeEnc::computeRootFromSKNs(size_t offsetHeight)
     std::vector<PositionNode> tmpSKNPos;
     for (size_t i = 0; i < m_SKN_cache.size(); ++i) {
         tmpSKNCache.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(i)), dev::h256::ConstructFromPointer));        
-        tmpSKNPos.push_back(PositionNode(m_SKN_pos[i].idxL, m_SKN_pos[i].idxE));
+        // tmpSKNPos.push_back(PositionNode(m_SKN_pos[i].idxL, m_SKN_pos[i].idxE));
+        // tmpSKNPos.push_back({m_SKN_pos[i].idxE, m_SKN_pos[i].idxL});
+        tmpSKNPos.push_back(m_SKN_pos[i]); // IH: this is a bug, since move constructor is called by default (i.e., non const arg)
     }
 
     // 2) reduce the skeleton wihtin local arrays (in place)

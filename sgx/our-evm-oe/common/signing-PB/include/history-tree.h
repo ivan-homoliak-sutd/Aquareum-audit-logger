@@ -8,37 +8,36 @@ class PositionNode {
 public:
     PositionNode(const size_t _idxL, const uint64_t _idxE)
     {
-        std::cerr << "PositionNode::def_cons"
-                  << "\n";
+        // std::cerr << "PositionNode::def_cons\n";
         idxL = _idxL;
         idxE = _idxE;
     }
 
-    PositionNode(const PositionNode& other)
-      : idxL(other.idxL), idxE(other.idxE)
-    {
-        std::cerr << "PositionNode::copy_cons"
-                  << "\n";
-    }
-    PositionNode(PositionNode&& other)
-    {
-        std::cerr << "PositionNode::move_cons"
-                  << "\n";
-        this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
-        this->idxE = std::exchange(other.idxE, 9999);
-    }
-    PositionNode(PositionNode& other) = delete;                    // copy assignment operator with copy-and-swap idiom => disabled
-    PositionNode& operator=(const PositionNode& other) = default;  // copy assignment operator
-    PositionNode& operator=(PositionNode&& other) noexcept         // move assignment operator
-    {
-        std::cerr << "PositionNode::move_assgn_oper"
-                  << "\n";
-        if (this != &other) {
-            this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
-            this->idxE = std::exchange(other.idxE, 9999);
-        }
-        return *this;
-    }
+    // PositionNode(const PositionNode& other)
+    //   : idxL(other.idxL), idxE(other.idxE)
+    // {
+    //     std::cerr << "PositionNode::copy_cons"
+    //               << "\n";
+    // }
+    // PositionNode(PositionNode&& other)
+    // {
+    //     std::cerr << "PositionNode::move_cons"
+    //               << "\n";
+    //     this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
+    //     this->idxE = std::exchange(other.idxE, 9999);
+    // }
+    // PositionNode(PositionNode& other) = delete;                    // copy assignment operator with copy-and-swap idiom => disabled
+    // PositionNode& operator=(const PositionNode& other) = default;  // copy assignment operator
+    // PositionNode& operator=(PositionNode&& other) noexcept         // move assignment operator
+    // {
+    //     std::cerr << "PositionNode::move_assgn_oper"
+    //               << "\n";
+    //     if (this != &other) {
+    //         this->idxL = std::exchange(other.idxL, 9999);  // move idxL, while leaving 9999 in other.idxL
+    //         this->idxE = std::exchange(other.idxE, 9999);
+    //     }
+    //     return *this;
+    // }
 
     size_t idxL;    // index of layer of the node from the bottom (starting by 0)
     uint64_t idxE;  // index of node within the layer (starting by 0)
@@ -85,8 +84,7 @@ public:
         return m_SKN_pos[idx];
     }
 
-private:
-    void _updateSKNCache();  // reduces FHCache (called after adding a new item)
+    void _updateSKNCache();  // reduces FHCache (called after adding a new item AND after updating auditor's data from inc. proof)
 
 protected:
     const dev::h256& computeRootFromSKNs(size_t offsetHeight = 0);  // store root into m_root and returs its reference
@@ -118,7 +116,7 @@ private:
     void _updateMySkeleton(dev::h256&& rootLeft, const dev::h256& rootNew, uint64_t versionNew, size_t startRIdx,
                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 
-    dev::h256 _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t* rightStartRevIdx);
+    dev::h256 _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, int* rightStartRevIdx);
     void _reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx);
 };
 

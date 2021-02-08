@@ -1269,9 +1269,9 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
             // clean up allocated memory on heap for persistant TXs
             std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
             txs_in_batch.clear();
+            _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
         }
-        txs_in_batch.push_back(tx);
-        _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
+        txs_in_batch.push_back(tx);        
 
         // adjust balances in our cache
         balances[j] -= value;

@@ -35,7 +35,7 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
         if (endIdxRange(proofFHPos[i - 1]) >= endIdxRange(proofFHPos[i]))
             throw std::invalid_argument("End indices of proof positions nodes must be strictly increasing.");
     }
-    if (proofFHPos.size() > 2 * (ver2Height(versionNew) - 1)) {  // IH: max size of the proof should be 'tight' (the orig paper states 3*height) - test it as now
+    if (proofFHPos.size() > 2 * (ver2Height(versionNew))) {  // IH: max size of the proof should be 'tight' (the orig paper states 3*height) - test it as now
         throw std::invalid_argument("Max size of inc. proof was surpassed.");
     }
 
@@ -44,8 +44,8 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
     std::list<dev::h256> tmpFHs;
     for (size_t idx = 0; idx < proofFHPos.size(); idx++) {
         // a) compare inc proof nodes with our local skeleton 'm_SKN_cache' and 'm_SKN_pos' => return false if they differ
-        if (idx < m_itemsCnt && (proofFHPos[idx] != m_SKN_pos[idx] || proofFHs[idx] != m_SKN_cache.at(idx)))  // do not check for extended version range by new part of proof
-            return false;                                                                                     // this ensures consitency with the past
+        if (idx < m_SKN_pos.size() && (proofFHPos[idx] != m_SKN_pos[idx] || proofFHs[idx] != m_SKN_cache.at(idx)))  // do not check for extended version range by new part of proof
+            return false;                                                                                           // this ensures consitency with the past
 
         // b) copy to linked lists
         tmpFHs.push_back(proofFHs[idx]);
@@ -53,7 +53,7 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
     }
 
     // 3) reduce the incremental proof and store the computed root as the only element of lists passed
-    size_t rightStartRevIdx;
+    int rightStartRevIdx;
     dev::h256 leftRoot = _reduceIncProof(tmpFHs, tmpFHPos, versionNew, &rightStartRevIdx);
 
     // 4) reject the proof if the reduced root is not equal to the passed one 'rootNew'
@@ -62,7 +62,7 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
 
     // 5) update the local skeleton
     if (updateSKN && versionNew != myVersion)
-        _updateMySkeleton(std::move(leftRoot), rootNew, versionNew, rightStartRevIdx, proofFHs, proofFHPos);
+        _updateMySkeleton(std::move(leftRoot), rootNew, versionNew, (size_t)rightStartRevIdx, proofFHs, proofFHPos);
 
     return true;
 }
@@ -70,20 +70,23 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
 void HistoryTreeAuditor::_updateMySkeleton(dev::h256&& rootLeft, const dev::h256& rootNew, uint64_t versionNew, size_t startRIdx,
                                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos)
 {
+    // 1) adjust 'm_itemsCnt' => treeHeight()
+    m_itemsCnt = versionNew;
+
     // 1) copy computed root 'rootLeft' to the first position of my skeleton (put it on left)
     m_SKN_cache.clear();
     m_SKN_pos.clear();
     m_SKN_cache.push_back(rootLeft);
-    m_SKN_pos.push_back(PositionNode(treeHeight() - 1, 0));  // create position node on the left side of the current heigth idx
+    m_SKN_pos.push_back(PositionNode(treeHeight() - 2, 0));  // create position node on the left side of the current heigth idx - 1
 
     // 2) copy the remaining FHNodes from passed proof to my skeleton
-    for (size_t i = proofFHs.size() - startRIdx; i < proofFHs.size(); i++) {
+    for (size_t i = proofFHs.size() - startRIdx - 1; i < proofFHs.size(); i++) {
         m_SKN_cache.push_back(proofFHs[i]);
         m_SKN_pos.push_back(proofFHPos[i]);
     }
 
-    // 3) adjust 'm_itemsCnt'
-    m_itemsCnt = versionNew;
+    // 4) (try to) reduce the compound skeleton
+    _updateSKNCache();
 
     // 4) update my root (without recomputation)
     m_root = rootNew;
@@ -98,14 +101,17 @@ void HistoryTreeAuditor::_updateMySkeleton(dev::h256&& rootLeft, const dev::h256
  * @param versionNew 
  */
 dev::h256 HistoryTreeAuditor::_reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew,
-                                              size_t* rightStartRevIdx)
+                                              int* rightStartRevIdx)
 {
     // 1) process the left part of the proof (corresponding to our current version) until the new height - 1 is not reached
+    *rightStartRevIdx = proofFHs.size() - 1;
+    assert(*rightStartRevIdx >= 0);
     _reduceIncProofStartingAt(proofFHs, proofFHPos, versionNew, m_SKN_pos.size() - 1);
 
-    // 2) store data for updating of local skeleton (the rest will be copied from original proof bu we need to store a position from which to copy)
+    // 2) store data for updating of local skeleton (the rest will be copied from original proof (we need to store a position from which to copy)
     dev::h256 leftRoot = *proofFHs.begin();
-    *rightStartRevIdx = proofFHs.size() - 1;
+    *rightStartRevIdx -= (proofFHs.size() - 1);
+    assert(*rightStartRevIdx >= 0);
 
     // 3) process the right part of the proof (corresponding to a new version) until the new height - 1 is not reached
     _reduceIncProofStartingAt(proofFHs, proofFHPos, versionNew, proofFHPos.size() - 1);
@@ -144,7 +150,7 @@ void HistoryTreeAuditor::_reduceIncProofStartingAt(std::list<dev::h256>& proofFH
 
             // a3) reduce 2 position nodes
             *itCurPos = PositionNode(itCurPos->idxL + 1, itCurPos->idxE / 2);  // replace the current position node by a reduction of siblings
-            proofFHPos.erase(std::next(itCurPos));                               // remove the right sibling
+            proofFHPos.erase(std::next(itCurPos));                             // remove the right sibling
 
             // a4) reduce 2 hashes of FHs
             uint8_t srcBuf[2 * HASH_SIZE];
@@ -159,7 +165,7 @@ void HistoryTreeAuditor::_reduceIncProofStartingAt(std::list<dev::h256>& proofFH
 
             // b2) reduce 2 positions nodes
             *std::prev(itCurPos) = PositionNode(itCurPos->idxL + 1, itCurPos->idxE / 2);  // replace the current position node by a reduction of siblings
-            itCurPos = std::prev(proofFHPos.erase(itCurPos));                               // remove the current position node => we need to update the current iterator
+            itCurPos = std::prev(proofFHPos.erase(itCurPos));                             // remove the current position node => we need to update the current iterator
 
             // b3) reduce 2 hashes of FHs
             uint8_t srcBuf[2 * HASH_SIZE];
