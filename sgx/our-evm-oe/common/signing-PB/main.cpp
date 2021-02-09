@@ -145,7 +145,7 @@ void testVerificationOfIncProofs2(const std::string& seedStr, uint64_t ITERS, co
 
 void testVerificationOfIncProofs3(const std::string& seedStr, uint64_t ITERS, const std::string& genesisData, size_t deltaVersions)
 {
-    cout << "TEST 4."<< deltaVersions << "\n";
+    cout << "TEST 4." << deltaVersions << "\n";
     dev::h256 rootProover;
     eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
@@ -185,7 +185,7 @@ void testVerificationOfIncProofs3(const std::string& seedStr, uint64_t ITERS, co
 
 int main()
 {
-    uint64_t ITERS = 30;
+    uint64_t ITERS = 100;
 
     std::string seedStr = "test ";
     std::string genesisData = seedStr + "0";
@@ -198,6 +198,9 @@ int main()
         testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 3);
         testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 4);
         testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 5);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 8);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 20);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 30);
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         // auto s = backtrace();
