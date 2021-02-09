@@ -78,7 +78,7 @@ void testVerificationOfIncProofs(const std::string& seedStr, uint64_t ITERS, con
     dev::h256 rootProover;
     eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
-    cout << "HistoryTree[Host|Auditor] (<1-x> incremental proof generation + verification)\n";
+    cout << "HistoryTree[Host|Auditor] (<1-N> incremental proof generation + verification)\n";
     const size_t verifVersion = 1;  // the verifier1 does not update its skeleton
     std::vector<dev::h256> incProofFHs;
     std::vector<PositionNode> incProofFHPos;
@@ -113,7 +113,7 @@ void testVerificationOfIncProofs2(const std::string& seedStr, uint64_t ITERS, co
     dev::h256 rootProover;
     eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
 
-    cout << "HistoryTree[Host|Auditor] (<>incremental proof generation + verification)\n";
+    cout << "HistoryTree[Host|Auditor] (<(N-1)-N>incremental proof generation + verification)\n";
     size_t verif2Version = 1;  // the verifier1 does not update its skeleton
     std::vector<dev::h256> incProofFHs;
     std::vector<PositionNode> incProofFHPos;
@@ -129,14 +129,54 @@ void testVerificationOfIncProofs2(const std::string& seedStr, uint64_t ITERS, co
         size_t proverVer = proverTree.getCurVersion();
         verif2Version = verifierTree2.getCurVersion();
 
-        // [updating verifier] generation & verification of Inc Proof - does update verifier's skeleton if correct | the proofs should be empty
+        // generation & verification of Inc Proof - does update verifier's skeleton if correct | the proofs should be empty
         incProofFHs.clear();
         incProofFHPos.clear();
-        proverTree.buildIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);        
+        proverTree.buildIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
         proverTree.printIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
         verifierTree2.printSKNCache();
         if (!verifierTree2.verifyIncProofFull(proverVer, proverTree.getRoot(), incProofFHs, incProofFHPos, true)) {
             throw logic_error("Incorrect inc. proof provided to verifier2.");
+        }
+        cout << "------------------\n";
+    }
+    cout << "========================================\n";
+}
+
+void testVerificationOfIncProofs3(const std::string& seedStr, uint64_t ITERS, const std::string& genesisData, size_t deltaVersions)
+{
+    cout << "TEST 4."<< deltaVersions << "\n";
+    dev::h256 rootProover;
+    eevm::KeccakHash genesisHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(genesisData.c_str()), genesisData.size());
+
+    cout << "HistoryTree[Host|Auditor] (<N-(N+" << deltaVersions << ")>incremental proof generation + verification)\n";
+    size_t verif2Version = 1;  // the verifier1 does not update its skeleton
+    std::vector<dev::h256> incProofFHs;
+    std::vector<PositionNode> incProofFHPos;
+    HistoryTreeHost proverTree(HistoryTreeHost::ReduceType::PARTIAL);
+    HistoryTreeAuditor verifierTree2(genesisHash);  // does updates of skeleton
+    proverTree.add(genesisHash);                    // add the same genesis element as in verifierTree
+
+    for (uint64_t i = 1; i < ITERS; i++) {  // start from 1, since genesis element was already added to 'verifierTree' and 'prooverTree'
+        string s = seedStr + std::to_string(i);
+        cout << "[i = " << i << "] adding: " << s << "\n";
+        proverTree.add(keccak_256(s));  // increase version of proover by adding a new element
+
+        size_t proverVer = proverTree.getCurVersion();
+        verif2Version = verifierTree2.getCurVersion();
+
+        // generation & verification of Inc Proof - does update verifier's skeleton if correct | the proofs should be empty
+        incProofFHs.clear();
+        incProofFHPos.clear();
+        proverTree.buildIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
+        proverTree.printIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
+        verifierTree2.printSKNCache();
+        if (1 == (i % deltaVersions)) {
+            cout << "proof verification\n";
+            if (!verifierTree2.verifyIncProofFull(proverVer, proverTree.getRoot(), incProofFHs, incProofFHPos, true)) {
+                throw logic_error("Incorrect inc. proof provided to verifier2.");
+            }
+            verifierTree2.printSKNCache();
         }
         cout << "------------------\n";
     }
@@ -154,6 +194,10 @@ int main()
         testReduce(seedStr, ITERS);
         testVerificationOfIncProofs(seedStr, ITERS, genesisData);
         testVerificationOfIncProofs2(seedStr, ITERS, genesisData);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 2);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 3);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 4);
+        testVerificationOfIncProofs3(seedStr, ITERS, genesisData, 5);
     } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << '\n';
         // auto s = backtrace();

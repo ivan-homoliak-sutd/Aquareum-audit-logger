@@ -39,7 +39,8 @@ void HistoryTreeEnc::updateSKNs(uint64_t elemsCnt, HashesArray& SKNodes, std::ve
             if (SKNodes.size() > 1) {
                 // always reduce two last elements into penultimate one
                 int idxLast = SKNPos.size() - 1;
-                assert(SKNPos[idxLast].idxL == SKNPos[idxLast - 1].idxL);  // two last nodes in SKN positions must be in the same layer
+                if (SKNPos[idxLast].idxL != SKNPos[idxLast - 1].idxL)  // two last nodes in SKN positions must be in the same layer to be eligible for reduction
+                    continue;
 
                 // a) reduce 2 last positions of SKN nodes
                 SKNPos[idxLast - 1] = PositionNode(SKNPos[idxLast - 1].idxL + 1, SKNPos[idxLast - 1].idxE / 2);  // increase the layer and decrease the FHNode idx (by /2)

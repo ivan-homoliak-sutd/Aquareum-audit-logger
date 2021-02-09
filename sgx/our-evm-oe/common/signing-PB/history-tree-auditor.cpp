@@ -69,19 +69,16 @@ bool HistoryTreeAuditor::verifyIncProofFull(uint64_t versionNew, const dev::h256
 void HistoryTreeAuditor::_updateMySkeleton(const dev::h256& rootNew, uint64_t versionNew,
                                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos)
 {
-    // 1) adjust 'm_itemsCnt' => treeHeight()
-    m_itemsCnt = versionNew;
-
-    // 2) copy all FHNodes of the original proof
-    m_SKN_cache.clear();
-    m_SKN_pos.clear();
-    for (size_t i = 0; i < proofFHs.size(); i++) {
+    // 1) copy FHNodes that are new to the original SKN nodes of the current version
+    for (size_t i = m_SKN_pos.size(); i < proofFHs.size(); i++) {
         m_SKN_cache.push_back(proofFHs[i]);
         m_SKN_pos.push_back(proofFHPos[i]);
-    }
+        m_itemsCnt = endIdxRange(proofFHPos[i]) + 1;
 
-    // 4) (try to) reduce the compound skeleton
-    updateSKNCache();
+        // (try to) reduce the compound skeleton
+        updateSKNCache();
+    }    
+    assert(m_itemsCnt == versionNew);    
 
     // 4) update my root (without recomputation)
     m_root = rootNew;
