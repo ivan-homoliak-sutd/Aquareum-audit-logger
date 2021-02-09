@@ -134,6 +134,7 @@ void testVerificationOfIncProofs2(const std::string& seedStr, uint64_t ITERS, co
         incProofFHPos.clear();
         proverTree.buildIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);        
         proverTree.printIncProof(verif2Version, proverVer, incProofFHs, incProofFHPos);
+        verifierTree2.printSKNCache();
         if (!verifierTree2.verifyIncProofFull(proverVer, proverTree.getRoot(), incProofFHs, incProofFHPos, true)) {
             throw logic_error("Incorrect inc. proof provided to verifier2.");
         }

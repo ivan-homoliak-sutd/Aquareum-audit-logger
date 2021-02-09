@@ -84,7 +84,9 @@ public:
         return m_SKN_pos[idx];
     }
 
-    void _updateSKNCache();  // reduces FHCache (called after adding a new item AND after updating auditor's data from inc. proof)
+    void updateSKNCache();  // reduces FHCache (called after adding a new item AND after updating auditor's data from inc. proof)
+
+    void updateSKNs(uint64_t elemsCnt, HashesArray& SKNodes, std::vector<PositionNode>& SKNPos);
 
 protected:
     const dev::h256& computeRootFromSKNs(size_t offsetHeight = 0);  // store root into m_root and returs its reference
@@ -113,10 +115,11 @@ public:
     friend bool isLeft(const PositionNode& pos);
 
 private:
-    void _updateMySkeleton(dev::h256&& rootLeft, const dev::h256& rootNew, uint64_t versionNew, size_t startRIdx,
+    void _updateMySkeleton(const dev::h256& rootNew, uint64_t versionNew,
                            const std::vector<dev::h256>& proofFHs, const std::vector<PositionNode>& proofFHPos);
 
-    dev::h256 _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, int* rightStartRevIdx);
+    void _reduceIncProof(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew);
+
     void _reduceIncProofStartingAt(std::list<dev::h256>& proofFHs, std::list<PositionNode>& proofFHPos, uint64_t versionNew, size_t startAtIdx);
 };
 

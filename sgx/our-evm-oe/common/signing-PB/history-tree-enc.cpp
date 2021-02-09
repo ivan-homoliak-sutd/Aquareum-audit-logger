@@ -16,7 +16,7 @@ void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
     m_itemsCnt++;
 
     // 2) reduce items of SKN cache to get (+1) Incremental proof in it
-    _updateSKNCache();
+    updateSKNCache();
 
     // 3) compute the root hash from SKN cache (and store it to m_root)
     if (recomputeRoot)
@@ -26,29 +26,35 @@ void HistoryTreeEnc::add(const eevm::KeccakHash& a, bool recomputeRoot)
 /**
  * @brief After adding the entry to m_SKN_cache, we have to call this function, which updates the current SKNCache (i.e., most recent incremental proof)
  */
-void HistoryTreeEnc::_updateSKNCache()
+void HistoryTreeEnc::updateSKNCache()
 {
-    int log = floor(log2(m_itemsCnt));
+    updateSKNs(m_itemsCnt, m_SKN_cache, m_SKN_pos);
+}
+
+void HistoryTreeEnc::updateSKNs(uint64_t elemsCnt, HashesArray& SKNodes, std::vector<PositionNode>& SKNPos)
+{
+    int log = floor(log2(elemsCnt));
     for (int i = 2; i <= pow(2, log); i *= 2) {
-        if (m_itemsCnt % i == 0) {  // do reduction only when we "complete" some power of 2
-            if (m_SKN_cache.size() > 1) {
+        if (elemsCnt % i == 0) {  // do reduction only when we "complete" some power of 2
+            if (SKNodes.size() > 1) {
                 // always reduce two last elements into penultimate one
-                int idxLast = m_SKN_pos.size() - 1;
-                assert(m_SKN_pos[idxLast].idxL == m_SKN_pos[idxLast - 1].idxL);  // two last nodes in SKN positions must be in the same layer
+                int idxLast = SKNPos.size() - 1;
+                assert(SKNPos[idxLast].idxL == SKNPos[idxLast - 1].idxL);  // two last nodes in SKN positions must be in the same layer
 
                 // a) reduce 2 last positions of SKN nodes
-                m_SKN_pos[idxLast - 1] = PositionNode(m_SKN_pos[idxLast - 1].idxL + 1, m_SKN_pos[idxLast - 1].idxE / 2);  // increase the layer and decrease the FHNode idx (by /2)
-                m_SKN_pos.pop_back();
+                SKNPos[idxLast - 1] = PositionNode(SKNPos[idxLast - 1].idxL + 1, SKNPos[idxLast - 1].idxE / 2);  // increase the layer and decrease the FHNode idx (by /2)
+                SKNPos.pop_back();
 
                 // b) reduce 2 last SKN nodes themeselves
-                auto* dest = m_SKN_cache.dataAt(m_SKN_cache.size() - 2);
+                auto* dest = SKNodes.dataAt(SKNodes.size() - 2);
                 eevm::keccak_256(dest, 2 * HASH_SIZE, dest);  // IH: src and dest location is the same - hope it is OK !!!
-                m_SKN_cache.pop_back();
+                SKNodes.pop_back();
             }
         }
     }
-    assert(m_SKN_pos.size() == m_SKN_cache.size());
+    assert(SKNPos.size() == SKNodes.size());
 }
+
 
 /**
  * @brief It computes root hash from skeleton 'm_SKN_cache' and stores it into m_root.
@@ -65,10 +71,10 @@ const dev::h256& HistoryTreeEnc::computeRootFromSKNs(size_t offsetHeight)
     HashesArray tmpSKNCache = HashesArray();
     std::vector<PositionNode> tmpSKNPos;
     for (size_t i = 0; i < m_SKN_cache.size(); ++i) {
-        tmpSKNCache.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(i)), dev::h256::ConstructFromPointer));        
+        tmpSKNCache.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(i)), dev::h256::ConstructFromPointer));
         // tmpSKNPos.push_back(PositionNode(m_SKN_pos[i].idxL, m_SKN_pos[i].idxE));
         // tmpSKNPos.push_back({m_SKN_pos[i].idxE, m_SKN_pos[i].idxL});
-        tmpSKNPos.push_back(m_SKN_pos[i]); // IH: this is a bug, since move constructor is called by default (i.e., non const arg)
+        tmpSKNPos.push_back(m_SKN_pos[i]);  // IH: this is a bug, since move constructor is called by default (i.e., non const arg)
     }
 
     // 2) reduce the skeleton wihtin local arrays (in place)
