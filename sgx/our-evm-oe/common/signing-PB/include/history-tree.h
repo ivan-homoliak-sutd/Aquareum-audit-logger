@@ -150,14 +150,14 @@ public:
 
     inline dev::h256 getNode(int idxLayer, int64_t idxElem)
     {
-        assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
+        assert(m_layers[idxLayer].size() >= (size_t)((idxElem >= 0) ? idxElem : -idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
         return m_layers[idxLayer].at(idxElem);
     }
 
     inline const uint8_t* getNodeData(int idxLayer, int64_t idxElem)
     {
-        assert(m_layers[idxLayer].size() >= (size_t)abs(idxElem));  // range check
+        assert(m_layers[idxLayer].size() >= (size_t)((idxElem >= 0) ? idxElem : -idxElem));  // range check
         idxElem = (idxElem < 0) ? m_layers[idxLayer].size() + idxElem : idxElem;
         return m_layers[idxLayer].dataAt(idxElem);
     }

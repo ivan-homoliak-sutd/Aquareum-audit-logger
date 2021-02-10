@@ -118,7 +118,7 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
         }
 
         // b) copy the (left-positioned fixed or the target unfixed)  skeleton node SKNode and its position to output proofs
-        proofFHs.push_back(std::move(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer)));
+        proofFHs.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer));
         proofFHPos.push_back(m_SKN_pos[iOFH]);
     }
     assert(rangeStart != rangeEnd);
@@ -165,7 +165,7 @@ int HistoryTreeHost::buildIncProof(const uint64_t versionA, const uint64_t versi
     // 5) [RIGHT FROM TARGET] - copy the remaining SKN nodes from the original SKN cache, which are on the right from the target SKNode
     iOFH++;  // adjust the idx to all next FHNodes that can be directly copied
     for (; iOFH < m_SKN_pos.size(); iOFH++) {
-        proofFHs.push_back(std::move(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer)));
+        proofFHs.push_back(dev::h256(const_cast<const uint8_t*>(m_SKN_cache.dataAt(iOFH)), dev::h256::ConstructFromPointer));
         proofFHPos.push_back(m_SKN_pos[iOFH]);
     }
     return 0;
