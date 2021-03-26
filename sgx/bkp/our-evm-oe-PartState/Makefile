@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-.PHONY: all build clean run simulate host enc
+.PHONY: all build clean run simulate host enc client
 
 OE_CRYPTO_LIB := mbedtls
 export OE_CRYPTO_LIB
@@ -35,8 +35,15 @@ host:
 	$(MAKE) -C host
 
 enc:
-	$(MAKE) -C enclave
+	$(MAKE) -C enclave	
 
+client:
+	$(MAKE) -C client
+
+clientrun: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
+clientrun:
+	mkdir -p ./client/data
+	./client/aqledger-client
 
 debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 debug:

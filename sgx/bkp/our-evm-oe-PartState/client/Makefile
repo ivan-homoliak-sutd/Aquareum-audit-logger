@@ -37,13 +37,10 @@ Host_Link_Flags := $(CXX_LDFLAGS) \
 	# -L$(INTX_LIB_DIR) -lintx
 
 Host_Cpp_Files := \
-	server.cpp \
-	./ledger/dispatcher.cpp \
-	utils.cpp \
-	./ledger/operator.cpp \
-	./ledger/ledger-host.cpp \
-	../common/signing-PB/signing.cpp \
-	host.cpp
+	client.cpp \
+	net.cpp \
+	helper.cpp \
+	../host/utils.cpp
 
 Host_Include_Paths := \
 	-I. \
@@ -61,11 +58,9 @@ Host_Include_Paths := \
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
-	rm -f ../data/*
-	oeedger8r ../aqledger.edl --untrusted --search-path $(OE_SDK_INCLUDE)
 	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
-	$(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES) aqledger_u.c
-	$(CXX) -std=$(CXX_STANDARD) -o aqledger_host aqledger_u.o host.o server.o dispatcher.o utils.o operator.o ledger-host.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	# $(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES)
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger-client client.o net.o utils.o helper.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
-	rm -f aqledger_host *.o aqledger_u.c aqledger_u.h aqledger_args.h
+	# rm -f aqledger_host *.o aqledger_u.c aqledger_u.h aqledger_args.h
