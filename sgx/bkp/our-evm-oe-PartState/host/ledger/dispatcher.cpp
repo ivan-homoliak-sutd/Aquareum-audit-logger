@@ -1,7 +1,8 @@
-#include "dispatcher.h"
 #include "operator.h"
 
 #include <mutex>
+
+using namespace aql;
 
 Dispatcher::Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator)
 {
@@ -25,10 +26,13 @@ void Dispatcher::threadExecute()
         // locking mechanism
         std::unique_lock<std::mutex> locker(this->mtx);
         this->cond.wait(locker, [&]() { return !txs.empty(); });
+        debug_print("Dispatcher: Got new TX");
+
         tx = this->txs.front();
         this->txs.pop();
         locker.unlock();
 
+        debug_print("Dispatcher: before tx execution");
         this->op->_dispatchTX(this->enclave, tx, output_u256);
         debug_print("Dispatcher: tx was executed");
 
@@ -44,5 +48,5 @@ int Dispatcher::addToDispatch(eevm::PersistantTransaction* tx)
     locker.unlock();
     this->cond.notify_one();
 
-    return this->txs.size();
+    return 0;
 }

@@ -101,7 +101,7 @@ string rcv_msg(int connectfd, bool lock)
     return rcv_buf;
 }
 
-void* fsm(void*)
+void* fsm(void* _op)
 {
     // zistenie filedescriptoru soketu pre vlakno
     // mutex caka, kym sa pri vytvarani vlakna zapise informacia do globalnej mapy
@@ -109,35 +109,77 @@ void* fsm(void*)
     int connectfd = glob_thread_map.find(pthread_self())->second;
     mtx_thread.unlock();
 
-    info_print(string("Vlakno s klientom vytvorene"));
+    printf("\n");
+    debug_print(string("Client's thread created"));
 
-    string recv_msg = rcv_msg(connectfd, false);  // prijatie prvej spravy od klienta
+    // thread argument
+    aql::Operator* op = (aql::Operator*)_op;
+
+    string recv_msg = rcv_msg(connectfd, false);  // receive first msg from client 
     size_t recv_msg_size = recv_msg.size();
-    cout << "size: " << recv_msg_size << endl;
+
+    unsigned char* recv_data = (unsigned char*)recv_msg.c_str();
+
+    debug_print(string("Received msg size: ") + to_string(recv_msg_size));
+    debug_print(string("Received msg: ") + to_hex_str(recv_data, recv_msg_size));
+
+    // get command from message
+    uint8_t cmd;
+    std::memcpy(&cmd, recv_data, sizeof(uint8_t));
+    debug_print(string("Received cmd: ") + to_hex_str(&cmd, sizeof(uint8_t)));
 
 
-    // unsigned char clientPK[ECC_PK_SIZE + 1];
-    unsigned char* test = (unsigned char*)recv_msg.c_str();
-    // TransferObject obj = (unsigned char *) (recv_msg.c_str());;
+    // get data from message
+    unsigned char data[recv_msg_size - 1];
+    std::memcpy(&data, recv_data + 1, recv_msg_size - 1);
+    debug_print(string("Received data: ") + to_hex_str((const unsigned char*)&data, recv_msg_size - 1));
 
-    // todo read first msg - PK and print it
-    // read(connectfd, clientPK, sizeof(clientPK));
-
-    info_print(string("buff = ") + to_hex_str(test, recv_msg_size));
-
-
-    // string recv_msg = rcv_msg(connectfd, false);  // prijatie prvej spravy od klienta
-
-    // while (true) {
-    //     send_msg(recv_msg, connectfd);
-    //     recv_msg = rcv_msg(connectfd, false);
-    // }
+    // Based on cmd, do something
+    switch (cmd) {
+        case TransferCommand::reg:
+            info_print(string("Recieve registration command"));
+            registerNewClient(op, data);
+            break;
+        case TransferCommand::tx:
+            info_print(string("Recieve transaction command"));
+            transaction(op, data, recv_msg_size - 1);
+            break;
+        default:
+            error_print(string("Invalid command"));
+    }
 
     glob_thread_map.erase(pthread_self());
     pthread_exit((void*)0);
 }
 
-void* server(void*)
+int registerNewClient(aql::Operator* _op, unsigned char* _PK)
+{
+    auto operAccnt = _op->getAccount(_op->getOperAddr()).acc;  // already deployed  O's account
+    auto newAddr = eevm::from_big_endian(_PK, PB_ADDR_SIZE);   // extract address from public key
+
+    // TODO check if is aready registred
+
+    auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
+
+    if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
+        throw std::logic_error("error when dispatching TX");
+    }
+
+    return 0;
+}
+
+int transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize)
+{
+    auto tx = new eevm::PersistantTransaction(_data, _dataSize);
+
+    if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
+        throw std::logic_error("error when dispatching TX");
+    }
+
+    return 0;
+}
+
+void* server(void* _op)
 {
     int server_fd;
     struct sockaddr_in address;
@@ -232,7 +274,7 @@ void* server(void*)
 
                     // vytvorenie vlakna + naplnenie struktury s informaciami o vlakne a deskriptorom soketu
                     mtx_thread.lock();
-                    if (pthread_create(&thread_id, NULL, fsm, NULL) < 0) {
+                    if (pthread_create(&thread_id, NULL, fsm, (aql::Operator*)_op) < 0) {
                         fprintf(stderr, "Error: could not create thread: %s\n", strerror(errno));
                         mtx_thread.unlock();
                     } else {

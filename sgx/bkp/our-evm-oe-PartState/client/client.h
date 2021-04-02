@@ -38,8 +38,11 @@ private:
     uint8_t SK[ECC_SK_SIZE];  // SK of client (under Sigma_PB)
     eevm::Address addr;
 
-    int sendPK(secp256k1_pubkey PK);
-    int test();
+    uint64_t nonce = 0;
+
+
+    int registration(secp256k1_pubkey PK);
+    int pay(uint64_t amount, eevm::Address dest);
 
     int persistMyKeys();
     bool existsMyKeyFile();
@@ -47,7 +50,7 @@ private:
 
 public:
     ECC m_ecc;
-    
+
     Client(const char* _addr, uint16_t _port);
     ~Client();
     void clientLoop();

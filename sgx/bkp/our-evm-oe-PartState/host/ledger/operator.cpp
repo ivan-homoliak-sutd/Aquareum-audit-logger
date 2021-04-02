@@ -2,6 +2,7 @@
 #include "common.h"
 #include "secp256k1.h"
 #include "utils.h"
+#include "server.h"
 
 #include <boost/tokenizer.hpp>
 #include <chrono>
@@ -15,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 
 using namespace aql;
 
@@ -364,6 +366,46 @@ uint256_t get_random_uint256(size_t bytes = 32)
     return eevm::from_big_endian(raw.data(), raw.size());
 }
 
+void Operator::_deployIOMC(oe_enclave_t* enclave)
+{
+    const std::string iomcPaths[] = {
+        "./contracts/iomc/iomc-send.json",
+        "./contracts/iomc/iomc-receive.json"
+    };
+    uint256_t output_u256;  // first 32B output of EVM execution
+    ContrDefinition def;
+    // eevm::PersistantTransaction* tx = NULL;  // here will be allocated TX data if needed and freed upon exection
+
+    for (auto path : iomcPaths) {
+        std::cout << path << std::endl;
+
+        eevm::PersistantTransaction* tx = NULL;  // here will be allocated TX data if needed and freed upon exection
+        auto operAccnt = getAccount(this->m_ledger.operAddr).acc;  // get account state of active account
+
+        // Parse the contract definition from file
+        try {
+            def = this->_parseDefinitionFile(path);
+        } catch (const std::exception& e) {
+            std::cerr << "Exception occured:" << e.what() << "\n";
+            return;
+        }
+
+        tx = this->m_ledger.createDeploymentTX(def, m_accounts[this->m_ledger.operAddr], operAccnt.get_nonce(), 0);
+                
+        // TODO send to dispatcher
+        // if (RET_SUCCESS != dispatcher->addToDispatch(tx))
+        //     continue;
+        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            return;
+
+        info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
+        // sh_vars["$?"] = address_to_hex_string(tx->to);
+        def.owner = this->m_ledger.operAddr;
+        m_contracts[tx->to] = def;  // store binding of contract address to its definition
+    }
+    
+}
+
 
 ////////////////////////////////////////
 // Processing commands from operator  //
@@ -395,12 +437,22 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     sh_vars["$O"] = address_to_hex_string(sh_origin);  // operator's super account
     sh_vars["$REPEAT"] = "30";                        // the number of test repetitions for statistical evaluation of mean and std dev
 
+    // create dispatcher thread
+    this->dispatcher = new Dispatcher(enclave, this);
+    std::thread th(&Dispatcher::threadExecute, this->dispatcher);
+
+    this->_deployIOMC(enclave);
+    
+    // create server thread
+    pthread_t th_server;
+    pthread_create(&th_server, NULL, server, (void *)this);
 
     while (true) {
         if (tokens)
             free(tokens);
-        if (tx)
-            delete tx;
+        // TODO check undeleted TX's
+        // if (tx)
+        //     delete tx;
         tokens = NULL;
         tx = NULL;
 
@@ -678,8 +730,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             eevm::Code emptyFunc = {0u};
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], dest, {}, emptyFunc, selAccnt.get_nonce(), amount);
 
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;
+            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //     continue;
 
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
@@ -873,8 +927,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;
+            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //     continue;
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
@@ -958,8 +1014,11 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // create and sign deployment TX
             auto selAccnt = getAccount(sh_origin).acc;  // get account state of active account
             tx = this->m_ledger.createDeploymentTX(def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;
+            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //     continue;
 
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             sh_vars["$?"] = address_to_hex_string(tx->to);
@@ -971,8 +1030,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // create and sign TX
             tx = this->m_ledger.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;
+            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //     continue;
 
             // [Alternative] executing TX in E while using E's full state
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
@@ -1372,7 +1433,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 {
     std::cout << fmt::format("\nCreating {} random accounts by O with initial balance {}\n", N, initBalance);
     auto operAccnt = this->getAccount(this->getOperAddr()).acc;  // already deployed  O's account
-    size_t nonceBefore = operAccnt.get_nonce();
+    // size_t nonceBefore = operAccnt.get_nonce();
     u256 output_u256;
 
     OperAccount acc;
@@ -1394,19 +1455,22 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 
         // 3) dispatch TX into E
         auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
-        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
-            delete tx;
+        if (RET_SUCCESS != dispatcher->addToDispatch(tx)) {
             throw std::logic_error("error when dispatching TX");
         }
+        // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
+        //     delete tx;
+        //     throw std::logic_error("error when dispatching TX");
+        // }
 
-        eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
-        TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
-        operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
+        // eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
+        // TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());
+        // operAccnt = this->getAccount(this->getOperAddr()).acc;  // get the updated account state of O
 
         m_accounts[acc.addr] = acc;
-        delete tx;
+        // delete tx;
     }
-    assert(nonceBefore + N == operAccnt.get_nonce());
+    // assert(nonceBefore + N == operAccnt.get_nonce());
     return acc.addr;
 }
 

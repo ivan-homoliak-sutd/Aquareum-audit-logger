@@ -25,46 +25,23 @@ Net::~Net()
 /* -------------------- Public functions --------------------- */
 /* ----------------------------------------------------------- */
 
-int Net::sendObj(SendingObject* sendingObj)
+int Net::sendObj(TransferObject* transferObj)
 {
-    // printf("CMD: %d, ", sendingObj->cmd);
-    info_print(string("serialize = ") + eevm::to_hex_string(sendingObj->serialize()));
-    std::cout << "size " << sendingObj->size() << std::endl;
-
+    debug_print(string("Size of transferObj: ") + to_string(transferObj->size()));
+    debug_print(string("transferObj: ") + eevm::to_hex_string(transferObj->serialize()));
 
     this->initConnection();
 
     // TODO return value
-    // send(this->sock, (unsigned char*) sendingObj, sizeof(*sendingObj), 0);
-    send(this->sock, &(sendingObj->serialize())[0], sendingObj->size(), 0);
+    send(this->sock, &(transferObj->serialize())[0], transferObj->size(), 0);
 
     debug_print("Msg sended");
 
+    // TODO
     // this->disconnect();
 
     return 0;
 }
-
-// // TODO delete
-// int Net::sendMsg()
-// {
-//     char buffer[1024] = {0};
-//     char const* hello = "Hello from client";
-//     send(sock, hello, strlen(hello), 0);
-//     printf("Hello message sent\n");
-//     read(sock, buffer, 1024);
-//     printf("%s\n", buffer);
-//     return 0;
-// }
-
-// // TODO delete
-// int Net::sendPK(unsigned char* PK)
-// {
-//     send(sock, PK, ECC_PK_SIZE, 0);
-
-//     debug_print("after send()");
-//     return 0;
-// }
 
 /* ----------------------------------------------------------- */
 /* -------------------- Private functions -------------------- */

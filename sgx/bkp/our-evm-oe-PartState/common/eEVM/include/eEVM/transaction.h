@@ -4,6 +4,8 @@
 #pragma once
 #include "address.h"
 #include "bigint.h"
+#include "util.h"   // TODO delete
+#include "../host/utils.h" // TODO delete
 
 #include <array>
 #include <cassert>
@@ -95,6 +97,23 @@ namespace eevm
             }
         }
 
+        // create tx after packed with method asDataForNetTransfer()
+        PersistantTransaction(unsigned char* _data, size_t _dataSize)
+        {
+            size_t codeSize = _dataSize - (2 * sizeof(uint256_t) + 4 * sizeof(uint64_t) + SIG_SIZE_PB_BYTES * sizeof(uint8_t));
+            this->code.resize(codeSize);
+
+            this->origin = intx::be::unsafe::load<Address>((const uint8_t*)_data);
+            this->to = intx::be::unsafe::load<Address>((const uint8_t*)_data + sizeof(uint256_t));
+
+            memcpy(&(this->value), _data + 2 * sizeof(uint256_t), sizeof(uint64_t));
+            memcpy(&(this->gas_price), _data + 2 * sizeof(uint256_t) + 1 * sizeof(uint64_t), sizeof(uint64_t));
+            memcpy(&(this->gas_limit), _data + 2 * sizeof(uint256_t) + 2 * sizeof(uint64_t), sizeof(uint64_t));
+            memcpy(&(this->nonce), _data + 2 * sizeof(uint256_t) + 3 * sizeof(uint64_t), sizeof(uint64_t));
+            memcpy(this->signature, _data + 2 * sizeof(uint256_t) + 4 * sizeof(uint64_t), SIG_SIZE_PB_BYTES * sizeof(uint8_t));
+            memcpy(&(this->code[0]), _data + 2 * sizeof(uint256_t) + 4 * sizeof(uint64_t) + SIG_SIZE_PB_BYTES * sizeof(uint8_t), codeSize);
+        }
+
         std::vector<uint8_t> asDataForHash()
         {
             assert(sizeof(Address) == ADDRESS_SIZE);
@@ -118,6 +137,32 @@ namespace eevm
 
             return ret;  // hopes in as-if 'return value optimization'
         };
+
+        std::vector<uint8_t> asDataForNetTransfer()
+        {
+            assert(this->signature != NULL);
+            assert(sizeof(Address) == ADDRESS_SIZE);
+
+            std::vector<uint8_t> ret = std::vector<uint8_t>(2 * sizeof(Address) + sizeof(uint64_t) * 4 + SIG_SIZE_PB_BYTES * sizeof(uint8_t) + code.size());
+
+            // construct data object in the order: origin, to, value, gas_price, gas_limit, nonce, code
+            uint8_t addr[ADDRESS_SIZE];
+
+            intx::be::unsafe::store((uint8_t*)&addr, this->origin);  // convert Address to vector of Bytes ((intx::uint<256>))
+            memcpy(ret.data(), addr, ADDRESS_SIZE);
+
+            intx::be::unsafe::store((uint8_t*)&addr, this->to);  // convert Address to vector of Bytes ((intx::uint<256>))
+            memcpy(ret.data() + sizeof(Address), addr, ADDRESS_SIZE);
+
+            memcpy(ret.data() + 2 * sizeof(Address), &(this->value), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + sizeof(uint64_t), &(this->gas_price), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 2 * sizeof(uint64_t), &(this->gas_limit), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 3 * sizeof(uint64_t), &(this->nonce), sizeof(uint64_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 4 * sizeof(uint64_t), this->signature, SIG_SIZE_PB_BYTES * sizeof(uint8_t));
+            memcpy(ret.data() + 2 * sizeof(Address) + 4 * sizeof(uint64_t) + SIG_SIZE_PB_BYTES * sizeof(uint8_t), this->code.data(), this->code.size());
+
+            return ret;
+        }
 
         Code& get_code_ref()
         {

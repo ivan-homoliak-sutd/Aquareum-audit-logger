@@ -13,18 +13,18 @@
 typedef enum {
     reg = 1,
     tx
-} SendingCommand;
+} TransferCommand;
 
-struct SendingObject {
+struct TransferObject {
     uint8_t cmd;
     std::vector<uint8_t> data;
 
     std::vector<uint8_t> serialize()
     {
-        std::vector<uint8_t> ret = std::vector<uint8_t>(sizeof(uint8_t) + 64);
+        std::vector<uint8_t> ret = std::vector<uint8_t>(sizeof(uint8_t) + this->data.size());
 
         memcpy(ret.data(), &(this->cmd), sizeof(uint8_t));
-        memcpy(ret.data() + sizeof(uint8_t), this->data.data(), 64);
+        memcpy(ret.data() + sizeof(uint8_t), this->data.data(), this->data.size());
 
         return ret;
     };
@@ -48,9 +48,5 @@ private:
 public:
     Net(const char* _addr, uint16_t _port);
     ~Net();
-    int sendObj(SendingObject* sendingObj);
-
-    // TODO delete
-    // int sendMsg();
-    // int sendPK(unsigned char* number);
+    int sendObj(TransferObject* sendingObj);
 };

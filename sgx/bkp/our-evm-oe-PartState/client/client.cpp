@@ -101,7 +101,7 @@ void Client::clientLoop()
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
                 continue;
 
-            this->sendPK(this->PK);
+            this->registration(this->PK);
 
         } else if (0 == strncmp(command, "iomc", 4)) {
             info_print(string("CMD: iomc"));
@@ -110,14 +110,36 @@ void Client::clientLoop()
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
                 continue;
 
-        } else if (0 == strncmp(command, "t", 1)) {
+        } else if (0 == strncmp(command, "pay", 1)) {
             info_print(string("CMD: test"));
 
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {3}, &tokens, &tokenCnt))
                 continue;
 
-            this->test();
+            // parse amount
+            uint64_t amount;
+            auto it = tokens->begin();
+            try {
+                std::advance(it, 1);
+                amount = std::stoul(*it);
+                info_print(fmt::format("Amount = {}", amount));
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // adjust destination
+            eevm::Address dest;
+            try {
+                std::advance(it, 1);
+                dest = eevm::string_to_uint256(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->pay(amount, dest);
 
         } else if (0 == strncmp(command, "exit", 4)) {
             break;
@@ -129,49 +151,35 @@ void Client::clientLoop()
 /* -------------------- Private functions -------------------- */
 /* ----------------------------------------------------------- */
 
-int Client::sendPK(secp256k1_pubkey _PK)
+int Client::registration(secp256k1_pubkey _PK)
 {
-    // TODO prepare data
-    // SendingCommand cmd = reg;
-    // printf("CMD value = %d", (uint8_t) cmd);
-    std::vector<uint8_t> vectorPK = std::vector<uint8_t>(64);
+    std::vector<uint8_t> vectorPK = std::vector<uint8_t>(ECC_PK_SIZE);
 
-    memcpy(vectorPK.data(), &_PK, 64);
-    // info_print(string("vectorPK = ") + eevm::to_hex_string(vectorPK));
+    memcpy(vectorPK.data(), &_PK, ECC_PK_SIZE);
 
-
-    SendingObject data{
-        SendingCommand::reg,
+    TransferObject data{
+        TransferCommand::reg,
         vectorPK};
 
-    this->net->sendObj(&data);  // check return value
+    this->net->sendObj(&data);
     return 0;
 }
 
-int Client::test()
+int Client::pay(uint64_t amount, eevm::Address dest)
 {
-    debug_print(string("!!!!TEST"));
-
-    // create transaction
-
-    eevm::Address sender = eevm::string_to_uint256("0x7be7d3fffc35b4bc3f0fc9566db2c9f57e225bfd");
-    eevm::Address to = eevm::string_to_uint256("0x2cf147f294675cb33cf87c5269978aa51e072186");
     eevm::Code emptyFunc = {0u};
-    uint64_t nonce = 6;
-    uint64_t value = 2;
 
-
-    std::cout << "sender: " << std::hex << eevm::address_to_hex_string(sender) << std::endl;
-
-
-    auto tx = new eevm::PersistantTransaction(sender, to, nonce, value, emptyFunc);
+    auto tx = new eevm::PersistantTransaction(this->addr, dest, ++(this->nonce), amount, emptyFunc);
     this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
 
-    SendingObject data{
-        SendingCommand::tx,
-        tx->asDataForHash()};
+    auto packedTx = tx->asDataForNetTransfer();
+
+    TransferObject data{
+        TransferCommand::tx,
+        packedTx};
 
     this->net->sendObj(&data);  // check return value
+
     return 0;
 }
 
