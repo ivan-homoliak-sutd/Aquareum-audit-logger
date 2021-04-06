@@ -10,7 +10,7 @@ Dispatcher::Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator)
     this->op = _operator;
 }
 
-Dispatcher::~Dispatcher() 
+Dispatcher::~Dispatcher()
 {
     // TODO delete txs in queue
 }
@@ -42,11 +42,34 @@ void Dispatcher::threadExecute()
 
 int Dispatcher::addToDispatch(eevm::PersistantTransaction* tx)
 {
+    if (this->validTx(tx) != RET_SUCCESS) {
+        delete tx;
+        return 1;
+    }
+
     // producer
     std::unique_lock<std::mutex> locker(this->mtx);
     this->txs.push(tx);
     locker.unlock();
     this->cond.notify_one();
 
-    return 0;
+    return RET_SUCCESS;
+}
+
+int Dispatcher::validTx(eevm::PersistantTransaction* tx)
+{
+    // sender exists
+    // if (this->op->m_accounts.find(tx->origin) != this->op->m_accounts.end())
+    // {
+    //     debug_print("%%%%%%%%% ACCOUNT");
+    // } else if (this->op->m_contracts.find(tx->origin) != this->op->m_contracts.end()) {
+    //     debug_print("%%%%%%%%% CONTRACT");
+    // } else {
+    //     debug_print("%%%%%%%%% ERROR");
+    //     return 1;
+    // }
+    
+    // destination exists
+
+    return RET_SUCCESS;
 }

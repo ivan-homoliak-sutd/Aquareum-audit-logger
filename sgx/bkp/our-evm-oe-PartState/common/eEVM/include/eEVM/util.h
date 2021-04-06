@@ -171,6 +171,18 @@ namespace eevm
         return intx::from_string<uint256_t>(s);
     }
 
+    inline std::vector<uint8_t> hex_str_to_bytes(const std::string& hex) {
+        std::vector<uint8_t> bytes;
+
+        for (unsigned int i = 0; i < hex.length(); i += 2) {
+            std::string byteString = hex.substr(i, 2);
+            uint8_t byte = (uint8_t) strtol(byteString.c_str(), NULL, 16);
+            bytes.push_back(byte);
+        }
+
+        return bytes;
+    }
+
     inline std::string to_checksum_address(const Address& a)
     {
         auto s = address_to_hex_string(a);

@@ -42,8 +42,11 @@ private:
 
 
     int registration(secp256k1_pubkey PK);
-    int pay(uint64_t amount, eevm::Address dest);
+    int pay(eevm::Address dest, uint64_t amount);
+    int call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params);
+    int signAndSendTX(eevm::PersistantTransaction* tx);
 
+    void append_arg(std::vector<uint8_t>& code, const uint256_t& arg);
     int persistMyKeys();
     bool existsMyKeyFile();
     int loadMyKeysFromFile();

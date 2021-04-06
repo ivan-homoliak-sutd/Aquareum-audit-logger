@@ -3,6 +3,7 @@
 #include <openssl/rand.h>
 #include <sys/stat.h>
 
+#include "../host/ledger/ledger-host.h"
 #include "../host/utils.h"
 #include "client.h"
 #include "secp256k1.h"
@@ -72,7 +73,6 @@ void Client::clientLoop()
 
         std::cin.getline(command, MAX_CMD_LEN);
         std::string command_s(expand_vars(command, sh_vars));
-        // std::cout << command << std::endl;
 
         if (0 == strncmp(command, "$", 1)) {
             boost::char_separator<char> sep("=");
@@ -95,24 +95,13 @@ void Client::clientLoop()
             std::cout << fmt::format("\t Setting  {} <= {} \n", key, sh_vars[key]);
 
         } else if (0 == strncmp(command, "reg", 3)) {
-            info_print(string("CMD: reg"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
                 continue;
 
             this->registration(this->PK);
 
-        } else if (0 == strncmp(command, "iomc", 4)) {
-            info_print(string("CMD: iomc"));
-
-            uint tokenCnt;
-            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
-                continue;
-
         } else if (0 == strncmp(command, "pay", 1)) {
-            info_print(string("CMD: test"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {3}, &tokens, &tokenCnt))
                 continue;
@@ -123,7 +112,6 @@ void Client::clientLoop()
             try {
                 std::advance(it, 1);
                 amount = std::stoul(*it);
-                info_print(fmt::format("Amount = {}", amount));
             } catch (const std::invalid_argument& ia) {
                 std::cerr << "Invalid argument\n";
                 continue;
@@ -139,7 +127,68 @@ void Client::clientLoop()
                 continue;
             }
 
-            this->pay(amount, dest);
+            this->pay(dest, amount);
+
+        } else if (0 == strncmp(command, "call", 4)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))
+                continue;
+
+            // parse amount
+            uint64_t amount;
+            auto it = tokens->begin();
+            try {
+                std::advance(it, 1);
+                amount = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // adjust destination
+            eevm::Address dest;
+            try {
+                std::advance(it, 1);
+                dest = eevm::string_to_uint256(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // parse function_hex_ptr
+            Bytes function_hex_ptr;
+            try {
+                std::advance(it, 1);
+                // if start with 0x
+                if ((*it).compare(0, 2, "0x") == 0) {
+                    function_hex_ptr = eevm::hex_str_to_bytes((*it).substr(2));
+                } else {
+                    function_hex_ptr = eevm::hex_str_to_bytes(*it);
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (++it; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(dest, amount, function_hex_ptr, parsedParams);
+
+        } else if (0 == strncmp(command, "iomc", 4)) {
+            info_print(string("CMD: iomc"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+                continue;
 
         } else if (0 == strncmp(command, "exit", 4)) {
             break;
@@ -165,11 +214,44 @@ int Client::registration(secp256k1_pubkey _PK)
     return 0;
 }
 
-int Client::pay(uint64_t amount, eevm::Address dest)
+int Client::pay(eevm::Address _dest, uint64_t _amount)
 {
     eevm::Code emptyFunc = {0u};
 
-    auto tx = new eevm::PersistantTransaction(this->addr, dest, ++(this->nonce), amount, emptyFunc);
+    auto tx = new eevm::PersistantTransaction(this->addr, _dest, ++(this->nonce), _amount, emptyFunc);
+
+    return this->signAndSendTX(tx);
+}
+
+int Client::call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params)
+{
+    auto function_call = function_hex_ptr;  // copy vector
+
+    // append all passed arguments to function call pointer
+    for (auto& p : params) {
+        append_arg(function_call, p);
+    }
+
+    auto tx = new eevm::PersistantTransaction(this->addr, _dest, ++(this->nonce), _amount, function_call);
+
+    return this->signAndSendTX(tx);
+}
+
+/* ----------------------------------------------------------- */
+/* --------------------- Copied functions -------------------- */
+/* ----------------------------------------------------------- */
+// ledger-host.cpp
+void Client::append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
+{
+    // ABI encode a function call with a uint256_t (or Address) argument.
+    // ABI-encoding for more complicated types is more complicated.
+    const auto pre_size = code.size();
+    code.resize(pre_size + 32u);
+    eevm::to_big_endian(arg, code.data() + pre_size);
+}
+
+int Client::signAndSendTX(eevm::PersistantTransaction* tx)
+{
     this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
 
     auto packedTx = tx->asDataForNetTransfer();

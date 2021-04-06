@@ -115,7 +115,7 @@ void* fsm(void* _op)
     // thread argument
     aql::Operator* op = (aql::Operator*)_op;
 
-    string recv_msg = rcv_msg(connectfd, false);  // receive first msg from client 
+    string recv_msg = rcv_msg(connectfd, false);  // receive first msg from client
     size_t recv_msg_size = recv_msg.size();
 
     unsigned char* recv_data = (unsigned char*)recv_msg.c_str();
@@ -134,18 +134,23 @@ void* fsm(void* _op)
     std::memcpy(&data, recv_data + 1, recv_msg_size - 1);
     debug_print(string("Received data: ") + to_hex_str((const unsigned char*)&data, recv_msg_size - 1));
 
-    // Based on cmd, do something
-    switch (cmd) {
-        case TransferCommand::reg:
-            info_print(string("Recieve registration command"));
-            registerNewClient(op, data);
-            break;
-        case TransferCommand::tx:
-            info_print(string("Recieve transaction command"));
-            transaction(op, data, recv_msg_size - 1);
-            break;
-        default:
-            error_print(string("Invalid command"));
+    try {
+        // Based on cmd, do something
+        switch (cmd) {
+            case TransferCommand::reg:
+                info_print(string("Recieve registration command"));
+                registerNewClient(op, data);
+                break;
+            case TransferCommand::tx:
+                info_print(string("Recieve transaction command"));
+                transaction(op, data, recv_msg_size - 1);
+                break;
+            default:
+                error_print(string("Invalid command"));
+        }
+        /* code */
+    } catch (const std::exception& e) {
+        error_print(e.what());
     }
 
     glob_thread_map.erase(pthread_self());
@@ -162,7 +167,7 @@ int registerNewClient(aql::Operator* _op, unsigned char* _PK)
     auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
 
     if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
-        throw std::logic_error("error when dispatching TX");
+        throw std::logic_error("error when dispatching registration TX");
     }
 
     return 0;

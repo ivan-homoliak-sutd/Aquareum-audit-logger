@@ -368,17 +368,14 @@ uint256_t get_random_uint256(size_t bytes = 32)
 
 void Operator::_deployIOMC(oe_enclave_t* enclave)
 {
+    int i = 0;
     const std::string iomcPaths[] = {
         "./contracts/iomc/iomc-send.json",
         "./contracts/iomc/iomc-receive.json"
     };
-    uint256_t output_u256;  // first 32B output of EVM execution
-    ContrDefinition def;
-    // eevm::PersistantTransaction* tx = NULL;  // here will be allocated TX data if needed and freed upon exection
 
     for (auto path : iomcPaths) {
-        std::cout << path << std::endl;
-
+        ContrDefinition def;
         eevm::PersistantTransaction* tx = NULL;  // here will be allocated TX data if needed and freed upon exection
         auto operAccnt = getAccount(this->m_ledger.operAddr).acc;  // get account state of active account
 
@@ -386,24 +383,21 @@ void Operator::_deployIOMC(oe_enclave_t* enclave)
         try {
             def = this->_parseDefinitionFile(path);
         } catch (const std::exception& e) {
-            std::cerr << "Exception occured:" << e.what() << "\n";
+            error_print(e.what());
             return;
         }
 
-        tx = this->m_ledger.createDeploymentTX(def, m_accounts[this->m_ledger.operAddr], operAccnt.get_nonce(), 0);
+        tx = this->m_ledger.createDeploymentTX(def, m_accounts[this->m_ledger.operAddr], operAccnt.get_nonce() + i, 0); // + i is fix for not incrementing nonce before creating new tx
                 
-        // TODO send to dispatcher
-        // if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-        //     continue;
-        if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            return;
+        if (RET_SUCCESS != dispatcher->addToDispatch(tx))
+            continue;
 
         info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
-        // sh_vars["$?"] = address_to_hex_string(tx->to);
+        // save address
+        this->iomc[i++] = tx->to;
         def.owner = this->m_ledger.operAddr;
         m_contracts[tx->to] = def;  // store binding of contract address to its definition
     }
-    
 }
 
 
@@ -863,7 +857,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // this->_testBulkNativePayments_1by1(enclave, n, accntsCount); // TODO: compare this with the following
             this->_testBulkNativePayments_batched_repeated(enclave, n, accntsCount, b, repetitions);
 
-
         } else if (0 == strcmp(command, "test")) {
             info_print("Invoking internally generated TXs in enclave...");
 
@@ -970,8 +963,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createSumTx(a, b, this->PK_O, this->SK_O, selAccnt.get_nonce());
 
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;
+            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //     continue;
 
             // [Alternative] executing TX in E while using E's full state
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
