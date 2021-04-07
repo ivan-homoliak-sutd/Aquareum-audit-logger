@@ -74,8 +74,8 @@ TEE.prototype.makeTicket = function(clientAddr, expiration){
     sig = {r: sig[1], s: sig[2], v: sig[0]};
     // console.log("sig = ", sig);
 
-    // return [ticket, [W3.utils.toDecimal(sig.v.substring(2)), sig.r, sig.s]];
-    return [ticket, [parseInt(Number(sig.v), 10), sig.r, sig.s]];
+    return [ticket, [W3.utils.toDecimal(sig.v.substring(2)), sig.r, sig.s]];
+    // return [ticket, [parseInt(Number(sig.v), 10), sig.r, sig.s]];    // alternative code
 }
 
 

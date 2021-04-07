@@ -124,3 +124,5 @@ inline void print_enc_sep(EncExec e)
 #define ERR_EVM_WRONG_PARTIAL_STATE 208
 
 #define ERR_EXCEPTION 301
+
+#define ERR_SOCK 500

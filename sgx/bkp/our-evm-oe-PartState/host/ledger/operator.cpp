@@ -751,6 +751,39 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             sh_vars["$?"] = address_to_hex_string(addrLast);  // store the last generated account address into $?
             this->_printGlobalState();
+        
+        } else if (0 == strncmp(command, "iomc fund", 9)) {
+            info_print(string("Funding iomc-receiving microcontract by main operator's account"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {3}, &tokens, &tokenCnt))
+                continue;
+
+            // parse amount
+            uint amount;
+            auto it = tokens->begin();
+            try {
+                std::advance(it, 2);
+                amount = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // Check the number of endpoint's parameters passed
+            auto& iomcRecv = m_contracts[this->iomc[IomcType::recv]];
+            auto& ep = iomcRecv.endpoints[1];
+            std::vector<u256> parsedParams;
+            
+            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
+            
+            // get operator's account
+            auto operAccount = getAccount(this->getOperAddr()).acc;
+            tx = this->m_ledger.createCallFunctionTX(m_accounts[this->getOperAddr()], this->iomc[IomcType::recv], parsedParams, ep.second, operAccount.get_nonce(), amount);
+
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
+                continue;
+    
         } else if (0 == strncmp(command, "test erc", 8)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2, 3, 4}, &tokens, &tokenCnt))

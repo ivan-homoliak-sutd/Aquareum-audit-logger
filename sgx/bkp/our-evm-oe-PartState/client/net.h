@@ -1,3 +1,6 @@
+#ifndef NET_H
+#define NET_H
+
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,9 +9,9 @@
 #include <unistd.h>
 #include <vector>
 
+#include "../host/utils.h"
 #include "eEVM/util.h"
 #include "secp256k1.h"
-
 
 typedef enum {
     reg = 1,
@@ -50,3 +53,5 @@ public:
     ~Net();
     int sendObj(TransferObject* sendingObj);
 };
+
+#endif

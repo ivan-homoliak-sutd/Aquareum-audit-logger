@@ -9,21 +9,23 @@
 #include <string>
 #include <unordered_map>
 
+#include "../host/ledger/ledger-host.h"
 #include "../host/utils.h"
+#include "common.h"
 #include "data_types.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
 #include "helper.h"
 #include "net.h"
+#include "secp256k1.h"
 #include "signing.h"
 
+#include <fstream>
+#include <openssl/err.h>
+#include <openssl/rand.h>
+#include <sys/stat.h>
 
 #define FILE_CLIENTS_KEYS "./client/data/clients-keys.txt"
-
-// #include "../host/ledger/ledger-host.h"
-// #include "common.h"
-
-// #include "../common/signing-PB/signing.h"
 
 #define MAX_CMD_LEN 256
 

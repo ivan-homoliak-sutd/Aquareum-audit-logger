@@ -1,13 +1,4 @@
-#include <fstream>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <sys/stat.h>
-
-#include "../host/ledger/ledger-host.h"
-#include "../host/utils.h"
 #include "client.h"
-#include "secp256k1.h"
-#include "signing.h"
 
 Client::Client(const char* _addr, uint16_t _port)
   : m_ecc()
@@ -210,8 +201,7 @@ int Client::registration(secp256k1_pubkey _PK)
         TransferCommand::reg,
         vectorPK};
 
-    this->net->sendObj(&data);
-    return 0;
+    return this->net->sendObj(&data);
 }
 
 int Client::pay(eevm::Address _dest, uint64_t _amount)
@@ -237,6 +227,19 @@ int Client::call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, 
     return this->signAndSendTX(tx);
 }
 
+int Client::signAndSendTX(eevm::PersistantTransaction* tx)
+{
+    this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
+
+    auto packedTx = tx->asDataForNetTransfer();
+
+    TransferObject data{
+        TransferCommand::tx,
+        packedTx};
+
+    return this->net->sendObj(&data);;
+}
+
 /* ----------------------------------------------------------- */
 /* --------------------- Copied functions -------------------- */
 /* ----------------------------------------------------------- */
@@ -249,22 +252,6 @@ void Client::append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
     code.resize(pre_size + 32u);
     eevm::to_big_endian(arg, code.data() + pre_size);
 }
-
-int Client::signAndSendTX(eevm::PersistantTransaction* tx)
-{
-    this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
-
-    auto packedTx = tx->asDataForNetTransfer();
-
-    TransferObject data{
-        TransferCommand::tx,
-        packedTx};
-
-    this->net->sendObj(&data);  // check return value
-
-    return 0;
-}
-
 
 int Client::loadMyKeysFromFile()
 {
@@ -307,9 +294,8 @@ int main(int argc, char* argv[])
 {
     // TODO parse arg IP and port
     const char* addr = "127.0.0.1";
-    int16_t port = 8080;
+    int16_t port = 63290;
 
     Client client = Client(addr, port);
-    // client.connect();
     client.clientLoop();
 }

@@ -13,6 +13,7 @@
 #include "ledger-host.h"
 
 #include "signing.h"
+#include "dispatcher.h"
 
 // Added
 #include "eEVM/util.h"
@@ -37,33 +38,8 @@
 
 namespace aql
 {
-    class Operator;
+    class Dispatcher;
     
-    class Dispatcher {
-    private:
-    public:
-        std::queue<eevm::PersistantTransaction*> txs;
-        std::queue<int> numbers;
-
-        std::mutex mtx;
-        std::condition_variable cond;
-
-        oe_enclave_t* enclave;
-        aql::Operator* op;
-
-        int i = 0;
-        Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator ); //, aql::Operator* _operator
-        ~Dispatcher();
-        void threadExecute();
-        int addToDispatch(eevm::PersistantTransaction* tx);
-        int validTx(eevm::PersistantTransaction* tx);
-    };
-
-    typedef enum {
-        send = 0,
-        recv
-    } IomcType;
-
     struct Header {
         uint256_t id;         // increment-only counter
         uint256_t txs_root;   // Merkle root

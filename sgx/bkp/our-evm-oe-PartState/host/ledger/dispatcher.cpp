@@ -1,6 +1,4 @@
-#include "operator.h"
-
-#include <mutex>
+#include "dispatcher.h"
 
 using namespace aql;
 
@@ -68,7 +66,7 @@ int Dispatcher::validTx(eevm::PersistantTransaction* tx)
     //     debug_print("%%%%%%%%% ERROR");
     //     return 1;
     // }
-    
+
     // destination exists
 
     return RET_SUCCESS;
