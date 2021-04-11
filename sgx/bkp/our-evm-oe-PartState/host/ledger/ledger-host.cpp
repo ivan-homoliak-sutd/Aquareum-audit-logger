@@ -285,8 +285,10 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     auto& senderStorage = m_gs.getStorages().at(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
         auto senderAccntAfter = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
-        assert(senderAccntAfter.acc.get_balance() == senderBalBefore + senderDeducted);
+        assert(senderAccntAfter.acc.get_balance() == senderBalBefore - senderDeducted);
     }
+    // 3b) update contract's balance
+    contrState->acc.set_balance(etx.value + contrState->acc.get_balance());
 
     // 4) Create processor & Run code of TX
     TRACE_HOST("running processor...");
@@ -319,7 +321,7 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
 
     // 7) update the storage hash of the account of contract called
     contrState->acc.set_stHash(contrState->st.hash());
-    m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
+    m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, contrState->acc.get_balance(), contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 8) Sync all (foreign) account states modified by the eEVM processor.
     for (auto& i : updated_accounts) {

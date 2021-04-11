@@ -140,8 +140,11 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     auto& senderStorage = gs->getStorages().at(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
         auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
-        assert(senderAccntUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
+        assert(senderAccntUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
     }
+
+    // 4b) update the balance of the receiver in the temporary account state
+    contrState->acc.set_balance(etx.value + contrState->acc.get_balance());
 
     // 5) Create processor & Run code of TX
     TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
@@ -178,7 +181,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
 
     // 8) update the storage hash (and nonce) of the account of contract called. Note that nonce of MP3 was already modified by processor.
     contrState->acc.set_stHash(contrState->st.hash());
-    gs->update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
+    gs->update(etx.to, {eevm::SimpleAccount(etx.to, contrState->acc.get_balance(), contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 9) (if any) Sync all foreign account states modified by the eEVM processor (i.e., external contract calls)
     for (auto& i : updated_accounts) {
