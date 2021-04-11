@@ -134,6 +134,7 @@ public:
     MODE m_mode;
 
     eevm::Address operAddr;
+    eevm::Address iomc[2];
 
 
     inline AQLedger(ECC* e)

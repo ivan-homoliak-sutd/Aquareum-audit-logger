@@ -47,7 +47,6 @@ namespace eevm
         {
             if (init)
                 m_accounts.init();  // create empty node and insert it into MP3
-            currentBlock.timestamp = 6;
         };
 
         ~NormalGlobalState() = default;

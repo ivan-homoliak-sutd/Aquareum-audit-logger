@@ -394,9 +394,22 @@ void Operator::_deployIOMC(oe_enclave_t* enclave)
 
         info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
         // save address
-        this->iomc[i++] = tx->to;
+        this->m_ledger.iomc[i++] = tx->to;
         def.owner = this->m_ledger.operAddr;
         m_contracts[tx->to] = def;  // store binding of contract address to its definition
+    }
+
+    // Send addresses to enclave
+    int ret;
+    
+    uint8_t addr[2*ADDRESS_SIZE_PB];
+    intx::be::unsafe::store((uint8_t*)&addr, this->m_ledger.iomc[0]);
+    intx::be::unsafe::store((uint8_t*)(&addr[ADDRESS_SIZE_PB]), this->m_ledger.iomc[1]);
+
+    oe_result_t ecall_ret = ecall_set_iomc_address(enclave, &ret, addr, 2*ADDRESS_SIZE_PB);
+
+    if (ecall_ret != OE_OK || is_error(ret)) {
+        error_print("Error when passing iomc's addresses to Enclave.");
     }
 }
 
@@ -436,6 +449,9 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     std::thread th(&Dispatcher::threadExecute, this->dispatcher);
 
     this->_deployIOMC(enclave);
+    // Store addresses to sh_vars
+    sh_vars["$iomc-send"] = address_to_hex_string(this->m_ledger.iomc[0]);
+    sh_vars["$iomc-recv"] = address_to_hex_string(this->m_ledger.iomc[1]);
     
     // create server thread
     pthread_t th_server;
@@ -762,24 +778,64 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // parse amount
             uint amount;
             auto it = tokens->begin();
+            std::advance(it, 2);
             try {
-                std::advance(it, 2);
                 amount = std::stoul(*it);
             } catch (const std::invalid_argument& ia) {
                 std::cerr << "Invalid argument\n";
                 continue;
             }
 
-            // Check the number of endpoint's parameters passed
-            auto& iomcRecv = m_contracts[this->iomc[IomcType::recv]];
-            auto& ep = iomcRecv.endpoints[1];
+            auto& iomcRecv = m_contracts[this->m_ledger.iomc[IomcType::recv]];
+            auto& ep = iomcRecv.endpoints[IomcFunctions::fund];
             std::vector<u256> parsedParams;
             
             INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
             
             // get operator's account
             auto operAccount = getAccount(this->getOperAddr()).acc;
-            tx = this->m_ledger.createCallFunctionTX(m_accounts[this->getOperAddr()], this->iomc[IomcType::recv], parsedParams, ep.second, operAccount.get_nonce(), amount);
+            info_print(string("this->getOperAddr() = ") + eevm::address_to_hex_string(this->getOperAddr()));
+
+            tx = this->m_ledger.createCallFunctionTX(m_accounts[this->getOperAddr()], this->m_ledger.iomc[IomcType::recv], parsedParams, ep.second, operAccount.get_nonce(), amount);
+
+            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
+                continue;
+
+        } else if (0 == strncmp(command, "iomc send-init", 14)) {
+            info_print(string("Iomc-send inicialization"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {6}, &tokens, &tokenCnt))
+                continue;
+
+            // parse amount
+            uint amount;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+            try {
+                amount = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            auto& iomcSend = m_contracts[this->m_ledger.iomc[IomcType::send]];
+            auto& ep = iomcSend.endpoints[IomcFunctions::sendInitialize];
+            std::vector<u256> parsedParams;
+
+            // receiver
+            std::advance(it, 1);
+            parsedParams.push_back(string_to_uint256(*it));
+            // receiver's PbSC
+            std::advance(it, 1);
+            parsedParams.push_back(string_to_uint256(*it));
+            // hashlock
+            std::advance(it, 1);
+            parsedParams.push_back(string_to_uint256(*it));       
+                        
+            INFO_PRINT("Creating TX that calls contract function %s ...", ep.first.c_str());
+            auto selAccnt = getAccount(sh_origin).acc;
+            tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], this->m_ledger.iomc[IomcType::send], parsedParams, ep.second, selAccnt.get_nonce(), amount);
 
             if (RET_SUCCESS != dispatcher->addToDispatch(tx))
                 continue;

@@ -26,6 +26,11 @@ enclave {
             size_t pk_size
         );
 
+        public int ecall_set_iomc_address(
+            [in, size=pk_size] uint8_t* _iomc,
+            size_t pk_size
+        );
+
         public int ecall_sync_evm_sealed_state_to_disk(void);
 
         public int ecall_run_single_tx_simplestate(

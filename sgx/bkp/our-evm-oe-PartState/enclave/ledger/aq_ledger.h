@@ -12,6 +12,7 @@ public:
     ECC ecc;  // ECC signing and verification
 
     eevm::Address operAddr;
+    eevm::Address iomc[2];
 
     inline AQLedger()
     {

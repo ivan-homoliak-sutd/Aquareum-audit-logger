@@ -278,6 +278,24 @@ int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
     }
 }
 
+int ecall_set_iomc_address(uint8_t* _iomc, size_t pk_size)
+{
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("setting IOMC's address");
+        assert(pk_size == 2*ADDRESS_SIZE_PB);
+
+        m_ledger.iomc[0] = intx::be::unsafe::load<eevm::Address>((const uint8_t*)_iomc);
+        m_ledger.iomc[1] = intx::be::unsafe::load<eevm::Address>((const uint8_t*)(_iomc + ADDRESS_SIZE_PB));
+
+        print_enc_sep(EncExec::END);
+        return 0;
+
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        return ERR_EXCEPTION;
+    }
+}
 
 int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
 {

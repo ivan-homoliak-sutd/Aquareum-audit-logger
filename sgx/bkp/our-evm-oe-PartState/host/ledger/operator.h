@@ -70,8 +70,6 @@ namespace aql
 
         Dispatcher* dispatcher;
 
-        Address iomc[2];
-
         uint8_t PK_E_TEE[ECC_SK_SIZE];
         secp256k1_pubkey PK_E_PB;   // public key (i.e., unsigned char [64])
         secp256k1_pubkey PK_O;      // PK of operator (under Sigma_PB)

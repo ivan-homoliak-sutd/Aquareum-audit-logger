@@ -96,6 +96,10 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
                   etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                   eevm::to_hex_string(etx.to).c_str());
 
+    if (etx.to == this->iomc[0] || etx.to == this->iomc[1]) {
+         TRACE_ENCLAVE("$$$$$$$$$$$$$$ IOMC $$$$$$$$$$$$$");
+    }
+
     // 2) Verify signature of TX
     auto inp4hash = etx.asDataForHash();
     eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
