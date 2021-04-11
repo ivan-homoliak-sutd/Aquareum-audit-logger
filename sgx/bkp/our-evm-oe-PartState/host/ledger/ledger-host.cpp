@@ -257,6 +257,8 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     }
     TRACE_HOST("Executing CONTRACT in HOST...");
 
+    m_gs.set_block_timestamp((uint64_t) std::time(0));
+
     // 2b) If code is present, then (deploy contract if does not exist and) ececute TX with the code
     auto senderAccnt = m_gs.get(etx.origin);
     bool contrDeployed = false;

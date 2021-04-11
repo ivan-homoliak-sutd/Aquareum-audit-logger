@@ -47,6 +47,7 @@ namespace eevm
         {
             if (init)
                 m_accounts.init();  // create empty node and insert it into MP3
+            currentBlock.timestamp = 6;
         };
 
         ~NormalGlobalState() = default;
@@ -71,6 +72,7 @@ namespace eevm
         size_t num_accounts();
 
         virtual const Block& get_current_block() override;
+        inline void set_block_timestamp(uint64_t _timestamp) { this->currentBlock.timestamp = _timestamp; };
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
         void dump_full_db(std::vector<uint8_t>& mp3_keys,

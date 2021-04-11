@@ -24,6 +24,7 @@
 #include "aleth-mp3/database/SecureTrieDB.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/util.h"
+#include "eEVM/block.h"
 
 EvmState_T m_evm_state;
 bool _evm_initialized = false;
@@ -357,6 +358,8 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
                                                                    storages, storages_sizes, storages_sizes_size, accnts_of_storages);
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
+
+        gs->set_block_timestamp((uint64_t) std::time(0));
 
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
         if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
