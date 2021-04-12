@@ -188,7 +188,12 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     gs->update(etx.to, {eevm::SimpleAccount(etx.to, contrState->acc.get_balance(), contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 9) (if any) Sync all foreign account states modified by the eEVM processor (i.e., external contract calls)
+    bool origin_updated = false;
     for (auto& i : updated_accounts) {
+        if (i.first == etx.origin) {
+            origin_updated = true;
+        }
+
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
         // throw std::logic_error("Not tested yet!");
@@ -202,9 +207,11 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
                              as.st});
     }
 
-    // 9) Update the nonce of the sender
-    auto newNonce = senderAccnt.acc.get_nonce() + 1;
-    gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    // 9) Update the nonce of the sender if wasn't
+    if (!origin_updated) {
+        auto newNonce = senderAccnt.acc.get_nonce() + 1;
+        gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    }
 
     delete contrState;
     return RET_SUCCESS;

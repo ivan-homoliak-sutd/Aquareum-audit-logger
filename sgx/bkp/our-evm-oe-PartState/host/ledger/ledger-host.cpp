@@ -324,7 +324,12 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, contrState->acc.get_balance(), contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 8) Sync all (foreign) account states modified by the eEVM processor.
+    bool origin_updated = false;
     for (auto& i : updated_accounts) {
+        if (i.first == etx.origin) {
+            origin_updated = true;
+        }
+
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
         // throw std::logic_error("Not tested yet!");
@@ -338,9 +343,11 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
                               as.st});
     }
 
-    // 9) Update the nonce of the sender
-    auto newNonce = senderAccnt.acc.get_nonce() + 1;
-    m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    // 9) Update the nonce of the sender if wasn't
+    if (!origin_updated) {
+        auto newNonce = senderAccnt.acc.get_nonce() + 1;
+        m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), newNonce, senderStorage), senderStorage});  // update MP3 for sender
+    }
 
     // TODO: if some contract is created by TX call of existing contract, then EVM must increment nonce of sending contract (check it) !!!
 
