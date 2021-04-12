@@ -15,16 +15,6 @@
 #include "signing.h"
 #include "dispatcher.h"
 
-// Added
-#include "eEVM/util.h"
-#include "utils.h"
-#include <condition_variable>
-#include <mutex>
-#include <openenclave/host.h>
-#include <queue>
-#include <stdio.h>
-#include <unistd.h>
-
 #define FILE_OPERATOR_KEYS "./data/operator-keys.txt"
 #define MAX_CMD_LEN 256
 
@@ -100,7 +90,7 @@ namespace aql
         void operatorLoop(oe_enclave_t* enclave);
 
         // from private to public
-        int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
+        int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
 
     private:
         int persistMyKeys();
@@ -123,10 +113,10 @@ namespace aql
 
         void _deployIOMC(oe_enclave_t* enclave);
 
+        int _dispatchTX(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_FullState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         int _dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTransaction* tx, uint256_t& output_u256);
         
-        int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
         int _dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
 
         void _iterExps(eevm::Address& key);

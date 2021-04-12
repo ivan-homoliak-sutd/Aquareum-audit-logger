@@ -10,31 +10,30 @@ Dispatcher::Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator)
 
 Dispatcher::~Dispatcher()
 {
-    // TODO delete txs in queue
+    for (auto tx : this->txs) {
+        delete tx;
+    }
 }
 
 void Dispatcher::threadExecute()
 {
     // consumer
-    eevm::PersistantTransaction* tx = NULL;
-    uint256_t output_u256;
-
-
     while (1) {
         // locking mechanism
         std::unique_lock<std::mutex> locker(this->mtx);
         this->cond.wait(locker, [&]() { return !txs.empty(); });
-        debug_print("Dispatcher: Got new TX");
+        debug_print("Dispatcher: Got new TX. Number " + to_string(this->txs.size()));
 
-        tx = this->txs.front();
-        this->txs.pop();
+        std::vector<eevm::PersistantTransaction*> batch_txs;
+        this->txs.swap(batch_txs);
+
         locker.unlock();
 
-        debug_print("Dispatcher: before tx execution");
-        this->op->_dispatchTX(this->enclave, tx, output_u256);
-        debug_print("Dispatcher: tx was executed");
+        this->op->_dispatchManyTXs(this->enclave, batch_txs);
 
-        delete tx;
+        for (auto tx : batch_txs) {
+            delete tx;
+        }
     }
 }
 
@@ -47,13 +46,14 @@ int Dispatcher::addToDispatch(eevm::PersistantTransaction* tx)
 
     // producer
     std::unique_lock<std::mutex> locker(this->mtx);
-    this->txs.push(tx);
+    this->txs.push_back(tx);
     locker.unlock();
     this->cond.notify_one();
 
     return RET_SUCCESS;
 }
 
+// TODO
 int Dispatcher::validTx(eevm::PersistantTransaction* tx)
 {
     // sender exists

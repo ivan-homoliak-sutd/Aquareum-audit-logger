@@ -2,16 +2,11 @@
 #define DISPATCHER_H
 
 #include "eEVM/transaction.h"
-#include "eEVM/util.h"
 #include "operator.h"
-#include "utils.h"
 
 #include <condition_variable>
 #include <mutex>
-#include <openenclave/host.h>
-#include <queue>
-#include <stdio.h>
-#include <unistd.h>
+#include <vector>
 
 namespace aql
 {
@@ -20,8 +15,7 @@ namespace aql
     class Dispatcher {
     private:
     public:
-        std::queue<eevm::PersistantTransaction*> txs;
-        std::queue<int> numbers;
+        std::vector<eevm::PersistantTransaction*> txs;
 
         std::mutex mtx;
         std::condition_variable cond;
@@ -29,8 +23,7 @@ namespace aql
         oe_enclave_t* enclave;
         aql::Operator* op;
 
-        int i = 0;
-        Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator);  //, aql::Operator* _operator
+        Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator);
         ~Dispatcher();
         void threadExecute();
         int addToDispatch(eevm::PersistantTransaction* tx);
