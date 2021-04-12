@@ -72,6 +72,7 @@ namespace eevm
 
         virtual const Block& get_current_block() override;
         inline void set_block_timestamp(uint64_t _timestamp) { this->currentBlock.timestamp = _timestamp; };
+        inline void set_block_number(uint64_t _number) { this->currentBlock.number = _number; };
         virtual uint256_t get_block_hash(uint8_t offset) override;
 
         void dump_full_db(std::vector<uint8_t>& mp3_keys,

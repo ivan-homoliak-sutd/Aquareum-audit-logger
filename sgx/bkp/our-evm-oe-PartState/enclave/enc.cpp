@@ -377,7 +377,9 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
+        // set block timestamp
         gs->set_block_timestamp((uint64_t) std::time(0));
+        // gs->set_block_number((uint64_t) m_evm_state.pub.idCurrent); // not setup in host 
 
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
         if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
@@ -426,6 +428,10 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
+        // set block timestamp
+        gs->set_block_timestamp((uint64_t) std::time(0));
+        // gs->set_block_number((uint64_t) m_evm_state.pub.idCurrent); // not setup in host
+        
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
         if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator parenthesis (h256) converts to underlying object
             TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
