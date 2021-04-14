@@ -149,31 +149,34 @@ void* fsm(void* _op)
     pthread_exit((void*)0);
 }
 
-int registerNewClient(aql::Operator* _op, unsigned char* _PK)
+void registerNewClient(aql::Operator* _op, unsigned char* _PK)
 {
     auto operAccnt = _op->getAccount(_op->getOperAddr()).acc;  // already deployed  O's account
     auto newAddr = eevm::from_big_endian(_PK, PB_ADDR_SIZE);   // extract address from public key
 
-    // TODO check if is aready registred
+    // check if is aready registred
+    auto it = _op->m_clients_accounts.find(newAddr);
+    if (it != _op->m_clients_accounts.end()) {
+        error_print("Client already registred");
+    } else {
+        
+        auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
 
-    auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
+        if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
+            throw std::logic_error("error when dispatching registration TX");
+        }
 
-    if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
-        throw std::logic_error("error when dispatching registration TX");
+        _op->m_clients_accounts[newAddr] = _PK;
     }
-
-    return 0;
 }
 
-int transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize)
+void transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize)
 {
     auto tx = new eevm::PersistantTransaction(_data, _dataSize);
 
     if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
         throw std::logic_error("error when dispatching TX");
     }
-
-    return 0;
 }
 
 void* server(void* _op)

@@ -41,8 +41,8 @@ typedef enum {
 
 void* fsm(void*);
 void* server(void* _op);
-int registerNewClient(aql::Operator* _op, unsigned char* _PK);
-int transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize);
+void registerNewClient(aql::Operator* _op, unsigned char* _PK);
+void transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize);
 
 
 #endif
