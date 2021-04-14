@@ -30,20 +30,6 @@ namespace aql
         int validTx(eevm::PersistantTransaction* tx);
     };
 
-    typedef enum {
-        send = 0,
-        recv
-    } IomcType;
-
-    typedef enum {
-        sendInitialize = 3,
-        sendCommit = 2,
-        sendRevert = 4,
-        receiveInitialize = 5,
-        receiveClaim = 4,
-        fund = 1
-    } IomcFunctions;
-
 }  // namespace aql
 
 #endif

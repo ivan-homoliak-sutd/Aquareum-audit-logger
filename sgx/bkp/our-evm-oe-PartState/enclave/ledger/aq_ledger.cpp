@@ -96,7 +96,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
                   etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                   eevm::to_hex_string(etx.to).c_str());
 
-    if (etx.to == this->iomc[0] || etx.to == this->iomc[1]) {
+    if (etx.to == this->iomc.sendAddr || etx.to == this->iomc.recvAddr) {
          TRACE_ENCLAVE("$$$$$$$$$$$$$$ IOMC $$$$$$$$$$$$$");
     }
 

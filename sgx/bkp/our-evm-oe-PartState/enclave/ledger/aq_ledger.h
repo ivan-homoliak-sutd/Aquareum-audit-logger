@@ -1,6 +1,7 @@
 #pragma once
 
 #include "data_types.h"
+#include "iomc.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/simple/simpleglobalstate.h"
 #include "eEVM/transaction.h"
@@ -12,7 +13,8 @@ public:
     ECC ecc;  // ECC signing and verification
 
     eevm::Address operAddr;
-    eevm::Address iomc[2];
+
+    Iomc iomc;
 
     inline AQLedger()
     {

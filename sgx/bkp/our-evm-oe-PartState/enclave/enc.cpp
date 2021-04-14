@@ -285,8 +285,8 @@ int ecall_set_iomc_address(uint8_t* _iomc, size_t pk_size)
         TRACE_ENCLAVE("setting IOMC's address");
         assert(pk_size == 2*ADDRESS_SIZE_PB);
 
-        m_ledger.iomc[0] = intx::be::unsafe::load<eevm::Address>((const uint8_t*)_iomc);
-        m_ledger.iomc[1] = intx::be::unsafe::load<eevm::Address>((const uint8_t*)(_iomc + ADDRESS_SIZE_PB));
+        m_ledger.iomc.sendAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)_iomc);
+        m_ledger.iomc.recvAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)(_iomc + ADDRESS_SIZE_PB));
 
         print_enc_sep(EncExec::END);
         return 0;
@@ -431,7 +431,7 @@ int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
         // set block timestamp
         gs->set_block_timestamp((uint64_t) std::time(0));
         // gs->set_block_number((uint64_t) m_evm_state.pub.idCurrent); // not setup in host
-        
+
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
         if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator parenthesis (h256) converts to underlying object
             TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");

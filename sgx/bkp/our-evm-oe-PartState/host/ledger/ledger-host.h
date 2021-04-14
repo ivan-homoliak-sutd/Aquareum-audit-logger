@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "iomc.h"
 #include "eEVM/bigint.h"
 // #include "eEVM/bigint.h"
 #include "eEVM/normal/normalGlobalState.h"
@@ -134,8 +135,8 @@ public:
     MODE m_mode;
 
     eevm::Address operAddr;
-    eevm::Address iomc[2];
 
+    Iomc iomc;
 
     inline AQLedger(ECC* e)
       : m_ecc(e), m_mode(MODE::PartialStateTransfer){};

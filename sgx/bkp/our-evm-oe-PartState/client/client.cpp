@@ -34,6 +34,9 @@ Client::Client(const char* _addr, uint16_t _port)
     // Create Net object
     this->net = new Net(_addr, _port);
 
+    this->iomc.sendAddr = eevm::to_uint256("0xcc9229f9c0fde68d64d27e3bce193c6bf0b313dc");
+    this->iomc.recvAddr = eevm::to_uint256("0x8c8f9e1b7985ccf743e9cff9c0651982f369df7a");
+
     info_print(string("Address = ") + eevm::address_to_hex_string(this->addr));
     info_print(string("SK = ") + to_hex_str(this->SK, ECC_SK_SIZE));
     info_print(string("PK = ") + to_hex_str((const unsigned char*)&this->PK, ECC_PK_SIZE));
@@ -87,7 +90,7 @@ void Client::clientLoop()
 
         } else if (0 == strncmp(command, "reg", 3)) {
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {1}, &tokens, &tokenCnt))
                 continue;
 
             this->registration(this->PK);
@@ -174,15 +177,131 @@ void Client::clientLoop()
 
             this->call(dest, amount, function_hex_ptr, parsedParams);
 
-        } else if (0 == strncmp(command, "iomc", 4)) {
-            info_print(string("CMD: iomc"));
+        }
+        /* -------------------- IOMC -------------------- */
+        else if (0 == strncmp(command, "iomc send-init", 14)) {
+            info_print(string("CMD: iomc send-init"));
 
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {6}, &tokens, &tokenCnt))
                 continue;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+
+            // parse amount
+            uint64_t amount;
+            try {
+                amount = std::stoul(*it);
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (++it; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(this->iomc.sendAddr, amount, this->iomc.endpoints[this->iomc.sendInit].second, parsedParams);
+
+        } else if (0 == strncmp(command, "iomc send-commit", 16)) {
+            info_print(string("CMD: iomc send-commit"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {4}, &tokens, &tokenCnt))
+                continue;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(this->iomc.sendAddr, 0, this->iomc.endpoints[this->iomc.sendCommit].second, parsedParams);
+
+        } else if (0 == strncmp(command, "iomc send-revert", 16)) {
+            info_print(string("CMD: iomc send-revert"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {3}, &tokens, &tokenCnt))
+                continue;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(this->iomc.sendAddr, 0, this->iomc.endpoints[this->iomc.sendRevert].second, parsedParams);
+
+        } else if (0 == strncmp(command, "iomc recv-init", 14)) {
+            info_print(string("CMD: iomc recv-init"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {6}, &tokens, &tokenCnt))
+                continue;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(this->iomc.recvAddr, 0, this->iomc.endpoints[this->iomc.receiveInit].second, parsedParams);
+
+        } else if (0 == strncmp(command, "iomc recv-claim", 15)) {
+            info_print(string("CMD: iomc recv-claim"));
+
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {5}, &tokens, &tokenCnt))
+                continue;
+            auto it = tokens->begin();
+            std::advance(it, 2);
+
+            // parse arguments
+            std::vector<u256> parsedParams;
+            try {
+                for (; it != tokens->end(); ++it) {
+                    parsedParams.push_back(string_to_uint256(*it));
+                }
+            } catch (const std::invalid_argument& ia) {
+                std::cerr << "Invalid argument\n";
+                continue;
+            }
+
+            this->call(this->iomc.recvAddr, 0, this->iomc.endpoints[this->iomc.receiveClaim].second, parsedParams);
 
         } else if (0 == strncmp(command, "exit", 4)) {
             break;
+        } else {
+            error_print("Unknown command");
         }
     }
 }
@@ -237,7 +356,7 @@ int Client::signAndSendTX(eevm::PersistantTransaction* tx)
         TransferCommand::tx,
         packedTx};
 
-    return this->net->sendObj(&data);;
+    return this->net->sendObj(&data);
 }
 
 /* ----------------------------------------------------------- */

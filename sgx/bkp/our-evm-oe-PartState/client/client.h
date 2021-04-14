@@ -12,6 +12,7 @@
 #include "../host/ledger/ledger-host.h"
 #include "../host/utils.h"
 #include "common.h"
+#include "iomc.h"
 #include "data_types.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
@@ -35,13 +36,14 @@
 class Client {
 private:
     Net* net;
+    ECC m_ecc;
+    Iomc iomc;
 
     secp256k1_pubkey PK;      // PK of client (under Sigma_PB)
     uint8_t SK[ECC_SK_SIZE];  // SK of client (under Sigma_PB)
     eevm::Address addr;
 
     uint64_t nonce = 0;
-
 
     int registration(secp256k1_pubkey PK);
     int pay(eevm::Address dest, uint64_t amount);
@@ -54,8 +56,6 @@ private:
     int loadMyKeysFromFile();
 
 public:
-    ECC m_ecc;
-
     Client(const char* _addr, uint16_t _port);
     ~Client();
     void clientLoop();
