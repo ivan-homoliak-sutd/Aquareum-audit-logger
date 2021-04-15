@@ -280,7 +280,7 @@ void Client::clientLoop()
             info_print(string("CMD: iomc recv-claim"));
 
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {5}, &tokens, &tokenCnt))
+            if (!correct_token_cnt(command_s, {4, 5}, &tokens, &tokenCnt))
                 continue;
             auto it = tokens->begin();
             std::advance(it, 2);
@@ -296,7 +296,7 @@ void Client::clientLoop()
                 continue;
             }
 
-            this->call(this->iomc.recvAddr, 0, this->iomc.endpoints[this->iomc.receiveClaim].second, parsedParams);
+            this->callAndNotSignAllParams(this->iomc.recvAddr, 0, this->iomc.endpoints[this->iomc.receiveClaim].second, parsedParams, 2);
 
         } else if (0 == strncmp(command, "exit", 4)) {
             break;
@@ -329,7 +329,9 @@ int Client::pay(eevm::Address _dest, uint64_t _amount)
 
     auto tx = new eevm::PersistantTransaction(this->addr, _dest, ++(this->nonce), _amount, emptyFunc);
 
-    return this->signAndSendTX(tx);
+    this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
+
+    return this->sendTX(tx);
 }
 
 int Client::call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params)
@@ -343,13 +345,37 @@ int Client::call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, 
 
     auto tx = new eevm::PersistantTransaction(this->addr, _dest, ++(this->nonce), _amount, function_call);
 
-    return this->signAndSendTX(tx);
-}
-
-int Client::signAndSendTX(eevm::PersistantTransaction* tx)
-{
     this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
 
+    return this->sendTX(tx);
+}
+
+int Client::callAndNotSignAllParams(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params, uint8_t numberOfSignParams)
+{
+    // sign tx with onle first 2 params
+    auto function_call = function_hex_ptr;  // copy vector
+
+    // append only first 2 params to function call pointer
+    for (uint8_t i = 0; i < numberOfSignParams && i < params.size(); i++) {
+        auto& p = params[i];
+        append_arg(function_call, p);
+    }
+
+    auto tx = new eevm::PersistantTransaction(this->addr, _dest, ++(this->nonce), _amount, function_call);
+
+    this->m_ecc.sign_data(tx->asDataForHash(), this->SK, tx->signature);
+
+    // add rest of params
+    for (uint8_t i = numberOfSignParams; i < params.size(); i++) {
+        auto& p = params[i];
+        append_arg(tx->code, p);
+    }
+
+    return this->sendTX(tx);
+}
+
+int Client::sendTX(eevm::PersistantTransaction* tx)
+{
     auto packedTx = tx->asDataForNetTransfer();
 
     TransferObject data{

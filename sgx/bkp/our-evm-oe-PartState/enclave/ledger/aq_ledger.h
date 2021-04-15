@@ -34,4 +34,5 @@ public:
 
 private:
     int _execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx);
+    int iomcChecks(eevm::Transaction etx);
 };

@@ -1,22 +1,14 @@
 #pragma once
 
-#include <boost/tokenizer.hpp>
-#include <fmt/format_header_only.h>
-#include <iostream>
-#include <set>
-#include <stdio.h>
-#include <string.h>
-#include <string>
-#include <unordered_map>
 
 #include "../host/ledger/ledger-host.h"
 #include "../host/utils.h"
 #include "common.h"
-#include "iomc.h"
 #include "data_types.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
 #include "helper.h"
+#include "iomc.h"
 #include "net.h"
 #include "secp256k1.h"
 #include "signing.h"
@@ -48,8 +40,9 @@ private:
     int registration(secp256k1_pubkey PK);
     int pay(eevm::Address dest, uint64_t amount);
     int call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params);
-    int signAndSendTX(eevm::PersistantTransaction* tx);
-
+    int sendTX(eevm::PersistantTransaction* tx);
+    int callAndNotSignAllParams(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params, uint8_t numberOfSignParams);
+    
     void append_arg(std::vector<uint8_t>& code, const uint256_t& arg);
     int persistMyKeys();
     bool existsMyKeyFile();
