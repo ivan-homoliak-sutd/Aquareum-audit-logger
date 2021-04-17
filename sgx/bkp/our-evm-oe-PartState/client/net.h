@@ -15,7 +15,8 @@
 
 typedef enum {
     reg = 1,
-    tx
+    tx,
+    getIomcAddresses
 } TransferCommand;
 
 struct TransferObject {
@@ -45,13 +46,16 @@ private:
     const char* addr;
     uint16_t port;
 
-    int initConnection();
-    int disconnect();
 
 public:
     Net(const char* _addr, uint16_t _port);
     ~Net();
+
+    int initConnection();
+    int disconnect();
+    
     int sendObj(TransferObject* sendingObj);
+    int recvData(unsigned char* recvBuf, size_t bufSize);
 };
 
 #endif

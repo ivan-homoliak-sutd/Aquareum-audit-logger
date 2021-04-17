@@ -9,42 +9,11 @@ Net::Net(const char* _addr, uint16_t _port)
 
 Net::~Net()
 {
-    // TODO clear communication
-
-    close(sock);
+    disconnect();
 }
 
 /* ----------------------------------------------------------- */
 /* -------------------- Public functions --------------------- */
-/* ----------------------------------------------------------- */
-
-int Net::sendObj(TransferObject* transferObj)
-{
-    debug_print(string("Size of transferObj: ") + to_string(transferObj->size()));
-    debug_print(string("transferObj: ") + eevm::to_hex_string(transferObj->serialize()));
-
-    if (this->initConnection() != RET_SUCCESS) {
-        return ERR_SOCK;
-    }
-
-    int ret;
-
-    if ((ssize_t)transferObj->size() != send(this->sock, &(transferObj->serialize())[0], transferObj->size(), 0)) {
-        error_print("message not sended");
-        ret = ERR_SOCK;
-    } else {
-        debug_print("Message successfuly sended");
-        ret = RET_SUCCESS;
-    }
-
-    // TODO
-    // this->disconnect();
-
-    return ret;
-}
-
-/* ----------------------------------------------------------- */
-/* -------------------- Private functions -------------------- */
 /* ----------------------------------------------------------- */
 
 int Net::initConnection()
@@ -74,7 +43,42 @@ int Net::initConnection()
 
 int Net::disconnect()
 {
-    close(this->sock);
-    debug_print("Disconnect");
-    return RET_SUCCESS;
+    shutdown(this->sock, SHUT_WR);
+    int iResult;
+    char recvbuf[32];
+    int recvbuflen = 32;
+    do {
+        iResult = recv(this->sock, recvbuf, recvbuflen, 0);
+        // if (iResult > 0)
+        //     printf("Bytes received: %d\n", iResult);
+        // else if (iResult == 0)
+        //     printf("Connection closed\n");
+        // else
+        //     printf("recv failed\n");
+
+    } while (iResult > 0);
+
+    return close(this->sock);
+}
+
+int Net::sendObj(TransferObject* transferObj)
+{
+    debug_print(string("Size of transferObj: ") + to_string(transferObj->size()));
+    debug_print(string("transferObj: ") + eevm::to_hex_string(transferObj->serialize()));
+
+    int ret;
+
+    if ((ssize_t)transferObj->size() != send(this->sock, &(transferObj->serialize())[0], transferObj->size(), 0)) {
+        error_print("message not sended");
+        ret = ERR_SOCK;
+    } else {
+        debug_print("Message successfuly sended");
+        ret = RET_SUCCESS;
+    }
+    return ret;
+}
+
+int Net::recvData(unsigned char* recvBuf, size_t bufSize)
+{
+    return recv(this->sock, recvBuf, bufSize, 0);
 }

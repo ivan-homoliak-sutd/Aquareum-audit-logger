@@ -42,6 +42,7 @@ private:
     int call(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params);
     int sendTX(eevm::PersistantTransaction* tx);
     int callAndNotSignAllParams(eevm::Address _dest, uint64_t _amount, Bytes function_hex_ptr, std::vector<u256> params, uint8_t numberOfSignParams);
+    int getIomcAddresses();
     
     void append_arg(std::vector<uint8_t>& code, const uint256_t& arg);
     int persistMyKeys();

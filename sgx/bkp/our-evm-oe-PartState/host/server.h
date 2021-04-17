@@ -29,20 +29,20 @@
 
 #define PORT 63290
 
-#define BUFSIZE 1
+#define BUFSIZE 32
 #define QUEUE (2)
 
 using namespace std;
 
 typedef enum {
     reg = 1,
-    tx
+    tx,
+    getIomcAddresses
 } TransferCommand;
 
-void* fsm(void*);
+void* clientHandling(void*);
 void* server(void* _op);
 void registerNewClient(aql::Operator* _op, unsigned char* _PK);
 void transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize);
-
 
 #endif

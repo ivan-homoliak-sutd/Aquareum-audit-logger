@@ -34,9 +34,6 @@ Client::Client(const char* _addr, uint16_t _port)
     // Create Net object
     this->net = new Net(_addr, _port);
 
-    this->iomc.sendAddr = eevm::to_uint256("0xcc9229f9c0fde68d64d27e3bce193c6bf0b313dc");
-    this->iomc.recvAddr = eevm::to_uint256("0x8c8f9e1b7985ccf743e9cff9c0651982f369df7a");
-
     info_print(string("Address = ") + eevm::address_to_hex_string(this->addr));
     info_print(string("SK = ") + to_hex_str(this->SK, ECC_SK_SIZE));
     info_print(string("PK = ") + to_hex_str((const unsigned char*)&this->PK, ECC_PK_SIZE));
@@ -179,7 +176,14 @@ void Client::clientLoop()
 
         }
         /* -------------------- IOMC -------------------- */
-        else if (0 == strncmp(command, "iomc send-init", 14)) {
+        else if (0 == strncmp(command, "iomc addr", 9)) {
+            uint tokenCnt;
+            if (!correct_token_cnt(command_s, {2}, &tokens, &tokenCnt))
+                continue;
+
+            this->getIomcAddresses();
+
+        } else if (0 == strncmp(command, "iomc send-init", 14)) {
             info_print(string("CMD: iomc send-init"));
 
             uint tokenCnt;
@@ -320,7 +324,18 @@ int Client::registration(secp256k1_pubkey _PK)
         TransferCommand::reg,
         vectorPK};
 
-    return this->net->sendObj(&data);
+    if (this->net->initConnection() != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    if (this->net->sendObj(&data) != RET_SUCCESS) {
+        error_print("sendObj() != RET_SUCCESS");
+        return ERR_SOCK;
+    }
+
+    this->net->disconnect();
+
+    return RET_SUCCESS;
 }
 
 int Client::pay(eevm::Address _dest, uint64_t _amount)
@@ -382,7 +397,56 @@ int Client::sendTX(eevm::PersistantTransaction* tx)
         TransferCommand::tx,
         packedTx};
 
-    return this->net->sendObj(&data);
+    if (this->net->initConnection() != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    if (this->net->sendObj(&data) != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    if (this->net->disconnect() != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    return RET_SUCCESS;
+}
+
+int Client::getIomcAddresses()
+{
+    std::vector<uint8_t> empty;
+
+    TransferObject data{
+        TransferCommand::getIomcAddresses,
+        empty};
+
+    if (this->net->initConnection() != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    if (this->net->sendObj(&data) != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    // wait for response
+    unsigned char recvBuf[2 * ADDRESS_SIZE];
+    if (this->net->recvData(recvBuf, sizeof(recvBuf)) != 2 * ADDRESS_SIZE) {
+        error_print("Invalid response");
+        return ERR_SOCK;
+    }
+
+    // save response
+    this->iomc.sendAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)recvBuf);
+    this->iomc.recvAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)recvBuf + sizeof(uint256_t));
+
+    info_print(string("sendAddr = ") + eevm::address_to_hex_string(this->iomc.sendAddr));
+    info_print(string("recvAddr = ") + eevm::address_to_hex_string(this->iomc.recvAddr));
+
+    if (this->net->disconnect() != RET_SUCCESS) {
+        return ERR_SOCK;
+    }
+
+    return RET_SUCCESS;
 }
 
 /* ----------------------------------------------------------- */

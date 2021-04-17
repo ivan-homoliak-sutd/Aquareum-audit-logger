@@ -3,100 +3,112 @@
 mutex mtx, mtx_thread;
 map<pthread_t, int> glob_thread_map;
 
-/**
- * @brief      ukonci spojenie a vlakno
- *
- * @param[in]  connectfd  file descriptor soketu
- * @param[in]  lock       bol nastaveny zamok
- */
-void kill_thread(int fd, bool lock)
-{
-    close(fd);
-    if (lock) {
-        mtx.unlock();
-    }
-    glob_thread_map.erase(pthread_self());
-    pthread_exit((void*)0);
-}
-
 // /**
-//  * @brief      Odosle spravu
+//  * @brief      ukonci spojenie a vlakno
 //  *
-//  * @param[in]  msg        Sprava
-//  * @param[in]  connectfd  Cislo file descriptora pre soket
+//  * @param[in]  connectfd  file descriptor soketu
+//  * @param[in]  lock       bol nastaveny zamok
 //  */
-// void send_msg(string msg, int connectfd)
+// void kill_thread(int fd, bool lock)
 // {
-//     fd_set set;
-//     FD_ZERO(&set);            // vynuluje set
-//     FD_SET(connectfd, &set);  // prida do setu sledonavy file descriptor
-
-//     int done = 0;
-//     int length;
-//     int last_send = 0;
-
-//     // odosiela kym sa neodosle cela sprava
-//     do {
-//         msg = msg.substr(last_send);
-//         length = msg.length();
-
-//         int rv = select(connectfd + 1, NULL, &set, NULL, NULL);
-//         // ak sa moze odosielat
-//         if (rv > 0) {
-//             last_send = write(connectfd, msg.c_str(), length);
-//             if (last_send > 0) {  // ak sa nieco odoslalo
-//                 done += last_send;
-//             }
-//         }
-
-//     } while (last_send < length);
+//     debug_print("!!!!! killThread");
+//     close(fd);
+//     if (lock) {
+//         mtx.unlock();
+//     }
+//     glob_thread_map.erase(pthread_self());
+//     pthread_exit((void*)0);
 // }
 
-/**
- * @brief      Prijme spravu
- *
- * @param[in]  connectfd  Cislo file descriptora pre soket
- * @param[in]  lock       bol nastaveny zamok
- *
- * @return     Prijata sprava
- */
-string rcv_msg(int connectfd, bool lock)
+
+// /**
+//  * @brief      Prijme spravu
+//  *
+//  * @param[in]  connectfd  Cislo file descriptora pre soket
+//  * @param[in]  lock       bol nastaveny zamok
+//  *
+//  * @return     Prijata sprava
+//  */
+// string rcv_msg(int connectfd, bool lock)
+// {
+//     int n;
+//     char buf[BUFSIZE];
+//     bzero(buf, BUFSIZE);
+//     string rcv_buf = "";
+
+//     fd_set set;
+//     FD_ZERO(&set);                      // vynuluje set
+//     FD_SET(connectfd, &set);            // prida do setu sledonavy file descriptor
+//     struct timeval timeout = {600, 0};  // nastavi casovac
+
+//     int rv = select(connectfd + 1, &set, NULL, NULL, &timeout);
+//     if (rv == -1) {
+//         // error selektu
+//         fprintf(stderr, "ERROR select in file descriptor %d\n", connectfd);
+//     } else if (rv == 0) {
+//         // casovac na citanie
+//         kill_thread(connectfd, lock);
+//     } else {
+//         while ((n = read(connectfd, buf, BUFSIZE)) > 0) {
+//             rcv_buf += string(buf, n);
+//             if (rcv_buf.find("\r\n") != string::npos) {
+//                 break;
+//             }
+//         }
+//         if (n == 0) {
+//             kill_thread(connectfd, lock);
+//         }
+//     }
+//     return rcv_buf;
+// }
+
+// size_t recv_msg(int connectfd, unsigned char** recvData)
+// {
+//     int n;
+//     unsigned char buf[BUFSIZE];
+//     bzero(buf, BUFSIZE);
+//     size_t len = 0;
+
+//     while ((n = read(connectfd, buf, BUFSIZE)) > 0) {
+//         std::cout << "rec_msg len: "<< len << std::endl;
+//         *recvData = (unsigned char*)realloc(*recvData, len + n);
+//         memcpy(*recvData + len, buf, n);
+//         len += n;
+//     }
+
+//     return len;
+// }
+
+size_t recv_msg(int connectfd, unsigned char** recvData)
 {
     int n;
     char buf[BUFSIZE];
     bzero(buf, BUFSIZE);
-    string rcv_buf = "";
-
+    size_t len = 0;
     fd_set set;
-    FD_ZERO(&set);                      // vynuluje set
-    FD_SET(connectfd, &set);            // prida do setu sledonavy file descriptor
-    struct timeval timeout = {600, 0};  // nastavi casovac
+    FD_ZERO(&set);                     // vynuluje set
+    FD_SET(connectfd, &set);           // prida do setu sledonavy file descriptor
+    struct timeval timeout = {10, 0};  // nastavi casovac
 
     int rv = select(connectfd + 1, &set, NULL, NULL, &timeout);
     if (rv == -1) {
-        // error selektu
-        fprintf(stderr, "ERROR select in file descriptor %d\n", connectfd);
+        error_print("select");
     } else if (rv == 0) {
-        // casovac na citanie
-        kill_thread(connectfd, lock);
+        info_print("timeout");
     } else {
         while ((n = read(connectfd, buf, BUFSIZE)) > 0) {
-            rcv_buf += string(buf, n);
-            if (rcv_buf.find("\r\n") != string::npos) {
-                break;
-            }
-        }
-        if (n == 0) {
-            kill_thread(connectfd, lock);
+            *recvData = (unsigned char*)realloc(*recvData, len + n);
+            memcpy(*recvData + len, buf, n);
+            len += n;
         }
     }
-    return rcv_buf;
+
+    return len;
 }
 
-void* fsm(void* _op)
+void* clientHandling(void* _op)
 {
-    // zistenie filedescriptoru soketu pre vlakno
-    // mutex caka, kym sa pri vytvarani vlakna zapise informacia do globalnej mapy
+    // check filedescriptor for thread - mutex wait for write to global map of filedescriptors
     mtx_thread.lock();
     int connectfd = glob_thread_map.find(pthread_self())->second;
     mtx_thread.unlock();
@@ -107,43 +119,64 @@ void* fsm(void* _op)
     // thread argument
     aql::Operator* op = (aql::Operator*)_op;
 
-    string recv_msg = rcv_msg(connectfd, false);  // receive first msg from client
-    size_t recv_msg_size = recv_msg.size();
+    unsigned char* recv_data = (unsigned char*)malloc(0);
+    size_t recv_data_size = recv_msg(connectfd, &recv_data);
 
-    unsigned char* recv_data = (unsigned char*)recv_msg.c_str();
-
-    debug_print(string("Received msg size: ") + to_string(recv_msg_size));
-    debug_print(string("Received msg: ") + to_hex_str(recv_data, recv_msg_size));
+    debug_print(string("Received msg size: ") + to_string(recv_data_size));
+    debug_print(string("Received msg: ") + to_hex_str(recv_data, recv_data_size));
 
     // get command from message
     uint8_t cmd;
     std::memcpy(&cmd, recv_data, sizeof(uint8_t));
     debug_print(string("Received cmd: ") + to_hex_str(&cmd, sizeof(uint8_t)));
 
-
-    // get data from message
-    unsigned char data[recv_msg_size - 1];
-    std::memcpy(&data, recv_data + 1, recv_msg_size - 1);
-    debug_print(string("Received data: ") + to_hex_str((const unsigned char*)&data, recv_msg_size - 1));
+    unsigned char* data = recv_data + sizeof(uint8_t);
 
     try {
         // Based on cmd, do something
         switch (cmd) {
             case TransferCommand::reg:
                 info_print(string("Recieve registration command"));
+                if (recv_data_size != sizeof(uint8_t) + ECC_PK_SIZE) {
+                    throw std::length_error("invalid size of receive data");
+                }
                 registerNewClient(op, data);
                 break;
+
             case TransferCommand::tx:
                 info_print(string("Recieve transaction command"));
-                transaction(op, data, recv_msg_size - 1);
+                transaction(op, data, recv_data_size - sizeof(uint8_t));
                 break;
+
+            case TransferCommand::getIomcAddresses: {
+                info_print(string("Recieve getIomcAddresses command"));
+
+                std::vector<uint8_t> sendVec = std::vector<uint8_t>(2 * sizeof(Address));
+
+                uint8_t addr[ADDRESS_SIZE];
+
+                intx::be::unsafe::store((uint8_t*)&addr, op->m_ledger.iomc.sendAddr);
+                memcpy(sendVec.data(), addr, ADDRESS_SIZE);
+                intx::be::unsafe::store((uint8_t*)&addr, op->m_ledger.iomc.recvAddr);
+                memcpy(sendVec.data() + sizeof(Address), addr, ADDRESS_SIZE);
+
+                // send response
+                auto retVal = send(connectfd, &sendVec[0], sendVec.size(), 0);
+                if (retVal < 0 || retVal != (signed)sendVec.size()) {
+                    debug_print("Unsuccessfully sended message");
+                }
+                break;
+            }
+
             default:
                 error_print(string("Invalid command"));
         }
-        /* code */
     } catch (const std::exception& e) {
         error_print(e.what());
     }
+
+    free(recv_data);
+    close(connectfd);
 
     glob_thread_map.erase(pthread_self());
     pthread_exit((void*)0);
@@ -159,7 +192,6 @@ void registerNewClient(aql::Operator* _op, unsigned char* _PK)
     if (it != _op->m_clients_accounts.end()) {
         error_print("Client already registred");
     } else {
-        
         auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
 
         if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
@@ -258,7 +290,7 @@ void* server(void* _op)
 
                     // vytvorenie vlakna + naplnenie struktury s informaciami o vlakne a deskriptorom soketu
                     mtx_thread.lock();
-                    if (pthread_create(&thread_id, NULL, fsm, (aql::Operator*)_op) < 0) {
+                    if (pthread_create(&thread_id, NULL, clientHandling, (aql::Operator*)_op) < 0) {
                         error_print(fmt::format("could not create thread: {}", strerror(errno)));
                         mtx_thread.unlock();
                     } else {
