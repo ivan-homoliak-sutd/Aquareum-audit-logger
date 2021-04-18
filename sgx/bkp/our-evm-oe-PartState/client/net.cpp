@@ -72,7 +72,7 @@ int Net::sendObj(TransferObject* transferObj)
         error_print("message not sended");
         ret = ERR_SOCK;
     } else {
-        debug_print("Message successfuly sended");
+        info_print("Message successfuly sended");
         ret = RET_SUCCESS;
     }
     return ret;

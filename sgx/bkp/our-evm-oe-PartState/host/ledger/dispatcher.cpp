@@ -22,7 +22,7 @@ void Dispatcher::threadExecute()
         // locking mechanism
         std::unique_lock<std::mutex> locker(this->mtx);
         this->cond.wait(locker, [&]() { return !txs.empty(); });
-        debug_print("Dispatcher: Got new TX. Number " + to_string(this->txs.size()));
+        debug_print("Dispatcher: Got new TX: " + to_string(this->txs.size()));
 
         std::vector<eevm::PersistantTransaction*> batch_txs;
         this->txs.swap(batch_txs);

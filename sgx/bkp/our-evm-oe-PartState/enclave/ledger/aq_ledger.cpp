@@ -99,11 +99,9 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     // IOMC send-commit receive-claim
     bool isSendCommit = (etx.to == this->iomc.sendAddr && std::equal(this->iomc.endpoints[this->iomc.sendCommit].second.begin(), this->iomc.endpoints[this->iomc.sendCommit].second.end(), etx.code.begin()));
     bool isRecvClaim = (etx.to == this->iomc.recvAddr && std::equal(this->iomc.endpoints[this->iomc.receiveClaim].second.begin(), this->iomc.endpoints[this->iomc.receiveClaim].second.end(), etx.code.begin()));
-
     if (isSendCommit || isRecvClaim) {
-        if (!iomcChecks(etx)) {
-            return 1; // TODO error number
-        }
+
+        iomcChecks(&etx);
 
         if (isSendCommit) {
             TRACE_ENCLAVE("IOMC send-commit");
@@ -265,24 +263,28 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     return RET_SUCCESS;
 }
 
-int AQLedger::iomcChecks(eevm::Transaction etx)
+int AQLedger::iomcChecks(eevm::Transaction* etx)
 {
     // check if code contains more data than 2 arguments
-    if (etx.code.size() > 4+32+32) { // TODO later delete
+    if (etx->code.size() > 4+32+32) { // TODO later delete
         // prepare variables
         // tx, {txRcp}, LRoot, LRootPB, blk.header, 3x proofs
     
         // save old vector and create new but only with first 2 arguments
-        auto oldCode = etx.code;
-        eevm::Code newCode(etx.code.begin(), etx.code.begin() +4+32+32);
-        etx.code = newCode;
+        auto oldCode = etx->code;
+        TRACE_ENCLAVE("etx->code: %s", eevm::to_hex_string(etx->code).c_str());
+        eevm::Code newCode(etx->code.begin(), etx->code.begin() +4+32+32);
+        etx->code = newCode;
+        TRACE_ENCLAVE("etx->code: %s", eevm::to_hex_string(etx->code).c_str());
 
         // Save additional arguments
         eevm::Code arg1(oldCode.begin() +4+32+32, oldCode.begin() +4+32+32+32);
         TRACE_ENCLAVE("$$$$$$$$$$$$$$ added arg: %s", eevm::to_hex_string(arg1).c_str());
+
+        // TODO do checks
     }
 
-    return 0;
+    return RET_SUCCESS;
 }
 
 //////////////////////////////// Hardcoded 'printing' of hello world smart contract //////////////////////////////////////
