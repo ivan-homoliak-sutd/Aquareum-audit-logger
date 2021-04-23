@@ -88,7 +88,7 @@ namespace aql
         inline eevm::Address& getOperAddr() { return m_ledger.operAddr; }
         inline eevm::SimpleAccountState getAccount(const eevm::Address& addr) { return m_ledger.m_gs.get(addr); }
 
-        void operatorLoop(oe_enclave_t* enclave);
+        void operatorLoop(oe_enclave_t* enclave, const char** argv, int* argc);
 
         // from private to public
         int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);

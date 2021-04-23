@@ -389,10 +389,9 @@ void Operator::_deployIOMC(oe_enclave_t* enclave)
 
         tx = this->m_ledger.createDeploymentTX(def, m_accounts[this->m_ledger.operAddr], operAccnt.get_nonce() + i, 0); // + i is fix for not incrementing nonce before creating new tx
                 
-        if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-            continue;
+        dispatcher->addToDispatch(tx);
 
-        info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
+        info_print(fmt::format("Created tx of contract with addr = {} to dispatcher", address_to_hex_string(tx->to)));
         // save address
         if (path == iomcPaths[0]) {
             this->m_ledger.iomc.sendAddr = tx->to;
@@ -424,7 +423,7 @@ void Operator::_deployIOMC(oe_enclave_t* enclave)
 // Processing commands from operator  //
 ////////////////////////////////////////
 
-void Operator::operatorLoop(oe_enclave_t* enclave)
+void Operator::operatorLoop(oe_enclave_t* enclave, const char** argv, int* argc)
 {
     int ret;                // internal return value
     oe_result_t ecall_ret;  // return value of general enclave call
@@ -466,9 +465,6 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
     while (true) {
         if (tokens)
             free(tokens);
-        // TODO check undeleted TX's
-        // if (tx)
-        //     delete tx;
         tokens = NULL;
         tx = NULL;
 
@@ -746,10 +742,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             eevm::Code emptyFunc = {0u};
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], dest, {}, emptyFunc, selAccnt.get_nonce(), amount);
 
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
-            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            //     continue;
+            dispatcher->addToDispatch(tx);
 
         } else if (0 == strncmp(command, "gen", 3)) {
             uint tokenCnt;
@@ -809,8 +802,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 amount
             );
 
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
+            dispatcher->addToDispatch(tx);
     
         } else if (0 == strncmp(command, "test erc", 8)) {
             uint tokenCnt;
@@ -981,10 +973,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createCallFunctionTX(m_accounts[sh_origin], sh_to, parsedParams, ep.second, selAccnt.get_nonce(), 0);
 
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
-            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            //     continue;
+            dispatcher->addToDispatch(tx);
 
         } else if (0 == strcmp(command, "call") || 0 == strcmp(command, "ep") || 0 == strcmp(command, "end")) {
             if (!correct_token_cnt(command_s, {1}, &tokens))
@@ -1024,10 +1013,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get O's account state
             tx = this->m_ledger.createSumTx(a, b, this->PK_O, this->SK_O, selAccnt.get_nonce());
 
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
-            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            //     continue;
+            dispatcher->addToDispatch(tx);
 
             // [Alternative] executing TX in E while using E's full state
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
@@ -1071,10 +1057,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             auto selAccnt = getAccount(sh_origin).acc;  // get account state of active account
             tx = this->m_ledger.createDeploymentTX(def, m_accounts[sh_origin], selAccnt.get_nonce(), 0);
             
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
-            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            //     continue;
+            dispatcher->addToDispatch(tx);
 
             info_print(fmt::format("Created contract with addr = {}", address_to_hex_string(tx->to)));
             sh_vars["$?"] = address_to_hex_string(tx->to);
@@ -1086,10 +1069,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             // create and sign TX
             tx = this->m_ledger.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
-            if (RET_SUCCESS != dispatcher->addToDispatch(tx))
-                continue;
-            // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-            //     continue;
+            dispatcher->addToDispatch(tx);
 
             // [Alternative] executing TX in E while using E's full state
             // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
@@ -1511,13 +1491,8 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
 
         // 3) dispatch TX into E
         auto* tx = this->m_ledger.createNewAccountTX(this->PK_O, this->SK_O, acc.addr, initBalance, operAccnt.get_nonce());
-        if (RET_SUCCESS != dispatcher->addToDispatch(tx)) {
-            throw std::logic_error("error when dispatching TX");
-        }
-        // if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256)) {
-        //     delete tx;
-        //     throw std::logic_error("error when dispatching TX");
-        // }
+        
+        dispatcher->addToDispatch(tx);
 
         // eevm::AccountState accntState = this->m_ledger.m_gs.get(acc.addr);
         // TRACE_HOST("%s", fmt::format("created account: {} ", accntState.acc.toString()).c_str());

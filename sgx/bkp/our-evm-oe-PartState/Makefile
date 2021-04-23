@@ -31,6 +31,11 @@ run:
 	mkdir -p ./data
 	host/aqledger_host ./enclave/aqledger_enc.signed
 
+run2: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
+run2:
+	mkdir -p ./data
+	host/aqledger_host ./enclave/aqledger_enc.signed 69582
+
 host:
 	$(MAKE) -C host
 
@@ -44,6 +49,11 @@ clientrun: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.l
 clientrun:
 	mkdir -p ./client/data
 	./client/aqledger-client
+
+clientrun2: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
+clientrun2:
+	mkdir -p ./client/data
+	./client/aqledger-client -k client/data/client2_credentials -p 69582
 
 debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 debug:

@@ -3,81 +3,7 @@
 mutex mtx, mtx_thread;
 map<pthread_t, int> glob_thread_map;
 
-// /**
-//  * @brief      ukonci spojenie a vlakno
-//  *
-//  * @param[in]  connectfd  file descriptor soketu
-//  * @param[in]  lock       bol nastaveny zamok
-//  */
-// void kill_thread(int fd, bool lock)
-// {
-//     debug_print("!!!!! killThread");
-//     close(fd);
-//     if (lock) {
-//         mtx.unlock();
-//     }
-//     glob_thread_map.erase(pthread_self());
-//     pthread_exit((void*)0);
-// }
-
-
-// /**
-//  * @brief      Prijme spravu
-//  *
-//  * @param[in]  connectfd  Cislo file descriptora pre soket
-//  * @param[in]  lock       bol nastaveny zamok
-//  *
-//  * @return     Prijata sprava
-//  */
-// string rcv_msg(int connectfd, bool lock)
-// {
-//     int n;
-//     char buf[BUFSIZE];
-//     bzero(buf, BUFSIZE);
-//     string rcv_buf = "";
-
-//     fd_set set;
-//     FD_ZERO(&set);                      // vynuluje set
-//     FD_SET(connectfd, &set);            // prida do setu sledonavy file descriptor
-//     struct timeval timeout = {600, 0};  // nastavi casovac
-
-//     int rv = select(connectfd + 1, &set, NULL, NULL, &timeout);
-//     if (rv == -1) {
-//         // error selektu
-//         fprintf(stderr, "ERROR select in file descriptor %d\n", connectfd);
-//     } else if (rv == 0) {
-//         // casovac na citanie
-//         kill_thread(connectfd, lock);
-//     } else {
-//         while ((n = read(connectfd, buf, BUFSIZE)) > 0) {
-//             rcv_buf += string(buf, n);
-//             if (rcv_buf.find("\r\n") != string::npos) {
-//                 break;
-//             }
-//         }
-//         if (n == 0) {
-//             kill_thread(connectfd, lock);
-//         }
-//     }
-//     return rcv_buf;
-// }
-
-// size_t recv_msg(int connectfd, unsigned char** recvData)
-// {
-//     int n;
-//     unsigned char buf[BUFSIZE];
-//     bzero(buf, BUFSIZE);
-//     size_t len = 0;
-
-//     while ((n = read(connectfd, buf, BUFSIZE)) > 0) {
-//         std::cout << "rec_msg len: "<< len << std::endl;
-//         *recvData = (unsigned char*)realloc(*recvData, len + n);
-//         memcpy(*recvData + len, buf, n);
-//         len += n;
-//     }
-
-//     return len;
-// }
+uint16_t port = 63290;
 
 size_t recv_msg(int connectfd, unsigned char** recvData)
 {
@@ -194,10 +120,7 @@ void registerNewClient(aql::Operator* _op, unsigned char* _PK)
     } else {
         auto* tx = _op->m_ledger.createNewAccountTX(_op->PK_O, _op->SK_O, newAddr, 9, operAccnt.get_nonce());
 
-        if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
-            throw std::logic_error("error when dispatching registration TX");
-        }
-
+        _op->dispatcher->addToDispatch(tx);
         _op->m_clients_accounts[newAddr] = _PK;
     }
 }
@@ -206,9 +129,7 @@ void transaction(aql::Operator* _op, unsigned char* _data, size_t _dataSize)
 {
     auto tx = new eevm::PersistantTransaction(_data, _dataSize);
 
-    if (RET_SUCCESS != _op->dispatcher->addToDispatch(tx)) {
-        throw std::logic_error("error when dispatching TX");
-    }
+    _op->dispatcher->addToDispatch(tx);
 }
 
 void* server(void* _op)
@@ -217,13 +138,10 @@ void* server(void* _op)
     struct sockaddr_in address;
     int opt = 1;
 
-    // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         error_print("socket");
         pthread_exit((void*)ERR_SOCK);
     }
-
-    // Forcefully attaching socket to the port 8080
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
                    &opt, sizeof(opt))) {
         error_print("setsockopt(SO_REUSEADDR) failed");
@@ -237,9 +155,8 @@ void* server(void* _op)
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_port = htons(port);
 
-    // Forcefully attaching socket to the port 8080
     if (bind(server_fd, (struct sockaddr*)&address,
              sizeof(address)) < 0) {
         error_print("port is not available");

@@ -1,17 +1,17 @@
 #include "client.h"
 
-Client::Client(const char* _addr, uint16_t _port)
+Client::Client(const char* _addr, uint16_t _port, const char* _keysFilePath)
   : m_ecc()
 {
     // If keys were generated and persisted before, just load them, otherwise generate new keys
-    if (this->existsMyKeyFile()) {
-        info_print(string("loading client's keys from file."));
-        if (RET_SUCCESS != this->loadMyKeysFromFile()) {
-            error_print(string("Error when loading client's keys."));
+    if (this->existsMyKeyFile(_keysFilePath)) {
+        info_print(string("loading client's keys from file ") + string(_keysFilePath));
+        if (RET_SUCCESS != this->loadMyKeysFromFile(_keysFilePath)) {
+            error_print(string("Error when loading client's keys in file ") + string(_keysFilePath));
             return;
         }
     } else {
-        info_print(string("generating new client's keys."));
+        info_print(string("generating new client's keys to ") + string(_keysFilePath));
 
         // 1) compute SK of client (under PB)
         int rc = RAND_priv_bytes((unsigned char*)&this->SK, ECC_SK_SIZE);
@@ -26,7 +26,7 @@ Client::Client(const char* _addr, uint16_t _port)
             error_print(string("secp256k1_ec_pubkey_create failed"));
             return;
         }
-        this->persistMyKeys();
+        this->persistMyKeys(_keysFilePath);
     }
 
     this->addr = eevm::from_big_endian(this->PK.data, PB_ADDR_SIZE);  // save address
@@ -37,6 +37,7 @@ Client::Client(const char* _addr, uint16_t _port)
     info_print(string("Address = ") + eevm::address_to_hex_string(this->addr));
     info_print(string("SK = ") + to_hex_str(this->SK, ECC_SK_SIZE));
     info_print(string("PK = ") + to_hex_str((const unsigned char*)&this->PK, ECC_PK_SIZE));
+    info_print(string("Client successfully initialized"));
 }
 
 Client::~Client()
@@ -61,6 +62,8 @@ void Client::clientLoop()
         if (tokens)
             free(tokens);
         tokens = NULL;
+
+        std::cout << "$>";
 
         std::cin.getline(command, MAX_CMD_LEN);
         std::string command_s(expand_vars(command, sh_vars));
@@ -304,8 +307,10 @@ void Client::clientLoop()
 
         } else if (0 == strncmp(command, "exit", 4)) {
             break;
+        } else if (0 == strcmp(command, "")) {
+            continue;
         } else {
-            error_print("Unknown command");
+            std::cout << "Unknown command" << std::endl;
         }
     }
 }
@@ -462,9 +467,9 @@ void Client::append_arg(std::vector<uint8_t>& code, const uint256_t& arg)
     eevm::to_big_endian(arg, code.data() + pre_size);
 }
 
-int Client::loadMyKeysFromFile()
+int Client::loadMyKeysFromFile(const char* _keysFilePath)
 {
-    ifstream file(FILE_CLIENTS_KEYS, ios::in | ios::binary);
+    ifstream file(_keysFilePath, ios::in | ios::binary);
     if (file.fail()) {
         return 1;
     }
@@ -474,18 +479,18 @@ int Client::loadMyKeysFromFile()
     return 0;
 }
 
-bool Client::existsMyKeyFile()
+bool Client::existsMyKeyFile(const char* _keysFilePath)
 {
     struct stat buffer;
-    if (0 != stat(FILE_CLIENTS_KEYS, &buffer)) {
+    if (0 != stat(_keysFilePath, &buffer)) {
         return false;
     }
     return true;
 }
 
-int Client::persistMyKeys()
+int Client::persistMyKeys(const char* _keysFilePath)
 {
-    ofstream file(FILE_CLIENTS_KEYS, ios::out | ios::binary);
+    ofstream file(_keysFilePath, ios::out | ios::binary);
     if (file.fail()) {
         return ERR_SAVING_OPER_KEYS;
     }
@@ -501,10 +506,36 @@ int Client::persistMyKeys()
 
 int main(int argc, char* argv[])
 {
-    // TODO parse arg IP and port
-    const char* addr = "127.0.0.1";
+    char localhostAddr[] = "127.0.0.1";
+    char defaultKeysFilePath[] = "./client/data/default_client";
+    char* addr = localhostAddr;
+    char* keysFilePath = defaultKeysFilePath;
     int16_t port = 63290;
+    int c;
 
-    Client client = Client(addr, port);
+    while ((c = getopt(argc, argv, "a:p:k:")) != -1)
+        switch (c) {
+            case 'a':
+                // Server address
+                addr = optarg;
+                break;
+            case 'p':
+                // Server port
+                char* endptr;
+                port = strtol(optarg, &endptr, 10);
+                if (endptr <= optarg) {
+                    // error - set default port
+                    error_print("invalid argument - PORT - setting to default port");
+                    port = 63290;
+                }
+                break;
+            case 'k':
+                // Path to keys file
+                keysFilePath = optarg;
+                break;
+            default:;
+        }
+
+    Client client = Client(addr, port, keysFilePath);
     client.clientLoop();
 }

@@ -18,7 +18,7 @@ Dispatcher::~Dispatcher()
 void Dispatcher::threadExecute()
 {
     // consumer
-    while (1) {
+    while (true) {
         // locking mechanism
         std::unique_lock<std::mutex> locker(this->mtx);
         this->cond.wait(locker, [&]() { return !txs.empty(); });
@@ -37,37 +37,11 @@ void Dispatcher::threadExecute()
     }
 }
 
-int Dispatcher::addToDispatch(eevm::PersistantTransaction* tx)
+void Dispatcher::addToDispatch(eevm::PersistantTransaction* tx)
 {
-    if (this->validTx(tx) != RET_SUCCESS) {
-        delete tx;
-        return 1;
-    }
-
     // producer
     std::unique_lock<std::mutex> locker(this->mtx);
     this->txs.push_back(tx);
     locker.unlock();
     this->cond.notify_one();
-
-    return RET_SUCCESS;
-}
-
-// TODO
-int Dispatcher::validTx(eevm::PersistantTransaction* tx)
-{
-    // sender exists
-    // if (this->op->m_accounts.find(tx->origin) != this->op->m_accounts.end())
-    // {
-    //     debug_print("%%%%%%%%% ACCOUNT");
-    // } else if (this->op->m_contracts.find(tx->origin) != this->op->m_contracts.end()) {
-    //     debug_print("%%%%%%%%% CONTRACT");
-    // } else {
-    //     debug_print("%%%%%%%%% ERROR");
-    //     return 1;
-    // }
-
-    // destination exists
-
-    return RET_SUCCESS;
 }

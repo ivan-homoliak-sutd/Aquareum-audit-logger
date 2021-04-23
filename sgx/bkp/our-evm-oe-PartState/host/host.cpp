@@ -73,10 +73,19 @@ int parseArgs(int argc, const char* argv[], uint32_t * flags) {
     if (check_simulate_opt(&argc, argv)) {
         *flags |= OE_ENCLAVE_FLAG_SIMULATE;
     }
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s enclave_image_path [ --simulate  ]\n", argv[0]);
-        return ERR_WRONG_ARGS;
+
+    // Server port
+    extern uint16_t port;
+    if (argc == 3) {
+        char* endptr;
+        port = strtol(argv[2], &endptr, 10);
+        if (endptr <= argv[2]) {
+            // error - set default port
+            error_print("invalid argument - PORT - setting to default port");
+            port = 63290;
+        }
     }
+
     // debug_print(fmt::format("OPEN ENCLAVE FLAGS = {}", *flags));
     return RET_SUCCESS;
 }
@@ -114,7 +123,7 @@ int main(int argc, const char* argv[]) {
     }
 
     op = new Operator(&encl_pk);
-    op->operatorLoop(enclave); // the main loop of operator
+    op->operatorLoop(enclave, argv, &argc); // the main loop of operator
 
     ret = 0;
 

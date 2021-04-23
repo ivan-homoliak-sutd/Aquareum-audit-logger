@@ -27,10 +27,10 @@
 #include "ledger/operator.h"
 #include "utils.h"
 
-#define PORT 63290
-
 #define BUFSIZE 32
 #define QUEUE (2)
+
+extern uint16_t port;
 
 using namespace std;
 

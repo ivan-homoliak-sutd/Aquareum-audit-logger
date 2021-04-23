@@ -26,8 +26,7 @@ namespace aql
         Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator);
         ~Dispatcher();
         void threadExecute();
-        int addToDispatch(eevm::PersistantTransaction* tx);
-        int validTx(eevm::PersistantTransaction* tx);
+        void addToDispatch(eevm::PersistantTransaction* tx);
     };
 
 }  // namespace aql

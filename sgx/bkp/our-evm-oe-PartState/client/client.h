@@ -18,12 +18,9 @@
 #include <openssl/rand.h>
 #include <sys/stat.h>
 
-#define FILE_CLIENTS_KEYS "./client/data/clients-keys.txt"
+#define ERROR_ARGUMENTS 1
 
 #define MAX_CMD_LEN 256
-
-#define ECC_SK_SIZE 32
-#define ECC_PK_SIZE 64
 
 class Client {
 private:
@@ -45,12 +42,12 @@ private:
     int getIomcAddresses();
     
     void append_arg(std::vector<uint8_t>& code, const uint256_t& arg);
-    int persistMyKeys();
-    bool existsMyKeyFile();
-    int loadMyKeysFromFile();
+    int persistMyKeys(const char* _keysFilePath);
+    bool existsMyKeyFile(const char* _keysFilePath);
+    int loadMyKeysFromFile(const char* _keysFilePath);
 
 public:
-    Client(const char* _addr, uint16_t _port);
+    Client(const char* _addr, uint16_t _port, const char* _keysFilePath);
     ~Client();
     void clientLoop();
 };
