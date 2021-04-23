@@ -517,7 +517,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave, const char** argv, int* argc)
                       << "\t defs"         << "\t\t print loaded definitions of contracts with ctor parameters.\n"
                       << "\t vars"         << "\t\t display defined variables \n"
                       << "\t contracts"    << "\t print all deployed contracts.\n"
-                      << "\t mode [m]"         << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
+                      << "\t mode [m]"     << "\t get/set the current mode to 'm':  m=1 for FullGsTransfer | m=2 for PartialGsTransfer \n"                      
+                      << "\t iomc fund a"  << "\t call fund() method with operator acc on iomc-recv contract with amount 'a'.\n"                      
 
                       << "\n"
                       << "Hardcoded testing:\n"

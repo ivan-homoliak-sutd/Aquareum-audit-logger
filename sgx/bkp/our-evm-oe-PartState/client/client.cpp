@@ -88,7 +88,25 @@ void Client::clientLoop()
             sh_vars[key] = expand_var(*it, sh_vars);  // do expansion also here
             std::cout << fmt::format("\t Setting  {} <= {} \n", key, sh_vars[key]);
 
-        } else if (0 == strncmp(command, "reg", 3)) {
+        } else if (0 == strcmp(command, "help") || 0 == strcmp(command, "h")) {
+            // clang-format off
+            std::cout << "Supported commands are:\n"
+                      << "\t reg"          << "\t\t  display info about operator and enclave.\n"
+                      << "\t pay a b"      << "\t  pay amount 'a' to address 'b'.\n"
+                      << "\t call a d p [...]" << " call hex pointer 'p' on contract address 'd' with amount 'a' and parameters '...'.\n"
+                      << "\t exit"         << "\t\t  exit client's program.\n"
+                      << "\n"
+                      << "Interoperability commands:\n"
+                      << "\t iomc addr"    << "\t\t\t\t\t\t get iomc contracts addresses.\n"
+                      << "\t iomc send-init amount recvAddr recvPbSC hashlock" << "\t initialize interoperability send.\n"
+                      << "\t iomc send-commit transferId preimage" << "\t\t\t commit transfer.\n"
+                      << "\t iomc send-revert transferId" << "\t\t\t\t revert transfer.\n"
+                      << "\t iomc recv-init senderAddr senderPbSC hashlock amount" << "\t initialize interoperability receive.\n"
+                      << "\t iomc recv-claim transferId preimage" << "\t\t\t claim receiving funds.\n"
+                      << "\n";
+            // clang-format on
+
+        } else if (0 == strcmp(command, "reg")) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {1}, &tokens, &tokenCnt))
                 continue;
@@ -179,7 +197,7 @@ void Client::clientLoop()
 
         }
         /* -------------------- IOMC -------------------- */
-        else if (0 == strncmp(command, "iomc addr", 9)) {
+        else if (0 == strcmp(command, "iomc addr")) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2}, &tokens, &tokenCnt))
                 continue;
