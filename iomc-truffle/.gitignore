@@ -1,0 +1,7 @@
+/bin
+/build
+/app/dist
+/node_modules
+/bin
+npm-debug.log
+package-lock.json
