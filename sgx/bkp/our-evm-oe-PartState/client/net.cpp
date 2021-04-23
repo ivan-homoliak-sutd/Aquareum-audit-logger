@@ -63,8 +63,8 @@ int Net::disconnect()
 
 int Net::sendObj(TransferObject* transferObj)
 {
-    debug_print(string("Size of transferObj: ") + to_string(transferObj->size()));
-    debug_print(string("transferObj: ") + eevm::to_hex_string(transferObj->serialize()));
+    // debug_print(string("Size of transferObj: ") + to_string(transferObj->size()));
+    // debug_print(string("transferObj: ") + eevm::to_hex_string(transferObj->serialize()));
 
     int ret;
 
@@ -72,7 +72,7 @@ int Net::sendObj(TransferObject* transferObj)
         error_print("message not sended");
         ret = ERR_SOCK;
     } else {
-        info_print("Message successfuly sended");
+        debug_print("Message successfuly sended");
         ret = RET_SUCCESS;
     }
     return ret;

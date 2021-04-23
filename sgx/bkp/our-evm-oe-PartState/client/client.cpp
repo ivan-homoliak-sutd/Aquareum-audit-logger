@@ -5,13 +5,13 @@ Client::Client(const char* _addr, uint16_t _port, const char* _keysFilePath)
 {
     // If keys were generated and persisted before, just load them, otherwise generate new keys
     if (this->existsMyKeyFile(_keysFilePath)) {
-        info_print(string("loading client's keys from file ") + string(_keysFilePath));
+        debug_print(string("loading client's keys from file ") + string(_keysFilePath));
         if (RET_SUCCESS != this->loadMyKeysFromFile(_keysFilePath)) {
             error_print(string("Error when loading client's keys in file ") + string(_keysFilePath));
             return;
         }
     } else {
-        info_print(string("generating new client's keys to ") + string(_keysFilePath));
+        debug_print(string("generating new client's keys to ") + string(_keysFilePath));
 
         // 1) compute SK of client (under PB)
         int rc = RAND_priv_bytes((unsigned char*)&this->SK, ECC_SK_SIZE);
@@ -34,10 +34,10 @@ Client::Client(const char* _addr, uint16_t _port, const char* _keysFilePath)
     // Create Net object
     this->net = new Net(_addr, _port);
 
-    info_print(string("Address = ") + eevm::address_to_hex_string(this->addr));
-    info_print(string("SK = ") + to_hex_str(this->SK, ECC_SK_SIZE));
-    info_print(string("PK = ") + to_hex_str((const unsigned char*)&this->PK, ECC_PK_SIZE));
-    info_print(string("Client successfully initialized"));
+    debug_print(string("Address = ") + eevm::address_to_hex_string(this->addr));
+    debug_print(string("SK = ") + to_hex_str(this->SK, ECC_SK_SIZE));
+    debug_print(string("PK = ") + to_hex_str((const unsigned char*)&this->PK, ECC_PK_SIZE));
+    debug_print(string("Client successfully initialized"));
 }
 
 Client::~Client()
@@ -185,10 +185,10 @@ void Client::clientLoop()
                 continue;
 
             this->getIomcAddresses();
+            sh_vars["$iomc-send"] = address_to_hex_string(this->iomc.sendAddr);
+            sh_vars["$iomc-recv"] = address_to_hex_string(this->iomc.recvAddr);
 
         } else if (0 == strncmp(command, "iomc send-init", 14)) {
-            info_print(string("CMD: iomc send-init"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {6}, &tokens, &tokenCnt))
                 continue;
@@ -218,8 +218,6 @@ void Client::clientLoop()
             this->call(this->iomc.sendAddr, amount, this->iomc.endpoints[this->iomc.sendInit].second, parsedParams);
 
         } else if (0 == strncmp(command, "iomc send-commit", 16)) {
-            info_print(string("CMD: iomc send-commit"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {4}, &tokens, &tokenCnt))
                 continue;
@@ -240,8 +238,6 @@ void Client::clientLoop()
             this->call(this->iomc.sendAddr, 0, this->iomc.endpoints[this->iomc.sendCommit].second, parsedParams);
 
         } else if (0 == strncmp(command, "iomc send-revert", 16)) {
-            info_print(string("CMD: iomc send-revert"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {3}, &tokens, &tokenCnt))
                 continue;
@@ -262,8 +258,6 @@ void Client::clientLoop()
             this->call(this->iomc.sendAddr, 0, this->iomc.endpoints[this->iomc.sendRevert].second, parsedParams);
 
         } else if (0 == strncmp(command, "iomc recv-init", 14)) {
-            info_print(string("CMD: iomc recv-init"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {6}, &tokens, &tokenCnt))
                 continue;
@@ -284,8 +278,6 @@ void Client::clientLoop()
             this->call(this->iomc.recvAddr, 0, this->iomc.endpoints[this->iomc.receiveInit].second, parsedParams);
 
         } else if (0 == strncmp(command, "iomc recv-claim", 15)) {
-            info_print(string("CMD: iomc recv-claim"));
-
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {4, 5}, &tokens, &tokenCnt))
                 continue;
@@ -444,8 +436,8 @@ int Client::getIomcAddresses()
     this->iomc.sendAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)recvBuf);
     this->iomc.recvAddr = intx::be::unsafe::load<eevm::Address>((const uint8_t*)recvBuf + sizeof(uint256_t));
 
-    info_print(string("sendAddr = ") + eevm::address_to_hex_string(this->iomc.sendAddr));
-    info_print(string("recvAddr = ") + eevm::address_to_hex_string(this->iomc.recvAddr));
+    debug_print(string("sendAddr = ") + eevm::address_to_hex_string(this->iomc.sendAddr));
+    debug_print(string("recvAddr = ") + eevm::address_to_hex_string(this->iomc.recvAddr));
 
     if (this->net->disconnect() != RET_SUCCESS) {
         return ERR_SOCK;

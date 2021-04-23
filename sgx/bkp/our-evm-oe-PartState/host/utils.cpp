@@ -21,14 +21,22 @@ void info_print(const string& str)
 
 void debug_print(const string& str, bool endline)
 {
+#ifdef DEBUG_PRINT_ENABLED
     debug_print(str.c_str(), endline);
+#else
+    NOOP
+#endif
 }
 
 void debug_print(const char* str, bool endline)
 {
+#ifdef DEBUG_PRINT_ENABLED
     string a = (endline) ? "\n" : "";
     string b = (endline) ? "\t[DEBUG] " : "";
     std::cout << b << str << a;
+#else
+    NOOP
+#endif
 }
 
 void warning_print(const string& str)

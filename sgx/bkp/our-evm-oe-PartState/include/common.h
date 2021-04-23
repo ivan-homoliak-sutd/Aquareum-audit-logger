@@ -8,8 +8,8 @@
 // switch ON or OFF tracing logs or info logs
 
 #define TRACING_ENABLED
-
 #define INFO_LOG_ENABLED
+#define DEBUG_PRINT_ENABLED
 
 
 #define POLICY_UNIQUE 1

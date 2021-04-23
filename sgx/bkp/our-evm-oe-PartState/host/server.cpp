@@ -39,22 +39,18 @@ void* clientHandling(void* _op)
     int connectfd = glob_thread_map.find(pthread_self())->second;
     mtx_thread.unlock();
 
-    printf("\n");
-    debug_print(string("Client's thread created"));
-
     // thread argument
     aql::Operator* op = (aql::Operator*)_op;
 
     unsigned char* recv_data = (unsigned char*)malloc(0);
     size_t recv_data_size = recv_msg(connectfd, &recv_data);
 
-    debug_print(string("Received msg size: ") + to_string(recv_data_size));
-    debug_print(string("Received msg: ") + to_hex_str(recv_data, recv_data_size));
+    // debug_print(string("Received msg size: ") + to_string(recv_data_size));
+    // debug_print(string("Received msg: ") + to_hex_str(recv_data, recv_data_size));
 
     // get command from message
     uint8_t cmd;
     std::memcpy(&cmd, recv_data, sizeof(uint8_t));
-    debug_print(string("Received cmd: ") + to_hex_str(&cmd, sizeof(uint8_t)));
 
     unsigned char* data = recv_data + sizeof(uint8_t);
 
@@ -62,7 +58,7 @@ void* clientHandling(void* _op)
         // Based on cmd, do something
         switch (cmd) {
             case TransferCommand::reg:
-                info_print(string("Recieve registration command"));
+                debug_print(string("Recieve registration command"));
                 if (recv_data_size != sizeof(uint8_t) + ECC_PK_SIZE) {
                     throw std::length_error("invalid size of receive data");
                 }
@@ -70,12 +66,12 @@ void* clientHandling(void* _op)
                 break;
 
             case TransferCommand::tx:
-                info_print(string("Recieve transaction command"));
+                debug_print(string("Recieve transaction command"));
                 transaction(op, data, recv_data_size - sizeof(uint8_t));
                 break;
 
             case TransferCommand::getIomcAddresses: {
-                info_print(string("Recieve getIomcAddresses command"));
+                debug_print(string("Recieve getIomcAddresses command"));
 
                 std::vector<uint8_t> sendVec = std::vector<uint8_t>(2 * sizeof(Address));
 
@@ -95,7 +91,7 @@ void* clientHandling(void* _op)
             }
 
             default:
-                error_print(string("Invalid command"));
+                debug_print(string("Invalid command"));
         }
     } catch (const std::exception& e) {
         error_print(e.what());

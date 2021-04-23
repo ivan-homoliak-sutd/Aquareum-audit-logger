@@ -1,3 +1,12 @@
+"""
+Aquareum tests
+
+Need to compile aqareum and client with (set up in common.h) 
+    TRACING_ENABLED
+    INFO_LOG_ENABLED
+    DEBUG_PRINT_ENABLED
+"""
+
 import sys
 import pexpect
 import re
