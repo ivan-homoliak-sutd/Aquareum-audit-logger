@@ -5,6 +5,11 @@ Need to compile aqareum and client with (set up in common.h)
     TRACING_ENABLED
     INFO_LOG_ENABLED
     DEBUG_PRINT_ENABLED
+
+Run:
+    make
+    make client
+    python3 iomc.test.py
 """
 
 import sys
