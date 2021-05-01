@@ -101,6 +101,15 @@ contract iomcSend {
         return newContractId;
     }
 
+    /**
+     * Argument sending to enclave but not signed by sender
+     *  - tx2 = tx receiveInit() of external client
+     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave) 
+     *  - membership proof with blk.header
+     *  - merkle proof with receipt of tx2
+     * 
+     *  Before call this contract enclave need to check validity of proofs
+     */
     function sendCommit(uint256 _transferId, uint256 _preimage)
         external
         contractExists(_transferId)

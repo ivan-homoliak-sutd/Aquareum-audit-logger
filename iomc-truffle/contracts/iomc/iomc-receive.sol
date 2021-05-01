@@ -86,7 +86,13 @@ contract iomcReceive {
     }
 
     /**
-     *  TODO what happend beefore calling contract in enclave
+     * Argument sending to enclave but not signed by sender
+     *  - tx3 = tx sendCommit() of external client
+     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave) 
+     *  - membership proof with blk.header
+     *  - merkle proof with receipt of tx3
+     * 
+     *  Before call this contract enclave need to check validity of proofs
      */
     function receiveClaim(uint256 _transferId, uint256 _preimage)
         external

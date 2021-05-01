@@ -3,6 +3,7 @@
 
 #include "eEVM/transaction.h"
 #include "operator.h"
+#include "../utils.h"
 
 #include <condition_variable>
 #include <mutex>

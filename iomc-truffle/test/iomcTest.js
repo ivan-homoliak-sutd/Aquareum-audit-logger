@@ -263,12 +263,6 @@ contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (acco
   after('revert to snapshot', async () => {
     // Revert time blockchain 
     await helper.revertToSnapShot(snapshotId);
-
-    // TODO delete 
-    // Print time
-    // var lastTimestamp = (await W3.eth.getBlock("latest")).timestamp;
-    // console.log(lastTimestamp);
-    // console.log(timeConverter(lastTimestamp));
   });
 
 });

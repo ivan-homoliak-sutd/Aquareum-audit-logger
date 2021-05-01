@@ -263,25 +263,29 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     return RET_SUCCESS;
 }
 
+
+/** 
+ *  This function is only for demonstration purposes
+ *  In this function needs to be check IPSC of external client
+ *  and valid proof sended from client
+ **/
 int AQLedger::iomcChecks(eevm::Transaction* etx)
 {
     // check if code contains more data than 2 arguments
-    if (etx->code.size() > 4+32+32) { // TODO later delete
+    if (etx->code.size() > 4+ADDRESS_SIZE+ADDRESS_SIZE) { // TODO change later to check if all additional arguments passed
         // prepare variables
-        // tx, {txRcp}, LRoot, LRootPB, blk.header, 3x proofs
+        // tx, txRcp, LRoot, LRootPB, blk.header, 3x proofs
     
         // save old vector and create new but only with first 2 arguments
         auto oldCode = etx->code;
-        TRACE_ENCLAVE("etx->code: %s", eevm::to_hex_string(etx->code).c_str());
-        eevm::Code newCode(etx->code.begin(), etx->code.begin() +4+32+32);
+        eevm::Code newCode(etx->code.begin(), etx->code.begin() +4+ADDRESS_SIZE+ADDRESS_SIZE);
         etx->code = newCode;
-        TRACE_ENCLAVE("etx->code: %s", eevm::to_hex_string(etx->code).c_str());
 
         // Save additional arguments
         eevm::Code arg1(oldCode.begin() +4+32+32, oldCode.begin() +4+32+32+32);
-        TRACE_ENCLAVE("$$$$$$$$$$$$$$ added arg: %s", eevm::to_hex_string(arg1).c_str());
+        TRACE_ENCLAVE("Additional tx argument: %s", eevm::to_hex_string(arg1).c_str());
 
-        // TODO do checks
+        // TODO valid proofs
     }
 
     return RET_SUCCESS;

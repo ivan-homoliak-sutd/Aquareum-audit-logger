@@ -4,8 +4,6 @@
 #pragma once
 #include "address.h"
 #include "bigint.h"
-#include "util.h"   // TODO delete
-#include "../host/utils.h" // TODO delete
 
 #include <array>
 #include <cassert>

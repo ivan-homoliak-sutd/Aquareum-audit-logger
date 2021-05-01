@@ -458,7 +458,7 @@ def iomcProtocolTest():
         '0x9a7b105e92924f0e1c62614e0921e97f178e8717ceb8118dac1c1ac36e697b5d')
     server2.expect('>> State in Host and Enclave match! <<')
 
-    # # TODO not working
+    # # TODO found Aquareum bug - updating foreign account for second time
     # # 3. Sender commit transaction
     # client1.sendline('iomc send-commit ' +
     #                  sendTransferIdServer1 + ' ' + preimage)
