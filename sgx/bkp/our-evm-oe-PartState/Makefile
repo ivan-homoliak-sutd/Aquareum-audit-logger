@@ -21,10 +21,12 @@ all: build
 build:
 	$(MAKE) -C enclave
 	$(MAKE) -C host
+	$(MAKE) -C client
 
 clean:
 	$(MAKE) -C enclave clean
 	$(MAKE) -C host clean
+	$(MAKE) -C client clean
 
 run: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 run:
@@ -48,12 +50,12 @@ client:
 clientrun: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 clientrun:
 	mkdir -p ./client/data
-	./client/aqledger-client
+	./client/aqledger_client
 
 clientrun2: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 clientrun2:
 	mkdir -p ./client/data
-	./client/aqledger-client -k client/data/client2_credentials -p 69582
+	./client/aqledger_client -k client/data/client2_credentials -p 69582
 
 debug: export LD_LIBRARY_PATH=:$(RepoDir)/sgx/$(SubPath)/common/secp256k1/.libs/:$(RepoDir)/sgx/$(SubPath)/host/libs/intx/build/lib/intx/
 debug:

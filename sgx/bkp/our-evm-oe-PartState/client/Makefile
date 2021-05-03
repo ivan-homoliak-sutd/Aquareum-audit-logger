@@ -20,27 +20,25 @@ endif
 
 CXX_FLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --cflags)
 CXX_LDFLAGS=$(shell pkg-config oehost-$(CXX_COMPILER) --libs)
-CFLAGS=$(shell pkg-config oehost-$(C_COMPILER) --cflags)
 CXX_STANDARD := c++1z
 CXX_LIB_DIR := /usr/lib/x86_64-linux-gnu/
 
 OE_SDK_INCLUDE := /opt/openenclave/include/
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
-# INTX_LIB_DIR := ./libs/intx/build/lib/intx/
 
 EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(SECP256_LIB_DIR) -lsecp256k1 -lssl -lcrypto \
 	-L$(CXX_LIB_DIR) -lstdc++ -lc
-	# -L$(INTX_LIB_DIR) -lintx
 
 Host_Cpp_Files := \
 	client.cpp \
 	net.cpp \
 	helper.cpp \
-	../host/utils.cpp
+	../host/utils.cpp \
+	../common/signing-PB/signing.cpp 
 
 Host_Include_Paths := \
 	-I. \
@@ -54,13 +52,11 @@ Host_Include_Paths := \
 	-I../common/eEVM/3rdparty/aleth-mp3/database \
 	-I../common/eEVM/include \
 	-I/usr/include/c++/7
-	# -I./libs/intx/include \
 
 build:
 	@ echo "Compilers used: $(CC), $(CXX)"
 	$(CXX) -c -Wall -Werror $(CXX_FLAGS) $(Host_Include_Paths) -std=$(CXX_STANDARD) $(Host_Cpp_Files)
-	# $(CC) -c -Wall -Werror $(CFLAGS) $(Host_Include_Paths) $(CINCLUDES)
-	$(CXX) -std=$(CXX_STANDARD) -o aqledger-client client.o net.o utils.o helper.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
+	$(CXX) -std=$(CXX_STANDARD) -o aqledger_client client.o net.o utils.o helper.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
-	# rm -f aqledger_host *.o aqledger_u.c aqledger_u.h aqledger_args.h
+	rm -f aqledger_client *.o
