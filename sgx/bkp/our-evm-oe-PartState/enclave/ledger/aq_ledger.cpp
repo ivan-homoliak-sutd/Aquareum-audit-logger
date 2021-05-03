@@ -96,18 +96,22 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
                   etx.value, (eevm::to_hex_string(etx.origin) + std::string((etx.origin == this->operAddr) ? " (OPERATOR)" : "")).c_str(),
                   eevm::to_hex_string(etx.to).c_str());
 
-    // IOMC send-commit receive-claim
-    bool isSendCommit = (etx.to == this->iomc.sendAddr && std::equal(this->iomc.endpoints[this->iomc.sendCommit].second.begin(), this->iomc.endpoints[this->iomc.sendCommit].second.end(), etx.code.begin()));
-    bool isRecvClaim = (etx.to == this->iomc.recvAddr && std::equal(this->iomc.endpoints[this->iomc.receiveClaim].second.begin(), this->iomc.endpoints[this->iomc.receiveClaim].second.end(), etx.code.begin()));
-    if (isSendCommit || isRecvClaim) {
+    // is IOMC contract
+    if (etx.to == this->iomc.sendAddr || etx.to == this->iomc.recvAddr) {
+        bool isSendInit = (etx.to == this->iomc.sendAddr && std::equal(this->iomc.endpoints[this->iomc.sendInit].second.begin(), this->iomc.endpoints[this->iomc.sendInit].second.end(), etx.code.begin()));
+        bool isRecvInit = (etx.to == this->iomc.recvAddr && std::equal(this->iomc.endpoints[this->iomc.receiveInit].second.begin(), this->iomc.endpoints[this->iomc.receiveClaim].second.end(), etx.code.begin()));
+        bool isSendCommit = (etx.to == this->iomc.sendAddr && std::equal(this->iomc.endpoints[this->iomc.sendCommit].second.begin(), this->iomc.endpoints[this->iomc.sendCommit].second.end(), etx.code.begin()));
+        bool isRecvClaim = (etx.to == this->iomc.recvAddr && std::equal(this->iomc.endpoints[this->iomc.receiveClaim].second.begin(), this->iomc.endpoints[this->iomc.receiveClaim].second.end(), etx.code.begin()));
 
-        iomcChecks(&etx);
-
-        if (isSendCommit) {
-            TRACE_ENCLAVE("IOMC send-commit");
-        } else{
-            TRACE_ENCLAVE("IOMC recv-claim ");
+        if (isSendInit || isRecvInit) {
+            // TODO check if external client has created valid ticket
+            TRACE_ENCLAVE("IOMC: ticket for external client");
+        } else if (isSendCommit) {
+            iomcChecks(&etx, (size_t) 3);
+        } else if (isRecvClaim) {
+            iomcChecks(&etx, (size_t) 2);
         }
+
     }
 
     // 2) Verify signature of TX
@@ -269,20 +273,21 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
  *  In this function needs to be check IPSC of external client
  *  and valid proof sended from client
  **/
-int AQLedger::iomcChecks(eevm::Transaction* etx)
+int AQLedger::iomcChecks(eevm::Transaction* etx, size_t numberOfSignedArguments)
 {
-    // check if code contains more data than 2 arguments
-    if (etx->code.size() > 4+ADDRESS_SIZE+ADDRESS_SIZE) { // TODO change later to check if all additional arguments passed
+    // check if code contains more data than is signed
+    size_t signedArgumentSize = 4 + numberOfSignedArguments * ADDRESS_SIZE;
+    if (etx->code.size() > signedArgumentSize) { // TODO change later to check if all additional arguments passed
         // prepare variables
         // tx, txRcp, LRoot, LRootPB, blk.header, 3x proofs
     
         // save old vector and create new but only with first 2 arguments
         auto oldCode = etx->code;
-        eevm::Code newCode(etx->code.begin(), etx->code.begin() +4+ADDRESS_SIZE+ADDRESS_SIZE);
+        eevm::Code newCode(etx->code.begin(), etx->code.begin() + signedArgumentSize);
         etx->code = newCode;
 
-        // Save additional arguments
-        eevm::Code arg1(oldCode.begin() +4+32+32, oldCode.begin() +4+32+32+32);
+        // Save additional arguments (for demonstration purposes)
+        eevm::Code arg1(oldCode.begin() + signedArgumentSize, oldCode.begin() + signedArgumentSize + ADDRESS_SIZE);
         TRACE_ENCLAVE("Additional tx argument: %s", eevm::to_hex_string(arg1).c_str());
 
         // TODO valid proofs

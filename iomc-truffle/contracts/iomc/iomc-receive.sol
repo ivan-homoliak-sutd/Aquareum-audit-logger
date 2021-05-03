@@ -22,9 +22,9 @@ contract iomcReceive {
     /* ----------------------------------------------------------- */
     /* ------------------------- Events -------------------------- */
     /* ----------------------------------------------------------- */
-    event receiveInitialized(uint256 contractId);
-    event notEnoughReserve(uint256 contractId);
-    event successfulyClaimed(uint256 contractId);
+    event receiveInitialized(uint256 transferId);
+    event notEnoughReserve(uint256 transferId);
+    event successfulyClaimed(uint256 transferId);
 
     /* ----------------------------------------------------------- */
     /* ----------------------- Constructor ----------------------- */
@@ -36,8 +36,8 @@ contract iomcReceive {
     /* ----------------------------------------------------------- */
     /* ------------------------ Modifiers ------------------------ */
     /* ----------------------------------------------------------- */
-    modifier contractExists(uint256 _transferId) {
-        require(haveContract(_transferId), "Contract does not exists");
+    modifier transferExists(uint256 _transferId) {
+        require(haveTransfer(_transferId), "Contract does not exists");
         _;
     }
 
@@ -66,7 +66,7 @@ contract iomcReceive {
     ) external returns (uint256) {
         require(_amount > 0, "Non-zero value.");
 
-        uint256 newContractId = transfers.length;
+        uint256 newTransferId = transfers.length;
 
         // save to array
         transfers.push(
@@ -80,14 +80,16 @@ contract iomcReceive {
             )
         );
 
-        emit receiveInitialized(newContractId);
+        emit receiveInitialized(newTransferId);
 
-        return newContractId;
+        return newTransferId;
     }
 
     /**
      * Argument sending to enclave but not signed by sender
+     *  - h(_preimage) == hashlock
      *  - tx3 = tx sendCommit() of external client
+     *  - tx3.rcp.externalTransferId == _transferId
      *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave) 
      *  - membership proof with blk.header
      *  - merkle proof with receipt of tx3
@@ -96,7 +98,7 @@ contract iomcReceive {
      */
     function receiveClaim(uint256 _transferId, uint256 _preimage)
         external
-        contractExists(_transferId)
+        transferExists(_transferId)
         hashlockMatches(_transferId, _preimage)
         usable(_transferId)
         returns (bool successful)
@@ -126,7 +128,7 @@ contract iomcReceive {
     /* ----------------------------------------------------------- */
     /* ------------------- Internal Functions -------------------- */
     /* ----------------------------------------------------------- */
-    function haveContract(uint256 _transferId)
+    function haveTransfer(uint256 _transferId)
         internal
         view
         returns (bool exists)

@@ -44,19 +44,9 @@ int Net::initConnection()
 int Net::disconnect()
 {
     shutdown(this->sock, SHUT_WR);
-    int iResult;
     char recvbuf[32];
     int recvbuflen = 32;
-    do {
-        iResult = recv(this->sock, recvbuf, recvbuflen, 0);
-        // if (iResult > 0)
-        //     printf("Bytes received: %d\n", iResult);
-        // else if (iResult == 0)
-        //     printf("Connection closed\n");
-        // else
-        //     printf("recv failed\n");
-
-    } while (iResult > 0);
+    while (recv(this->sock, recvbuf, recvbuflen, 0) > 0);
 
     return close(this->sock);
 }

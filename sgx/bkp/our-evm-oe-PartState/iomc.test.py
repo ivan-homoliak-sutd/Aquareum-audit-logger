@@ -336,14 +336,14 @@ def iomcProtocolTest():
 
     # 3. Sender commit transaction
     client1.sendline('iomc send-commit ' +
-                     sendTransferIdServer1 + ' ' + preimage)
+                     sendTransferIdServer1 + ' ' + preimage + ' ' + recvTransferIdServer2)
     client1.expect('Message successfuly sended')
     server1.expect('TX with val = 0 from = ' +
                    client1Addr + ' to = ' + sendAddrServer1)
-    server1.expect('"data": "' + sendTransferIdServer1 + '"')
+    server1.expect('"data": "' + sendTransferIdServer1 + recvTransferIdServer2[2:] + '"')
     # expected topic
     server1.expect(
-        '0x308637f70356313976c7209b7dc10ea78bbd26991459919b46a50ab9cd0e765f')
+        '0x472b1559bf257613ed12017afe78d06ebaf9219227669240713e5d0d7368eb79')
     server1.expect('>> State in Host and Enclave match! <<')
 
     # Coins should move to sink address 0x0
@@ -461,14 +461,14 @@ def iomcProtocolTest():
     # # TODO found Aquareum bug - updating foreign account for second time
     # # 3. Sender commit transaction
     # client1.sendline('iomc send-commit ' +
-    #                  sendTransferIdServer1 + ' ' + preimage)
+    #                  sendTransferIdServer1 + ' ' + preimage + ' ' + recvTransferIdServer2)
     # client1.expect('Message successfuly sended')
     # server1.expect('TX with val = 0 from = ' +
     #                client1Addr + ' to = ' + sendAddrServer1)
-    # server1.expect('"data": "' + sendTransferIdServer1 + '"')
+    # server1.expect('"data": "' + sendTransferIdServer1 + recvTransferIdServer2[2:] + '"')
     # # expected topic
     # server1.expect(
-    #     '0x308637f70356313976c7209b7dc10ea78bbd26991459919b46a50ab9cd0e765f')
+    #     '0x472b1559bf257613ed12017afe78d06ebaf9219227669240713e5d0d7368eb79')
     # server1.expect('>> State in Host and Enclave match! <<')
 
     # # Coins should move to sink address 0x0

@@ -21,15 +21,15 @@ contract iomcSend {
     /* ----------------------------------------------------------- */
     /* ------------------------- Events -------------------------- */
     /* ----------------------------------------------------------- */
-    event sendInitialized(uint256 contractId);
-    event sendCommited(uint256 contractId);
-    event sendReverted(uint256 contractId);
+    event sendInitialized(uint256 transferId);
+    event sendCommited(uint256 transferId, uint256 externalTransferId);
+    event sendReverted(uint256 transferId);
 
     /* ----------------------------------------------------------- */
     /* ------------------------ Modifiers ------------------------ */
     /* ----------------------------------------------------------- */
-    modifier contractExists(uint256 _transferId) {
-        require(haveContract(_transferId), "Contract does not exists");
+    modifier transferExists(uint256 _transferId) {
+        require(haveTransfer(_transferId), "Transfer does not exists");
         _;
     }
 
@@ -77,10 +77,10 @@ contract iomcSend {
     ) external payable returns (uint256) {
         require(msg.value > 0, "Non-zero value.");
 
-        uint256 _timelock = block.timestamp + 20; // now + 20 seconds
-        // uint256 _timelock = block.timestamp + 60 * 5; // now + 5 minuites
+        // uint256 _timelock = block.timestamp + 20; // now + 20 seconds - for demonstration purposes
+        uint256 _timelock = block.timestamp + 60 * 60 * 24; // now + 24 hours
 
-        uint256 newContractId = transfers.length;
+        uint256 newTransferId = transfers.length;
 
         // save to array
         transfers.push(
@@ -96,9 +96,9 @@ contract iomcSend {
             )
         );
 
-        emit sendInitialized(newContractId);
+        emit sendInitialized(newTransferId);
 
-        return newContractId;
+        return newTransferId;
     }
 
     /**
@@ -110,9 +110,9 @@ contract iomcSend {
      * 
      *  Before call this contract enclave need to check validity of proofs
      */
-    function sendCommit(uint256 _transferId, uint256 _preimage)
+    function sendCommit(uint256 _transferId, uint256 _preimage, uint256 _externalTransferId)
         external
-        contractExists(_transferId)
+        transferExists(_transferId)
         hashlockMatches(_transferId, _preimage)
         usable(_transferId)
         returns (bool) // Aquareum must have return value
@@ -124,14 +124,14 @@ contract iomcSend {
         address sink = address(0x0);
         sink.transfer(c.amount);
 
-        emit sendCommited(_transferId);
+        emit sendCommited(_transferId, _externalTransferId);
 
         return true;
     }
 
     function sendRevert(uint256 _transferId)
         external
-        contractExists(_transferId)
+        transferExists(_transferId)
         revertable(_transferId)
         returns (bool) // Aquareum must have return value
     {
@@ -149,7 +149,7 @@ contract iomcSend {
     /* ----------------------------------------------------------- */
     /* ------------------- Internal Functions -------------------- */
     /* ----------------------------------------------------------- */
-    function haveContract(uint256 _transferId)
+    function haveTransfer(uint256 _transferId)
         internal
         view
         returns (bool exists)

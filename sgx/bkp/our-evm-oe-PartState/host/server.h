@@ -3,20 +3,14 @@
 
 // C POSIX:
 #include <arpa/inet.h>
-#include <dirent.h>
 #include <fcntl.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 // C++ standart
-#include <csignal>
-#include <fstream>
-#include <iostream>
 #include <map>
 #include <mutex>
 #include <vector>

@@ -237,7 +237,8 @@ void Client::clientLoop()
 
         } else if (0 == strncmp(command, "iomc send-commit", 16)) {
             uint tokenCnt;
-            if (!correct_token_cnt(command_s, {4}, &tokens, &tokenCnt))
+            // later change number 5 to 5 + number of unsigned arguments
+            if (!correct_token_cnt(command_s, {5}, &tokens, &tokenCnt))
                 continue;
             auto it = tokens->begin();
             std::advance(it, 2);
@@ -297,6 +298,7 @@ void Client::clientLoop()
 
         } else if (0 == strncmp(command, "iomc recv-claim", 15)) {
             uint tokenCnt;
+            // number 5 is only for demonstration purposes (change later 4 + unsigned arguments)
             if (!correct_token_cnt(command_s, {4, 5}, &tokens, &tokenCnt))
                 continue;
             auto it = tokens->begin();
@@ -465,7 +467,7 @@ int Client::getIomcAddresses()
 }
 
 /* ----------------------------------------------------------- */
-/* --------------------- Copied functions -------------------- */
+/* ----------------- Edited copied functions ----------------- */
 /* ----------------------------------------------------------- */
 // ledger-host.cpp
 void Client::append_arg(std::vector<uint8_t>& code, const uint256_t& arg)

@@ -21,7 +21,7 @@ const AMOUNT = new BN(Math.pow(10, 17).toString(), 10);
 const HASHLOCK = new BN(HASHLOCK_STRING.substring(2), 16);
 
 const SECONDS_IN_DAY = 86400;
-const TIME_SHIFT = 60 * 5; // 5 minutes
+const TIME_SHIFT = 60 * 60 * 24 + 5; // 24h + 5s 
 
 contract('IOMC - TEST SUITE 1 [Initial checks and setup]', function (accounts) {
 
@@ -40,8 +40,8 @@ contract('IOMC - TEST SUITE 1 [Initial checks and setup]', function (accounts) {
 
 contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
 
-  var senderContractId;
-  var receiverContractId;
+  var senderTransferId;
+  var receiverTransferId;
   var result;
 
   before('deploy iomc contracts', async () => {
@@ -55,7 +55,7 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
 
     // Call IOMC
     result = await iomcSendContract.sendInitialize(clientB, clientB, HASHLOCK, { from: clientA, value: AMOUNT });
-    senderContractId = result.logs[0].args.contractId;
+    senderTransferId = result.logs[0].args.transferId;
 
     // Check if event occur
     assert.equal(
@@ -80,7 +80,7 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
 
   it("TX receiveInitialize by clientB (account[2])", async () => {
     result = await iomcReceiveContract.receiveInitialize(clientA, clientA, HASHLOCK, AMOUNT, { from: clientB });
-    receiverContractId = result.logs[0].args.contractId;
+    receiverTransferId = result.logs[0].args.transferId;
 
     // Check if event occur
     assert.equal(
@@ -94,13 +94,19 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
     let balanceIomcSendContract = new BN(await web3.eth.getBalance(iomcSendContract.address));
 
     // Call sendCommit
-    result = await iomcSendContract.sendCommit(senderContractId, new BN(PREIMAGE), { from: clientA });
+    result = await iomcSendContract.sendCommit(senderTransferId, new BN(PREIMAGE), receiverTransferId, { from: clientA });
 
     // Check if event occur
     assert.equal(
       "sendCommited",
       result.logs[0].event,
       "Event sendCommited not occurred"
+    );
+
+    // Check if receiver transfer id is emmited
+    assert.ok(
+      receiverTransferId.eq(result.logs[0].args.externalTransferId),
+      "Event's emited external transfer id is changed"
     );
 
     // Coins shold be burn
@@ -116,7 +122,7 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
     let balanceIomcReceiveContract = new BN(await web3.eth.getBalance(iomcReceiveContract.address));
 
     // Call receiveClaim
-    result = await iomcReceiveContract.receiveClaim(receiverContractId, new BN(PREIMAGE), { from: clientB });
+    result = await iomcReceiveContract.receiveClaim(receiverTransferId, new BN(PREIMAGE), { from: clientB });
 
     // Check if event occur
     assert.equal(
@@ -158,7 +164,7 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
     let balanceIomcReceiveContract = new BN(await web3.eth.getBalance(iomcReceiveContract.address));
 
     // Call receiveClaim
-    result = await iomcReceiveContract.receiveClaim(receiverContractId, new BN(PREIMAGE), { from: clientB });
+    result = await iomcReceiveContract.receiveClaim(receiverTransferId, new BN(PREIMAGE), { from: clientB });
 
     // Get transaction fee
     let txFee = new BN(result.receipt.gasUsed).mul(new BN(await web3.eth.getGasPrice()));
@@ -188,7 +194,7 @@ contract('IOMC - TEST SUITE 2 [iomc normal protocol]', function (accounts) {
 
 contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (accounts) {
 
-  var senderContractId;
+  var senderTransferId;
 
   var snapshotId;
 
@@ -201,7 +207,7 @@ contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (acco
     iomcReceiveContract = await iomcReceive.deployed();
 
     result = await iomcSendContract.sendInitialize(clientB, clientB, HASHLOCK, { from: clientA, value: AMOUNT });
-    senderContractId = result.logs[0].args.contractId;
+    senderTransferId = result.logs[0].args.transferId;
   });
 
   it("TX sendRevert before timelock (revert tx)", async () => {
@@ -210,7 +216,7 @@ contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (acco
 
     // Before timelock
     await helper.expectThrow(
-      iomcSendContract.sendRevert(senderContractId, { from: clientA })
+      iomcSendContract.sendRevert(senderTransferId, { from: clientA })
     );
 
     // IOMC sending contract coins are the same
@@ -234,7 +240,7 @@ contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (acco
     let balanceClientA = new BN(await web3.eth.getBalance(clientA));
     let balanceIomcSendContract = new BN(await web3.eth.getBalance(iomcSendContract.address));
 
-    let result = await iomcSendContract.sendRevert(senderContractId, { from: clientA });
+    let result = await iomcSendContract.sendRevert(senderTransferId, { from: clientA });
 
     // Get transaction fee
     let txFee = new BN(result.receipt.gasUsed).mul(new BN(await web3.eth.getGasPrice()));
@@ -269,8 +275,8 @@ contract('IOMC - TEST SUITE 3 [sender revert timelock contract]', function (acco
 
 contract('IOMC - TEST SUITE 4 [Not allow actions]', function (accounts) {
 
-  var senderContractId;
-  var receiverContractId;
+  var senderTransferId;
+  var receiverTransferId;
   var result;
 
   before('deploy iomc contracts', async () => {
@@ -278,10 +284,10 @@ contract('IOMC - TEST SUITE 4 [Not allow actions]', function (accounts) {
     iomcReceiveContract = await iomcReceive.deployed();
 
     result = await iomcSendContract.sendInitialize(clientB, clientB, HASHLOCK, { from: clientA, value: AMOUNT });
-    senderContractId = result.logs[0].args.contractId;
+    senderTransferId = result.logs[0].args.transferId;
 
     result = await iomcReceiveContract.receiveInitialize(clientA, clientA, HASHLOCK, AMOUNT, { from: clientB });
-    receiverContractId = result.logs[0].args.contractId;
+    receiverTransferId = result.logs[0].args.transferId;
   });
 
   it("Incorrect preimage in sendCommit by clientA (account[1])", async () => {
@@ -289,7 +295,7 @@ contract('IOMC - TEST SUITE 4 [Not allow actions]', function (accounts) {
 
     // Call sendCommit
     await helper.expectThrow(
-      iomcSendContract.sendCommit(senderContractId, new BN(INCORRECT_PREIMAGE), { from: clientA })
+      iomcSendContract.sendCommit(senderTransferId, new BN(INCORRECT_PREIMAGE), receiverTransferId, { from: clientA })
     );
 
     // Balance of sending IOMC contract sould be unchanged
@@ -306,7 +312,7 @@ contract('IOMC - TEST SUITE 4 [Not allow actions]', function (accounts) {
 
     // Call receiveClaim
     await helper.expectThrow(
-      iomcReceiveContract.receiveClaim(receiverContractId, new BN(INCORRECT_PREIMAGE), { from: clientB })
+      iomcReceiveContract.receiveClaim(receiverTransferId, new BN(INCORRECT_PREIMAGE), { from: clientB })
     );
 
     // Balance of receiving IOMC contract is without change
