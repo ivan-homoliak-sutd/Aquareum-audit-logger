@@ -12,9 +12,9 @@ size_t recv_msg(int connectfd, unsigned char** recvData)
     bzero(buf, BUFSIZE);
     size_t len = 0;
     fd_set set;
-    FD_ZERO(&set);                     // vynuluje set
-    FD_SET(connectfd, &set);           // prida do setu sledonavy file descriptor
-    struct timeval timeout = {10, 0};  // nastavi casovac
+    FD_ZERO(&set);
+    FD_SET(connectfd, &set);
+    struct timeval timeout = {10, 0};
 
     int rv = select(connectfd + 1, &set, NULL, NULL, &timeout);
     if (rv == -1) {
@@ -164,7 +164,6 @@ void* server(void* _op)
         pthread_exit((void*)ERR_SOCK);
     }
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     fd_set readset, tempset;
     int maxfd;
@@ -181,7 +180,6 @@ void* server(void* _op)
     do {
         memcpy(&tempset, &readset, sizeof(tempset));
 
-        // Select pre neblokujuci port
         result = select(maxfd + 1, &tempset, NULL, NULL, NULL);
 
         if (result < 0 && errno != EINTR) {
@@ -193,7 +191,7 @@ void* server(void* _op)
                 if (connect_fd < 0) {
                     error_print(fmt::format("Error in accept(): {}", strerror(errno)));
                 } else {
-                    // nastavenie neblokujuceho soketu
+                    // set nonblocking socket
                     int status = fcntl(connect_fd, F_SETFL, fcntl(connect_fd, F_GETFL, 0) | O_NONBLOCK);
                     if (status == -1) {
                         error_print("setsockopt(SO_REUSEADDR) failed");
@@ -201,7 +199,7 @@ void* server(void* _op)
                         continue;
                     }
 
-                    // vytvorenie vlakna + naplnenie struktury s informaciami o vlakne a deskriptorom soketu
+                    // thread create
                     mtx_thread.lock();
                     if (pthread_create(&thread_id, NULL, clientHandling, (aql::Operator*)_op) < 0) {
                         error_print(fmt::format("could not create thread: {}", strerror(errno)));

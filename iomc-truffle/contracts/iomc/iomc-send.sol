@@ -117,12 +117,12 @@ contract iomcSend {
         usable(_transferId)
         returns (bool) // Aquareum must have return value
     {
-        LockTransfers storage c = transfers[_transferId];
-        c.used = true;
+        LockTransfers storage t = transfers[_transferId];
+        t.used = true;
 
         // Burn coins
-        address sink = address(0x0);
-        sink.transfer(c.amount);
+        address sink = address(0);
+        sink.transfer(t.amount);
 
         emit sendCommited(_transferId, _externalTransferId);
 
@@ -135,11 +135,11 @@ contract iomcSend {
         revertable(_transferId)
         returns (bool) // Aquareum must have return value
     {
-        LockTransfers storage c = transfers[_transferId];
+        LockTransfers storage t = transfers[_transferId];
 
         // Return coins to the initiator
-        c.sender.transfer(c.amount);
-        c.reverted = true;
+        t.sender.transfer(t.amount);
+        t.reverted = true;
 
         emit sendReverted(_transferId);
   

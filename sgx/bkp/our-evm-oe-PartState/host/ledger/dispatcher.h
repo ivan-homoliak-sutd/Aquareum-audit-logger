@@ -15,15 +15,14 @@ namespace aql
 
     class Dispatcher {
     private:
-    public:
         std::vector<eevm::PersistantTransaction*> txs;
 
         std::mutex mtx;
         std::condition_variable cond;
-
+        
         oe_enclave_t* enclave;
         aql::Operator* op;
-
+    public:
         Dispatcher(oe_enclave_t* _enclave, aql::Operator* _operator);
         ~Dispatcher();
         void threadExecute();

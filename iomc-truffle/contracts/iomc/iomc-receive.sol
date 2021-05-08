@@ -25,6 +25,7 @@ contract iomcReceive {
     event receiveInitialized(uint256 transferId);
     event notEnoughReserve(uint256 transferId);
     event successfulyClaimed(uint256 transferId);
+    event funded();
 
     /* ----------------------------------------------------------- */
     /* ----------------------- Constructor ----------------------- */
@@ -103,15 +104,15 @@ contract iomcReceive {
         usable(_transferId)
         returns (bool successful)
     {
-        LockTransfers storage c = transfers[_transferId];
-        if (address(this).balance < c.amount) {
+        LockTransfers storage t = transfers[_transferId];
+        if (address(this).balance < t.amount) {
             emit notEnoughReserve(_transferId);
             return false;
         } else {
-            c.used = true;
+            t.used = true;
 
             // Mint coins
-            c.receiver.transfer(c.amount);
+            t.receiver.transfer(t.amount);
 
             emit successfulyClaimed(_transferId);
             return true;
@@ -122,6 +123,7 @@ contract iomcReceive {
     function fund() external payable returns (uint256) {
         require(msg.sender == operator, "only operator can fund contract");
 
+        emit funded();
         return msg.value;
     }
 
