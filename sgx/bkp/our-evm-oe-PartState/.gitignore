@@ -1,8 +1,9 @@
 *_args.h
 *.pem
 *.signed
-host/ecledger_host
-enclave/ecledger_enc
+host/aqledger_host
+enclave/aqledger_enc
+client/aqledger_client
 sealed-storage-evm.seal
 data
 vgcore.*

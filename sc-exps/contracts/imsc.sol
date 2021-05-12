@@ -25,16 +25,16 @@ contract imsc {
     /* ----------------------- Constructor ----------------------- */
     /* ----------------------------------------------------------- */
     constructor(
-        address _ipsc1,
-        address operator1,
-        address _ipsc2,
-        address operator2,
-        address _ipsc3,
-        address operator3
+        address _ipscA,
+        address operatorA,
+        address _ipscB,
+        address operatorB,
+        address _ipscC,
+        address operatorC
     ) public {
-        instances[_ipsc1] = InstanceInfo(operator1, true, 0);
-        instances[_ipsc2] = InstanceInfo(operator2, true, 0);
-        instances[_ipsc3] = InstanceInfo(operator3, true, 0);
+        instances[_ipscA] = InstanceInfo(operatorA, true, 0);
+        instances[_ipscB] = InstanceInfo(operatorB, true, 0);
+        instances[_ipscC] = InstanceInfo(operatorC, true, 0);
         instancesCount = 3;
     }
 

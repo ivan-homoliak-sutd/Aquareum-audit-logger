@@ -59,4 +59,4 @@ build:
 	$(CXX) -std=$(CXX_STANDARD) -o aqledger_client client.o net.o utils.o helper.o signing.o $(EEVM_OBJECTS) $(Host_Link_Flags)
 
 clean:
-	rm -f aqledger_client *.o
+	rm -f aqledger_client *.o ./data/*

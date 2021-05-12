@@ -17,6 +17,13 @@ import pexpect
 import re
 from time import sleep
 
+sendInitializedEvent = '0xf1f3b8718b4a6ffe3ab3a702d34de78015c3ef6a9d73ab52105611f98d79ca43'
+sendCommitedEvent = '0x8ddb18b2b3b5ec36bfb49297d5b61c98bf694c1e08622dc864eff25563434f52'
+receiveInitializedEvent = '0x9a7b105e92924f0e1c62614e0921e97f178e8717ceb8118dac1c1ac36e697b5d'
+notEnoughReserveEvent = '0x8af734ce699c38a1e4671809e55b75f8acf550661a7b8d3a5de92719c432c7c3'
+successfulyClaimedEvent = '0xc1771bf7efa39d0933bc24178af39297790160ef1a15728c8953b8ec31946811'
+fundedEvent = '0xf3a504f28a34fdf555994a3bdfd3dc29f822e8684a9ef01001afb738cc3cdd0a'
+
 # Client's tests
 
 
@@ -163,6 +170,7 @@ def clientRegistrationTest():
 
     print(' - OK')
 
+
 def multipleClientServersTest():
     print('multipleClientServersTest', end='', flush=True)
 
@@ -277,7 +285,6 @@ def iomcProtocolTest():
     # print(client1Balance, flush=True)
     # print(client2Balance, flush=True)
 
-
     # ----------------------------------------------------------
     # ------------------------ Transfer ------------------------
     # ----------------------------------------------------------
@@ -296,8 +303,7 @@ def iomcProtocolTest():
     server1.expect('"data": "')
     sendTransferIdServer1 = server1.readline().decode('utf-8')[:66]
     # expected topic
-    server1.expect(
-        '0xf1f3b8718b4a6ffe3ab3a702d34de78015c3ef6a9d73ab52105611f98d79ca43')
+    server1.expect(sendInitializedEvent)
     server1.expect('>> State in Host and Enclave match! <<')
     # print(sendTransferIdServer1)
 
@@ -320,8 +326,7 @@ def iomcProtocolTest():
     server2.expect('"data": "')
     recvTransferIdServer2 = server2.readline().decode('utf-8')[:66]
     # expected topic
-    server2.expect(
-        '0x9a7b105e92924f0e1c62614e0921e97f178e8717ceb8118dac1c1ac36e697b5d')
+    server2.expect(receiveInitializedEvent)
     server2.expect('>> State in Host and Enclave match! <<')
     # print(recvTransferIdServer2)
 
@@ -340,10 +345,11 @@ def iomcProtocolTest():
     client1.expect('Message successfuly sended')
     server1.expect('TX with val = 0 from = ' +
                    client1Addr + ' to = ' + sendAddrServer1)
-    server1.expect('"data": "' + sendTransferIdServer1 + recvTransferIdServer2[2:] + '"')
+    server1.expect('"data": "' + sendTransferIdServer1 +
+                   recvTransferIdServer2[2:] + client2Addr[2:].zfill(64)
+                   + client2Addr[2:].zfill(64) + amount.zfill(64) + '"')
     # expected topic
-    server1.expect(
-        '0x472b1559bf257613ed12017afe78d06ebaf9219227669240713e5d0d7368eb79')
+    server1.expect(sendCommitedEvent)
     server1.expect('>> State in Host and Enclave match! <<')
 
     # Coins should move to sink address 0x0
@@ -363,8 +369,7 @@ def iomcProtocolTest():
                    client2Addr + ' to = ' + recvAddrServer2)
     server2.expect('"data": "' + recvTransferIdServer2 + '"')
     # expected topic - insufficient funds
-    server2.expect(
-        '0x8af734ce699c38a1e4671809e55b75f8acf550661a7b8d3a5de92719c432c7c3')
+    server2.expect(notEnoughReserveEvent)
     server2.expect('output as 32B hex: 0x0')
     server2.expect('>> State in Host and Enclave match! <<')
 
@@ -379,6 +384,7 @@ def iomcProtocolTest():
 
     # 4b) Operator fund recv contract
     server2.sendline('iomc fund ' + amount)
+    server2.expect(fundedEvent)
     server2.expect('>> State in Host and Enclave match! <<')
     # Receive contract shopuld have balance
     server2.sendline('gs')
@@ -397,8 +403,7 @@ def iomcProtocolTest():
                    client2Addr + ' to = ' + recvAddrServer2)
     server2.expect('"data": "' + recvTransferIdServer2 + '"')
     # expected topic - insufficient funds
-    server2.expect(
-        '0xc1771bf7efa39d0933bc24178af39297790160ef1a15728c8953b8ec31946811')
+    server2.expect(successfulyClaimedEvent)
     server2.expect('output as 32B hex: 0x1')
     server2.expect('>> State in Host and Enclave match! <<')
 
@@ -432,8 +437,7 @@ def iomcProtocolTest():
     server1.expect('"data": "')
     sendTransferIdServer1 = server1.readline().decode('utf-8')[:66]
     # expected topic
-    server1.expect(
-        '0xf1f3b8718b4a6ffe3ab3a702d34de78015c3ef6a9d73ab52105611f98d79ca43')
+    server1.expect(sendInitializedEvent)
     server1.expect('>> State in Host and Enclave match! <<')
 
     # Sender should have decreased balance
@@ -442,7 +446,8 @@ def iomcProtocolTest():
     server1.expect(client1Addr)
     line = (server1.readline().decode('utf-8'))
     client1BalanceAfter = re.search('bal=(0x[0-9,a-f]*)', line).group(1)
-    assert int(client1Balance, base=16) - int(amountTx2) == int(client1BalanceAfter, base=16), 'Client has unexpected balance'
+    assert int(client1Balance, base=16) - int(amountTx2) == int(
+        client1BalanceAfter, base=16), 'Client has unexpected balance'
 
     # 2. Receiver call inicialization on their blockchain
     client2.sendline('iomc recv-init ' + client1Addr + ' ' +
@@ -454,8 +459,7 @@ def iomcProtocolTest():
     server2.expect('"data": "')
     recvTransferIdServer2 = server2.readline().decode('utf-8')[:66]
     # expected topic
-    server2.expect(
-        '0x9a7b105e92924f0e1c62614e0921e97f178e8717ceb8118dac1c1ac36e697b5d')
+    server2.expect(receiveInitializedEvent)
     server2.expect('>> State in Host and Enclave match! <<')
 
     # # TODO found Aquareum bug - updating foreign account for second time
@@ -488,8 +492,7 @@ def iomcProtocolTest():
                    client2Addr + ' to = ' + recvAddrServer2)
     server2.expect('"data": "' + recvTransferIdServer2 + '"')
     # expected topic - insufficient funds
-    server2.expect(
-        '0x8af734ce699c38a1e4671809e55b75f8acf550661a7b8d3a5de92719c432c7c3')
+    server2.expect(notEnoughReserveEvent)
     server2.expect('output as 32B hex: 0x0')
     server2.expect('>> State in Host and Enclave match! <<')
 
@@ -504,6 +507,7 @@ def iomcProtocolTest():
 
     # 4b) Operator fund recv contract
     server2.sendline('iomc fund ' + amountTx2)
+    server2.expect(fundedEvent)
     server2.expect('>> State in Host and Enclave match! <<')
     # Receive contract shopuld have balance
     server2.sendline('gs')
@@ -522,8 +526,7 @@ def iomcProtocolTest():
                    client2Addr + ' to = ' + recvAddrServer2)
     server2.expect('"data": "' + recvTransferIdServer2 + '"')
     # expected topic - insufficient funds
-    server2.expect(
-        '0xc1771bf7efa39d0933bc24178af39297790160ef1a15728c8953b8ec31946811')
+    server2.expect(successfulyClaimedEvent)
     server2.expect('output as 32B hex: 0x1')
     server2.expect('>> State in Host and Enclave match! <<')
 

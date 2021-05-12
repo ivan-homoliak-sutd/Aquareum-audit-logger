@@ -1,9 +1,9 @@
 pragma solidity ^0.4.23;
 
 contract iomcReceive {
-    struct LockTransfers {
+    struct LockTransfer {
         address sender;
-        address senderPbSC;
+        address senderIPSC;
         address receiver;
         uint256 amount;
         uint256 hashlock;
@@ -17,7 +17,7 @@ contract iomcReceive {
     address public operator;
 
     // Array of hashlock transfers
-    LockTransfers[] transfers;
+    LockTransfer[] transfers;
 
     /* ----------------------------------------------------------- */
     /* ------------------------- Events -------------------------- */
@@ -61,7 +61,7 @@ contract iomcReceive {
     /* ----------------------------------------------------------- */
     function receiveInitialize(
         address _sender,
-        address _senderPbSC,
+        address _senderIPSC,
         uint256 _hashlock,
         uint256 _amount
     ) external returns (uint256) {
@@ -71,9 +71,9 @@ contract iomcReceive {
 
         // save to array
         transfers.push(
-            LockTransfers(
+            LockTransfer(
                 _sender,
-                _senderPbSC,
+                _senderIPSC,
                 msg.sender,
                 _amount,
                 _hashlock,
@@ -91,10 +91,10 @@ contract iomcReceive {
      *  - h(_preimage) == hashlock
      *  - tx3 = tx sendCommit() of external client
      *  - tx3.rcp.externalTransferId == _transferId
-     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave) 
+     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave)
      *  - membership proof with blk.header
      *  - merkle proof with receipt of tx3
-     * 
+     *
      *  Before call this contract enclave need to check validity of proofs
      */
     function receiveClaim(uint256 _transferId, uint256 _preimage)
@@ -104,7 +104,7 @@ contract iomcReceive {
         usable(_transferId)
         returns (bool successful)
     {
-        LockTransfers storage t = transfers[_transferId];
+        LockTransfer storage t = transfers[_transferId];
         if (address(this).balance < t.amount) {
             emit notEnoughReserve(_transferId);
             return false;

@@ -1,10 +1,10 @@
 pragma solidity ^0.4.23;
 
 contract iomcSend {
-    struct LockTransfers {
+    struct LockTransfer {
         address sender;
         address receiver;
-        address receiverPbSC;
+        address receiverIPSC;
         uint256 amount;
         uint256 hashlock;
         uint256 timelock;
@@ -16,13 +16,19 @@ contract iomcSend {
     /* -------------------- Storage Variables -------------------- */
     /* ----------------------------------------------------------- */
     // Array of hash-timelock transfers
-    LockTransfers[] transfers;
+    LockTransfer[] transfers;
 
     /* ----------------------------------------------------------- */
     /* ------------------------- Events -------------------------- */
     /* ----------------------------------------------------------- */
     event sendInitialized(uint256 transferId);
-    event sendCommited(uint256 transferId, uint256 externalTransferId);
+    event sendCommited(
+        uint256 transferId,
+        uint256 externalTransferId,
+        address receiver,
+        address receiverIPSC,
+        uint256 uint256amount
+    );
     event sendReverted(uint256 transferId);
 
     /* ----------------------------------------------------------- */
@@ -72,7 +78,7 @@ contract iomcSend {
     /* ----------------------------------------------------------- */
     function sendInitialize(
         address _receiver,
-        address _receiverPbSC,
+        address _receiverIPSC,
         uint256 _hashlock
     ) external payable returns (uint256) {
         require(msg.value > 0, "Non-zero value.");
@@ -84,10 +90,10 @@ contract iomcSend {
 
         // save to array
         transfers.push(
-            LockTransfers(
+            LockTransfer(
                 msg.sender,
                 _receiver,
-                _receiverPbSC,
+                _receiverIPSC,
                 msg.value,
                 _hashlock,
                 _timelock,
@@ -104,27 +110,39 @@ contract iomcSend {
     /**
      * Argument sending to enclave but not signed by sender
      *  - tx2 = tx receiveInit() of external client
-     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave) 
+     *  - incremental proof with LRoot, LRootPb (need to check with light client in enclave)
      *  - membership proof with blk.header
      *  - merkle proof with receipt of tx2
-     * 
+     *
      *  Before call this contract enclave need to check validity of proofs
      */
-    function sendCommit(uint256 _transferId, uint256 _preimage, uint256 _externalTransferId)
+    function sendCommit(
+        uint256 _transferId,
+        uint256 _preimage,
+        uint256 _externalTransferId
+    )
         external
         transferExists(_transferId)
         hashlockMatches(_transferId, _preimage)
         usable(_transferId)
-        returns (bool) // Aquareum must have return value
+        returns (
+            bool // Aquareum must have return value
+        )
     {
-        LockTransfers storage t = transfers[_transferId];
+        LockTransfer storage t = transfers[_transferId];
         t.used = true;
 
         // Burn coins
         address sink = address(0);
         sink.transfer(t.amount);
 
-        emit sendCommited(_transferId, _externalTransferId);
+        emit sendCommited(
+            _transferId,
+            _externalTransferId,
+            t.receiver,
+            t.receiverIPSC,
+            t.amount
+        );
 
         return true;
     }
@@ -133,16 +151,18 @@ contract iomcSend {
         external
         transferExists(_transferId)
         revertable(_transferId)
-        returns (bool) // Aquareum must have return value
+        returns (
+            bool // Aquareum must have return value
+        )
     {
-        LockTransfers storage t = transfers[_transferId];
+        LockTransfer storage t = transfers[_transferId];
 
         // Return coins to the initiator
         t.sender.transfer(t.amount);
         t.reverted = true;
 
         emit sendReverted(_transferId);
-  
+
         return true;
     }
 
