@@ -180,9 +180,9 @@ public:
     explicit operator uint16_t() const { return toInt<uint16_t>(); }
     explicit operator uint32_t() const { return toInt<uint32_t>(); }
     explicit operator uint64_t() const { return toInt<uint64_t>(); }
-    explicit operator u160() const { return toInt<u160>(); }
+    // explicit operator u160() const { return toInt<u160>(); }
     explicit operator u256() const { return toInt<u256>(); }
-    explicit operator bigint() const { return toInt<bigint>(); }
+    // explicit operator bigint() const { return toInt<bigint>(); }
     template <unsigned N> explicit operator FixedHash<N>() const { return toHash<FixedHash<N>>(); }
     template <class T, class U> explicit operator std::pair<T, U>() const { return toPair<T, U>(); }
     template <class T> explicit operator std::vector<T>() const { return toVector<T>(); }

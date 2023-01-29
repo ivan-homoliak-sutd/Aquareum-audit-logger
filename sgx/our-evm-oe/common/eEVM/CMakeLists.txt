@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 #IH: 
-# !!! cmake from folder build-host builds eEVM for host and from folder 'build' builds eEVM for enlcave
+# !!! cmake from the folder build-host builds eEVM for host and from folder 'build' builds eEVM for enclave
 # Once in a while - especialy for linker not found errors, rerun pkg-config below and update flags!!
 
 # causes EVM to print debug trace messages | use asserts | generate compiler debug symbols
@@ -64,26 +64,31 @@ SET(OE_SDK_CXX_INCLUDES
 
 # IH: Obtanined by: $ pkg-config oeenclave-g++ --libs
 SET(CXX_ENCLAVE_LINK_FLAGS
-  "-nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now -Wl,-gc-sections -loeenclave -loelibcxx -loelibc -loesyscall -loecore"
+ "-L/opt/openenclave/share/pkgconfig/../../lib/openenclave/enclave -nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now -Wl,-gc-sections -loeenclave -loelibcxx -loelibc -loesyscall -loecore" 
 )
-# OLD one: "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
+# OLD one:        "-nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now -Wl,-gc-sections -loeenclave -loelibcxx -loelibc -loesyscall -loecore"
+# even OLDer one: "-nostdlib -nodefaultlibs -nostartfiles -fno-strict-aliasing -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now"
 
 # IH: Obtanined by: $ pkg-config oehost-g++ --libs
 SET(CXX_HOST_LINK_FLAGS
-  "-Wl,-z,noexecstack -loehost -ldl -lpthread -lssl -lcrypto"
+    "-L/opt/openenclave/share/pkgconfig/../../lib/openenclave/host -Wl,-z,noexecstack -loehost -ldl -lpthread -lssl -lcrypto"  
 )
-# OLD one: "-rdynamic -Wl,-z,noexecstack"
+# OLD one       : # "-Wl,-z,noexecstack -loehost -ldl -lpthread -lssl -lcrypto"
+# even OLDer one: "-rdynamic -Wl,-z,noexecstack"
+
 
 # IH:  Obtanined by: $ pkg-config oeenclave-g++ --cflags
 SET(CXX_ENCLAVE_COMPILE_FLAGS
-  "-DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fstack-protector-strong -fno-omit-frame-pointer -ffunction-sections -fdata-sections"
+    "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fstack-protector-strong -fno-omit-frame-pointer -ffunction-sections -fdata-sections -I/opt/openenclave/share/pkgconfig/../../include/openenclave/3rdparty/libcxx -I/opt/openenclave/share/pkgconfig/../../include/openenclave/3rdparty/libc -I/opt/openenclave/share/pkgconfig/../../include/openenclave/3rdparty -I/opt/openenclave/share/pkgconfig/../../include"  
 )
-#OLD one: -DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
+# OLD one       : "-DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fstack-protector-strong -fno-omit-frame-pointer -ffunction-sections -fdata-sections"
+# even OLDer one: -DENCLAVE_BUILD -nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fno-stack-protector"
 
 # IH: Obtanined by: $ pkg-config oehost-g++ --cflags
 SET(CXX_HOST_COMPILE_FLAGS
-  "-fstack-protector-strong -D_FORTIFY_SOURCE=2"  
+    "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -I/opt/openenclave/share/pkgconfig/../../include"  
 )
+# OLD one: "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
 
 if(DEBUG_SYMBOLS)
   message(STATUS ">>> debug symbols generated <<<")  

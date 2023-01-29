@@ -20,19 +20,19 @@
             $ mkdir build-host
             $ cd build
             $ cmake ..
-            -- note that once in a while (especialy for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
+            -- note that once in a while (especially for linker not-found errors) rerun pkg-config in Cmake file and update flags of that file
 
 
     2) Build host and enclave
         a) UBUNTU dependecies for AQ ledger:
-            sudo apt-get install libssl-dev
-            sudo apt-get install libboost-dev
+            sudo apt-get install libssl-dev libboost-dev
 
         b) Set up 'RepoDir' variable in Makefile:
             RepoDir := {INSTALL_DIR}/centralized-ledger-impl/
 
         c) Build AQ ledger
-            . /opt/openenclave/share/openenclave/openenclaverc
+            . /opt/openenclave/share/openenclave/openenclaverc   
+	    # or  . ~/openenclave-install/share/openenclave/openenclaverc
             $ make
 
     3) Run AQ ledger
@@ -44,3 +44,21 @@
 
 ## Client SW
   TODO
+
+
+
+## Notes
+/opt/openenclave/include/openenclave/3rdparty/libcxx/__config:11:8: error: expected identifier or ‘(’ before string constant
+   11 | extern "C" long long strtoll_l(
+      |        ^~~
+/opt/openenclave/include/openenclave/3rdparty/libcxx/__config:14:8: error: expected identifier or ‘(’ before string constant
+   14 | extern "C" unsigned long long int strtoull_l(
+      |        ^~~
+/opt/openenclave/include/openenclave/3rdparty/libcxx/__config:17:8: error: expected identifier or ‘(’ before string constant
+   17 | extern "C" unsigned int arc4random(void);
+      |        ^~~
+Solution: 
+In file /opt/openenclave/include/openenclave/3rdparty/libcxx/__config, add these:
+\#ifdef __cplusplus  
+extern "C" 
+\#endif 
