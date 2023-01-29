@@ -46,3 +46,6 @@
 # misc
 /tmp
 sc-exps/.ionide/
+*.swo
+*.swp
+
