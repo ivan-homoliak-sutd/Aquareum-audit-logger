@@ -3,6 +3,8 @@
 #include "aleth-mp3/FixedHash.h"
 #include "eEVM/constants.h"
 #include "eEVM/util.h"
+#include <fmt/format_header_only.h>
+#include <stdexcept>
 
 #define EMPTY_HASH_OBJ dev::h256("0x0000000000000000000000000000000000000000000000000000000000000000", dev::h256::FromHex)
 
@@ -42,7 +44,7 @@ public:
         }
     }
 
-    inline dev::h256 at(int idx) { return dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer); }
+    inline dev::h256 at(int idx) { checkIdxBounds(idx); return dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer); }
 
     inline const size_t size() { return m_size; }
 
@@ -51,14 +53,19 @@ public:
         m_data.resize(newSize * HASH_SIZE);
         m_size = newSize;
     }
+    
+    inline void checkIdxBounds(size_t idx){
+        if(idx >= size())
+            throw std::runtime_error(fmt::format("Idx {} out of bounds (size = {} )", idx, size()));
+    }
 
     inline uint8_t* data() { return m_data.data(); }
 
-    inline uint8_t* dataAt(size_t idx) { return m_data.data() + idx * HASH_SIZE; }
+    inline uint8_t* dataAt(size_t idx) { checkIdxBounds(idx); return m_data.data() + idx * HASH_SIZE; }
 
     inline const std::string toHex(size_t idx)
     {
-        assert(idx < size());
+        checkIdxBounds(idx);
         auto ret = dev::h256(m_data.data() + idx * HASH_SIZE, dev::h256::ConstructFromPointer);
         return ret.hex();
     }
