@@ -48,14 +48,14 @@ else ()
   message(WARNING "Spectre 1 mitigations NOT supported")
 endif ()
 
-# SET(OE_SDK_CC_INCLUDES
-#   "/opt/openenclave/include/openenclave/3rdparty/libc"
-#   "/opt/openenclave/include/openenclave/3rdparty"
-#   "/opt/openenclave/include"
-# )
-SET(OE_SDK_CXX_INCLUDES
-  "/opt/openenclave/include/openenclave/3rdparty/libcxx"
+SET(OE_SDK_C_INCLUDES
   "/opt/openenclave/include/openenclave/3rdparty/libc"
+  "/opt/openenclave/include/openenclave/3rdparty"
+  "/opt/openenclave/include"
+)
+SET(OE_SDK_CXX_INCLUDES
+  "/opt/openenclave/include/openenclave/3rdparty/libcxx"  
+  "/opt/openenclave/include/openenclave/3rdparty/libc"  
   "/opt/openenclave/include/openenclave/3rdparty"
   "/opt/openenclave/include"
   # "/opt/boost-incl"
@@ -90,6 +90,18 @@ SET(CXX_HOST_COMPILE_FLAGS
 )
 # OLD one: "-fstack-protector-strong -D_FORTIFY_SOURCE=2"
 
+# IH:  Obtanined by: $ pkg-config oeenclave-gcc --cflags
+SET(CC_ENCLAVE_COMPILE_FLAGS
+    # "-nostdinc -m64 -fPIE -ftls-model=local-exec -fvisibility=hidden -fstack-protector-strong -fno-omit-frame-pointer -ffunction-sections -fdata-sections -I/opt/openenclave/share/pkgconfig/../../include/openenclave/3rdparty/libc -I/opt/openenclave/share/pkgconfig/../../include/openenclave/3rdparty -I/opt/openenclave/share/pkgconfig/../../include"
+    ""
+)
+
+# IH: Obtanined by: $ pkg-config oehost-gcc --cflags
+SET(CC_HOST_COMPILE_FLAGS
+    "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -I/opt/openenclave/share/pkgconfig/../../include"  
+)
+
+
 if(DEBUG_SYMBOLS)
   message(STATUS ">>> debug symbols generated <<<")  
   message(STATUS " ")
@@ -102,16 +114,16 @@ if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")
   # building eEVM for host
   message(STATUS ">>> BUILDING EEVM for HOST <<<")
   SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS}")
-  SET(CMAKE_CC_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_C_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CC_HOST_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
   SET(SUM_CXX_INCLUDES "")
 else()
   # building eEVM for enclave
   message(STATUS ">>> BUILDING EEVM for ENCLAVE <<<")
   SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS}")
-  SET(CMAKE_CC_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_C_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CC_ENCLAVE_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
-  include_directories("${OE_SDK_CXX_INCLUDES}")
+  # include_directories("${OE_SDK_CXX_INCLUDES}") # IH: this is uselless and should be included in pkg config output already
   SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
 endif()
 message(STATUS " ")

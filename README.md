@@ -48,6 +48,8 @@
 
 
 ## Notes
+
+-------- 
 /opt/openenclave/include/openenclave/3rdparty/libcxx/__config:11:8: error: expected identifier or ‘(’ before string constant
    11 | extern "C" long long strtoll_l(
       |        ^~~
@@ -62,3 +64,19 @@ In file /opt/openenclave/include/openenclave/3rdparty/libcxx/__config, add these
 \#ifdef __cplusplus  
 extern "C" 
 \#endif 
+
+
+https://github.com/openenclave/openenclave/issues/2054
+
+-------- 
+We have SGX1+FLC on pchomoliak2 since it has i5-10400 @ 3.4Gz with 12M cache
+> oesgx
+The output of oeasgx should be as follows (if not, ENABLE it in BIOS - SW-controlled is not OK)
+CPU supports SGX_FLC:Flexible Launch Control
+CPU supports Software Guard Extensions:SGX1
+MaxEnclaveSize_64: 2^(36)
+CPU supports Key Sharing & Separation (KSS): false
+EPC size on the platform: 98041856
+
+This means that we can follow this - https://github.com/openenclave/openenclave/blob/master/docs/GettingStartedDocs/install_oe_sdk-Ubuntu_20.04.md
+- Although I compiled my own open-enclave and installed it to /opt/openenclave, enabling us to make modifications to its codebased
