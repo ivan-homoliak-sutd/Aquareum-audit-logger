@@ -14,7 +14,7 @@
 // underlying elementary data types
 
 typedef struct {
-    char* data;  // is is dynamic array, so (de)-marshaling  needs to be handled manually
+    char* data;  // it is dynamic array, so (de)-marshaling  needs to be handled manually
 } ErrTx_T;
 
 typedef struct {

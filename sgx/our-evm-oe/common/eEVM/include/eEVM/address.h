@@ -19,7 +19,7 @@ namespace eevm
     const size_t ADDR_ETH_SIZE_B = 20;
 
     struct addr_as_hash {
-        /// Make a hash of the object's data.
+        // IH: Make an INSECURE (but fast) hash of the object's data. For the address it is probably OK.
         size_t operator()(Address const& _value) const
         {
             return dev::h256::hash()(dev::h256(_value));

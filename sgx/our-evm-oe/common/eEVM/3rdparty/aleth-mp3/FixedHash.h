@@ -23,12 +23,15 @@
 namespace dev
 {
 
+
+// IH: strange function I'd rather avoid
 template <unsigned N, class Iter>
 inline size_t hash_range(Iter first, Iter last){
     size_t seed = 0;
     for (; first != last; ++first){
         typename std::iterator_traits<Iter>::value_type a;
         a = (*first);
+        // IH: I do not like this. Why we need any (insecure?) hashing here? 
         seed ^= std::hash<typename std::iterator_traits<Iter>::value_type>{}(a) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
     return seed;
