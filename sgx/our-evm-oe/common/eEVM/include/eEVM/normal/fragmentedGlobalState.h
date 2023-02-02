@@ -20,7 +20,8 @@ namespace eevm
 /**
    * MP3 from Aleth is used as a state preserving object
    */
-    class NormalGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
+    template <uint CNT_FRAGMENTS>
+    class FragmentedGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
     public:
         using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
 
@@ -28,7 +29,8 @@ namespace eevm
     private:
         Block * m_currentBlock;  // not used so far
 
-        SecureTrieDB<h256, OverlayDB> m_accounts;  // full global state: all accounts (except storages)
+        // the full global state fragmented into 'CNT_FRAGMENTS' MP3 structures: containing all accounts splitted according to the 1st Byte of their addresses for simplifiing the concurrent access (except storages)
+        SecureTrieDB<h256, OverlayDB> m_frag_accounts[];  
 
         std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts        
 
@@ -42,8 +44,8 @@ namespace eevm
         std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs = NULL; // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)       
 
     public:
-        NormalGlobalState(bool init = true)
-          : m_accounts(
+        FragmentedGlobalState(bool init = true)
+          : m_frag_accounts[CNT_FRAGMENTS], m_accounts(
                 new OverlayDB(std::move(
                     std::unique_ptr<db::DatabaseFace>(
                         new db::MemoryDB()))))  // MemoryDB is (currently) just a surrogate for the real persistant DB  (LevelDB)

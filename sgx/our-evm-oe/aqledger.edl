@@ -98,7 +98,7 @@ enclave {
             [in, size=root_size] const uint8_t* gs_root_h,
             size_t root_size,
 
-            /* IH: we do not need to verify the following user_check data since DB would be inconsisten when tampering => E would fail  */
+            /* IH: we do not need to verify the following user_check data since DB would be inconsisten when tampering => E would raise an error.  */
             [user_check] const uint8_t* db_data,    // each entry (RLP of account) has variable size that is encoded within the first bytes of RLP
             size_t db_data_size,
             [user_check] const uint8_t* db_data_aux,  // RLP of auxiliary data needed for account creation and update
