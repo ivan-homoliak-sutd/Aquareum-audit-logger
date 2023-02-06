@@ -1,5 +1,5 @@
-#include "common.h"
 #include "operator.h"
+#include "common.h"
 #include "secp256k1.h"
 #include "utils.h"
 
@@ -163,34 +163,40 @@ void Operator::_printEvmState(PublicSealedData_T& es)
     eevm::print_sep();
 }
 
-void Operator::_printGlobalState(unsigned max = 1000)
+void Operator::_printGlobalState(unsigned maxPerFrag = 20)
 {
     std::cout << "\nGlobal state of host contains accounts:\n";
 
     nlohmann::json j;
 
-    unsigned i = 1;
-    for (const auto& a : this->m_ledger.m_gs.getAccounts()) {
-        j = nlohmann::json::parse(a.second.toString());
+    uint16_t idxFrag = 0;
+    uint16_t cntFrags = this->m_ledger.m_gs.cntFrags();  // The number of fragmented MP3 structures in global state
+    for (const auto& fragAccnts : this->m_ledger.m_gs.getFrags()) {
+        std::cout << fmt::format("Fragmented MP3 with ID = {}.\n", idxFrag++);
 
-        SimpleAccount acc;
-        eevm::from_json(j, acc);
-        std::string superTag = (this->m_ledger.operAddr == acc.get_address()) ? "*" : " ";  // mark SUPER account of O
+        unsigned i = 1;
+        for (const auto& a : fragAccnts) {
+            j = nlohmann::json::parse(a.second.toString());
 
-        std::string contrTag = "";
-        if (acc.get_code_ref() != EMPTY_CODE_OBJ) {
-            std::string name = (m_contracts.end() != m_contracts.find(acc.get_address())) ? m_contracts[acc.get_address()].name : "-";
-            contrTag.append(fmt::format(" [{}]", name));  // show name of contract if any
+            SimpleAccount acc;
+            eevm::from_json(j, acc);
+            std::string superTag = (this->m_ledger.operAddr == acc.get_address()) ? "*" : " ";  // mark SUPER account of O
+
+            std::string contrTag = "";
+            if (acc.get_code_ref() != EMPTY_CODE_OBJ) {
+                std::string name = (m_contracts.end() != m_contracts.find(acc.get_address())) ? m_contracts[acc.get_address()].name : "-";
+                contrTag.append(fmt::format(" [{}]", name));  // show name of contract if any
+            }
+
+            std::cout << fmt::format("\t{}[{}] {}{}\n", superTag, i++, acc.toString(), contrTag);
+            if (i - 1 == maxPerFrag) {
+                break;
+            }
         }
-
-        std::cout << fmt::format("\t{}[{}] {}{}\n", superTag, i++, acc.toString(), contrTag);
-        if (i - 1 == max) {
-            break;
+        if (i - 1 == maxPerFrag) {
+            // std::cout << fmt::format("... {} accounts were omitted ... \n", this->m_ledger.m_gs.getAccounts().size() - (maxPerFrag - 1)); // IH: this is still buggy
+            std::cout << fmt::format("... some accounts were omitted in this fragment ... \n");
         }
-    }
-    if (i - 1 == max) {
-        // std::cout << fmt::format("... {} accounts were omitted ... \n", this->m_ledger.m_gs.getAccounts().size() - (max - 1)); // IH: this is still buggy
-        std::cout << fmt::format("... some accounts were omitted ... \n");
     }
     eevm::print_sep();
 }
@@ -601,7 +607,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             if (!correct_token_cnt(command_s, {1, 2}, &tokens, &tokenCnt))
                 continue;
 
-            int n = 100;  // default max no of entries to print
+            int n = 10;  // default max no of entries to print per fragmemted MP3
             if (2 == tokenCnt) {
                 try {
                     auto it = tokens->begin();
@@ -868,8 +874,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
                 continue;
 
             uint accntsCount = 1000;  // default number of accounts involved in transactions
-            uint n = 10;           // default number of transactions
-            uint b = 10;           // default number of TXs in one batch that is processed by E
+            uint n = 10;              // default number of transactions
+            uint b = 10;              // default number of TXs in one batch that is processed by E
             uint repetitions;
 
             if (tokenCnt == 3 || tokenCnt == 4) {
@@ -1271,7 +1277,7 @@ double Operator::_testBulkERC_batched(oe_enclave_t* enclave, uint numberOfTx, ui
             txs_in_batch.clear();
             _forcePurgeStaleMP3(enclave);  // purge stale entries of database in the host and enclave
         }
-        txs_in_batch.push_back(tx);        
+        txs_in_batch.push_back(tx);
 
         // adjust balances in our cache
         balances[j] -= value;
@@ -1736,6 +1742,9 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
         codes.insert(codes.end(), tx->code.begin(), tx->code.end());
         codes_sizes.push_back(tx->code.size());
     }
+    acnts_storages.reserve(ADDR_SIZE_B * addrs.size());  // IH: TODO - set it to some average
+    db_data.reserve(addrs.size() * 200);                 // IH: TODO - set it to some average (asssuming #addrs to process * depth of MP3 * avg size of element)
+
     txs_persistant_size = txs_in_batch.size() * sizeof(PersistantTxProxy_T);
     codes_sizes_size = codes_sizes.size() * sizeof(size_t);
     m_ledger.m_gs.dump_partial_db(addrs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
@@ -1743,11 +1752,17 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
 
     // store root
     h256 root_orig = m_ledger.m_gs.root();
+    std::vector<uint8_t> db_data_aux;
 
-    // 2) Execute TXs in Host one by one (and log all newly created accounts and their trails)
-    std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
-    m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_data_aux);
+    // 2a) start lookup logging of all fragments in MP3s
+    std::vector<uint8_t> db_data_aux_frag[m_ledger.m_gs.cntFrags()];  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts (thread-safe per frag MP3)
+    std::set<h256> db_keys_aux[m_ledger.m_gs.cntFrags()];        // corresponding auxialiry keys (thread-safe per frag MP3)
+    for (size_t i = 0; i < m_ledger.m_gs.cntFrags(); i++) {
+        m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_keys_aux[i], &db_data_aux_frag[i], i);  // IH TODO: this is per fragment MP3, so it needs some mutex or split keys + merge later !!!
+    }
 
+    // 2b) Execute TXs in Host one by one (and log all newly created accounts and their trails)
+    // IH: PARALLEL - this can be paralelized with locked MP3s (in pairs maybe?)
     for (auto& tx : txs_in_batch) {
         uint256_t output_u256;
         ret = this->m_ledger.executeTX(tx, output_u256);
@@ -1756,8 +1771,18 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
             return ret;
         }
     }
-    unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging();
-    info_print(fmt::format("The number of auxiliary entries fetched from DB is {}.", cntLookups));
+
+    // 2c) finish lookup logging of all fragments in MP3s
+    unsigned sumCntLookups = 0;
+    for (size_t i = 0; i < m_ledger.m_gs.cntFrags(); i++) {
+        unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging(i);
+        info_print(fmt::format("[frag = {}] The number of auxiliary entries fetched from DB is {}.", i, cntLookups));
+        sumCntLookups += cntLookups;
+
+        // 2d) consolidate logged entries across multiple MP3s into a single container
+        db_data_aux.insert(db_data_aux.end(),  db_data_aux_frag[i].begin(),  db_data_aux_frag[i].end());
+    }
+    info_print(fmt::format("The number of all auxiliary entries fetched from DB is {}.", sumCntLookups));
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
                            db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + db_data_aux.size() + sumVectST(storages_sizes)));

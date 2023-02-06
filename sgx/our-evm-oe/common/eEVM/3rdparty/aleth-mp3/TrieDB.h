@@ -41,7 +41,9 @@ namespace dev {
         using DB = _DB;
 
         explicit GenericTrieDB(DB* _db = nullptr) : m_db(_db), m_size(0) {}
-        GenericTrieDB(DB* _db, h256 const& _root, Verification _v = Verification::Normal): m_size(0) { open(_db, _root, _v); }
+        GenericTrieDB(DB* _db, h256 const& _root, Verification _v = Verification::Normal): m_size(0) { 
+            open(_db, _root, _v); 
+        }
         ~GenericTrieDB() {}
 
         void open(DB* _db) { m_db = _db; }
@@ -53,6 +55,14 @@ namespace dev {
         void init() {
             setRoot(forceInsertNode(&RLPNull));
             assert(node(m_root).size());
+        }
+
+        void setFragIdx(const uint16_t _frag){
+            assert(UINT16_MAX == m_frag_idx);
+            m_frag_idx = _frag;
+        }
+        uint16_t getFragIdx(){            
+            return m_frag_idx;
         }
 
         void setRoot(h256 const& _root, Verification _v = Verification::Normal) {
@@ -274,12 +284,13 @@ namespace dev {
         }
 
         /// IH: Logging of inserted DB entries for the purpose of building valid partial state
-        void startLookupLoggingMP3(std::set<h256>* keys_before, std::vector<uint8_t>* db_data_aux, unsigned *cnt){
+        void startLookupLoggingMP3(const std::set<h256>* keys_existing, std::set<h256>* keys_new, std::vector<uint8_t>* db_data_aux, unsigned *cnt){
             assert(!m_lookup_logging);
             m_cnt_logged_entries = cnt;
             *m_cnt_logged_entries = 0; // init the counter
             m_lookup_logging = true;
-            m_logged_keys = keys_before;
+            m_logged_keys = keys_new;
+            m_existing_keys = keys_existing;
             m_fetched_nodes = db_data_aux;
 
             // handle empty trie
@@ -293,6 +304,7 @@ namespace dev {
             assert(m_lookup_logging);
             m_lookup_logging = false;
             // m_logged_keys = NULL;
+            // m_existing_keys = NULL;
             // m_fetched_nodes = NULL;
             // m_cnt_logged_entries = NULL;
         }
@@ -360,7 +372,10 @@ namespace dev {
             std::string fetched = m_db->lookup(_h);
 
             // IH: log fetched DB nodes if logging is enabled (and other than empty string was returned)
-            if(m_lookup_logging && log_this_entry && std::string() != fetched && m_logged_keys->end() == m_logged_keys->find(_h)){
+            if(m_lookup_logging && log_this_entry && std::string() != fetched 
+                && m_existing_keys->end() == m_existing_keys->find(_h) && (m_existing_keys == m_logged_keys || m_logged_keys->end() == m_logged_keys->find(_h))
+            ){
+                m_fetched_nodes->insert(m_fetched_nodes->end(), (m_frag_idx <= UINT8_MAX) ? (uint8_t)m_frag_idx : m_frag_idx);  // 1st B (or 2) is special and indicate fragIdx
                 m_fetched_nodes->insert(m_fetched_nodes->end(), fetched.begin(), fetched.end() ); // copy RLP data
                 m_logged_keys->insert(_h);
                 (*m_cnt_logged_entries)++;
@@ -394,7 +409,8 @@ namespace dev {
         // IH: these are related to DB logging of inserted nodes during insert into MP3
         bool m_lookup_logging = false;
         unsigned *m_cnt_logged_entries = NULL; // counter of logged entries (it is pointer due to respecting const modifiers)
-        std::set<h256>* m_logged_keys = NULL; // pointer to caller's allocated memory (since he migh pre-initialize the set)
+        const std::set<h256>* m_existing_keys = NULL; // the set of existing keys that we will not modify here
+        std::set<h256>* m_logged_keys = NULL; // newly inserted keys during logging - pointer to caller's allocated memory (since we might pre-initialize the set)
         std::vector<uint8_t>* m_fetched_nodes = NULL; // pointer to caller's allocated memory (should be empty on start)
 
 
@@ -402,6 +418,7 @@ namespace dev {
         h256 m_root;
         DB* m_db = nullptr;
         unsigned long m_size;
+        uint16_t m_frag_idx = UINT16_MAX; // the idx of MP3 fragment initialized to extreme value
     };
 
     template <class DB>

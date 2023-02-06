@@ -75,14 +75,24 @@ class MerkleTreeArray {
 public:
     MerkleTreeArray() = default;
 
-    inline void add(dev::h256& a)
+    inline void add(dev::h256&& a)
+    {
+        m_hashes.push_back(std::move(a));
+    }
+
+    inline void add(const dev::h256& a)
     {
         m_hashes.push_back(a);
     }
 
-    inline void add(eevm::KeccakHash& a)
+    inline void add(const eevm::KeccakHash& a)
     {
         m_hashes.push_back(a);
+    }
+
+    inline void add(eevm::KeccakHash&& a)
+    {
+        m_hashes.push_back(std::move(a));
     }
 
     dev::h256 computeRoot();  // uses internal field m_hashes

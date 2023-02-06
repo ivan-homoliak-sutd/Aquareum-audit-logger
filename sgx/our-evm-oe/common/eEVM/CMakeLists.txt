@@ -62,6 +62,8 @@ SET(OE_SDK_CXX_INCLUDES
   # "/usr/lib/gcc/x86_64-linux-gnu/7/include"
 )
 
+############################################
+
 # IH: Obtanined by: $ pkg-config oeenclave-g++ --libs
 SET(CXX_ENCLAVE_LINK_FLAGS
  "-L/opt/openenclave/share/pkgconfig/../../lib/openenclave/enclave -nostdlib -nodefaultlibs -nostartfiles -Wl,--no-undefined -Wl,-Bstatic -Wl,-Bsymbolic -Wl,--export-dynamic -Wl,-pie -Wl,--build-id -Wl,-z,noexecstack -Wl,-z,now -Wl,-gc-sections -loeenclave -loelibcxx -loelibc -loesyscall -loecore" 
@@ -101,6 +103,15 @@ SET(CC_HOST_COMPILE_FLAGS
     "-fstack-protector-strong -D_FORTIFY_SOURCE=2 -I/opt/openenclave/share/pkgconfig/../../include"  
 )
 
+################################# 
+# OTHER external dependencies
+
+SET(CXX_EXTERNAL_INCLUDES
+ "-I/home/ihomoliak/Documents/centralized-ledger-impl/sgx/our-evm-oe/common/signing-PB/include"  
+)
+message(STATUS "CXX_EXTERNAL_INCLUDES = ${CXX_EXTERNAL_INCLUDES}")  
+
+ #################################
 
 if(DEBUG_SYMBOLS)
   message(STATUS ">>> debug symbols generated <<<")  
@@ -113,18 +124,18 @@ endif()
 if(${CMAKE_BINARY_DIR} MATCHES ".+/build-host$")
   # building eEVM for host
   message(STATUS ">>> BUILDING EEVM for HOST <<<")
-  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_HOST_COMPILE_FLAGS} ${CXX_EXTERNAL_INCLUDES}")
   SET(CMAKE_C_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CC_HOST_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_HOST_LINK_FLAGS}")
-  SET(SUM_CXX_INCLUDES "")
+  SET(SUM_CXX_INCLUDES "") # IH: used only in eEVM tests
 else()
   # building eEVM for enclave
   message(STATUS ">>> BUILDING EEVM for ENCLAVE <<<")
-  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CXX_ENCLAVE_COMPILE_FLAGS} ${CXX_EXTERNAL_INCLUDES}")
   SET(CMAKE_C_FLAGS "${DEBUG_SYMBOLS_FLAG} ${CC_ENCLAVE_COMPILE_FLAGS}")
   SET(CMAKE_EXE_LINKER_FLAGS  "${CXX_ENCLAVE_LINK_FLAGS}")
   # include_directories("${OE_SDK_CXX_INCLUDES}") # IH: this is uselless and should be included in pkg config output already
-  SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}")
+  SET(SUM_CXX_INCLUDES "${OE_SDK_CXX_INCLUDES}") # IH: used only in eEVM tests
 endif()
 message(STATUS " ")
 
@@ -212,6 +223,7 @@ set(EEVM_SIMPLE_SRCS
   src/simple/simpleglobalstate.cpp
   src/simple/simplestorage.cpp
   src/normal/normalGlobalState.cpp
+  src/normal/fragmentedGlobalState.cpp
 )
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

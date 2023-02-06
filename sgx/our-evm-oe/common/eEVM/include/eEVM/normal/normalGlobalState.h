@@ -119,7 +119,7 @@ namespace eevm
         {
             assert(!m_db_logging);
             m_db_logging = true;
-            m_accounts.startLookupLoggingMP3(db_keys, db_data_aux, &m_db_logged_entries_cnt);
+            m_accounts.startLookupLoggingMP3(db_keys, db_keys, db_data_aux, &m_db_logged_entries_cnt);
         }
         
         inline unsigned finishDBLookupLogging()

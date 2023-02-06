@@ -22,7 +22,7 @@
 #include "aleth-mp3/database/MemoryDB.h"
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
-#include "eEVM/normal/normalGlobalState.h"
+#include "eEVM/normal/fragmentedGlobalState.h"
 #include "eEVM/util.h"
 
 EvmState_T m_evm_state;
@@ -394,8 +394,8 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         TRACE_ENCLAVE("executing TX with partial MP3 copied.");
 
         // 1) reconstruct the global MP3 state from host passed data
-        eevm::NormalGlobalState* gs;
-        int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
+        eevm::FragmentedGlobalState* gs;
+        int ret = eevm::FragmentedGlobalState::construct_partial_state(&gs, gs_root_h,
                                                                    db_data, db_data_size,
                                                                    db_data_aux, db_data_aux_size,
                                                                    storages, storages_sizes, storages_sizes_size, accnts_of_storages);
@@ -403,7 +403,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
-        if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+        if ((gs->root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
             TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
             delete gs;
             return ERR_EVM_INCONSISTANT_STATE;
@@ -411,10 +411,10 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
 
         // 3) Execute TX in E (while updating the protected global state)
-        ret = m_ledger.execute_tx_mp3state_full(gs, tx, code, code_size);
+        ret = m_ledger.execute_tx_mp3state_full(gs, tx, code, code_size); // TODO
 
         // 4) update the current root hash of the global MP3 state in E
-        memcpy(&m_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+        memcpy(&m_evm_state.pub.globStRoot, gs->root().data(), HASH_SIZE);
 
         delete gs;  // clear global state allocated before
         print_enc_sep(EncExec::END);
@@ -426,7 +426,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
 }
 
 /**
- * This function prcesses TXs in batches and thus creates the blocks.
+ * This function processes TXs in batches and thus creates the blocks.
  */
 int ecall_run_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
                                         const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
@@ -558,11 +558,13 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
 }
 
 /**
- * This function prcesses TXs in batches and thus creates the blocks.
+ * This function processes TXs in batches and thus creates the blocks.
  * The state of EVM is fully stored and maintained in the enclave.
  * eEVM is executed only in enclave, not in host, therefore this function 
  * provides host with the list of updated and modified AS objects, which are 
  * stored to untrusted memory 'updated_and_new_accnts' and 'updated_and_new_strgs'
+ *
+ * @deprecated
  */
 int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, size_t txs_size, uint8_t* output_results,
                                                            const uint8_t* codes, size_t codes_sum_size,
@@ -662,6 +664,83 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         // 8) Clean up unused entries in MP3 db (it is fastest when doing after each block)
         m_gs->db()->purge();
 
+        print_enc_sep(EncExec::END);
+        return ret;
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+        // auto s = backtrace();
+        // std::cerr << "backtrace(): \n" << s << '\n';
+        return ERR_EXCEPTION;
+    }
+}
+
+
+
+/**
+ * This function processes TXs of a single block in paralel. The paralelization requires synchronization to lock particular fragmented MP3 structrues. 
+ */
+int ecall_run_paralel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
+                                        const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
+                                        const uint8_t* gs_root_h, size_t root_size,  // from here below is partial MP3 DB
+                                        const uint8_t* db_data, size_t db_data_size,
+                                        const uint8_t* db_data_aux, size_t db_data_aux_size,
+                                        const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
+{
+    try {
+        print_enc_sep(EncExec::START);
+        TRACE_ENCLAVE("executing many TXs with partial MP3 copied.");
+
+        // 1) reconstruct the global MP3 state from host passed data
+        eevm::FragmentedGlobalState* gs;
+        // TODO: we need caching of the partial state in the enclave up to some depth - so we can transfer / process lesser data by ecall
+        int32_t ret = eevm::FragmentedGlobalState::construct_partial_state(&gs, gs_root_h,
+                                                                       db_data, db_data_size,
+                                                                       db_data_aux, db_data_aux_size,
+                                                                       storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+        if (ret != RET_SUCCESS)
+            return ERR_EVM_WRONG_PARTIAL_STATE;
+
+        // 2) verify a consistency of the reconstructed global state with the last known value stored in E
+        if ((gs->root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator parenthesis (h256) converts to underlying object
+            TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
+            delete gs;
+            return ERR_EVM_INCONSISTANT_STATE;
+        }
+        TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
+
+        // 3) Execute TXs in E one by one (while updating the protected global state)
+        size_t codes_offset = 0;
+        MerkleTreeArray txs_hashes;
+        MerkleTreeArray rcps_hashes;
+        for (size_t i = 0; i < txs_size / sizeof(PersistantTxProxy_T); i++) {
+            PersistantTxProxy_T* ptx = (PersistantTxProxy_T*)(txs + i * sizeof(PersistantTxProxy_T));
+            ret = m_ledger.execute_tx_mp3state_full(gs, ptx, codes + codes_offset, codes_sizes[i], &txs_hashes);
+            if (ERR_EVM_SENDER_DOES_NOT_EXIST != ret) {  // some types of malformed txs do not append into log (and thus do not create receipts for them)
+                eevm::KeccakHash rcpHash = eevm::keccak_256(reinterpret_cast<const uint8_t*>(&ret), sizeof(int32_t));
+                rcps_hashes.add(rcpHash);
+            }
+            codes_offset += codes_sizes[i];
+        }
+        assert(codes_offset == codes_sum_size);
+        TRACE_ENCLAVE("5");
+
+
+        // 4) Update the current root hash of the global MP3 state in E
+        memcpy(&m_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+
+        // 5) Compute and store the Merkle root of TXs
+        dev::h256 txsRoot = txs_hashes.computeRoot();
+        memcpy(&m_evm_state.pub.txsRoot, txsRoot.begin(), HASH_SIZE);
+
+        // 6) Compute and store Merkle root of receipts (i.e., return codes)
+        dev::h256 rcpsRoot = rcps_hashes.computeRoot();
+        memcpy(&m_evm_state.pub.rcpsRoot, rcpsRoot.begin(), HASH_SIZE);
+
+        // 7) Increment ID of the current block
+        m_evm_state.pub.idCurrent++;
+
+
+        delete gs;  // clear global state allocated before
         print_enc_sep(EncExec::END);
         return ret;
     } catch (const std::exception& e) {

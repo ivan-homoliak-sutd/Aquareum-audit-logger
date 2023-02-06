@@ -3,7 +3,7 @@
 #include "common.h"
 #include "eEVM/bigint.h"
 // #include "eEVM/bigint.h"
-#include "eEVM/normal/normalGlobalState.h"
+#include "eEVM/normal/fragmentedGlobalState.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
 
@@ -122,7 +122,7 @@ struct OperAccount {
 class AQLedger {
 public:
 
-    NormalGlobalState m_gs;  // the full global state of the ledger
+    FragmentedGlobalState m_gs;  // the full global state of the ledger
 
     ECC* m_ecc;  // ECC signing wrapper
 

@@ -74,7 +74,7 @@ namespace eevm
     template <class _A, class _S>
     class GSOverlay {
         GlobalState<_A, _S>& m_gs;                                           // the interface to the global state
-        std::unordered_map<Address, AccountState<_A, _S>>& m_cached_accnts;  // the reference to the
+        std::unordered_map<Address, AccountState<_A, _S>>& m_cached_accnts;  // the reference to the cache of accounts just created or updated (saving the access to MP3)
 
     public:
         GSOverlay(GlobalState<_A, _S>& gs, std::unordered_map<Address, AccountState<_A, _S>>& ca)
@@ -109,18 +109,30 @@ namespace eevm
             // if not matched nor in cache nor in gs, then just create a temporary AccountState object and return it
             // TBD: note that this could be further optimized by creation of only temporary object in processor, which will be inserted
             // later by the caller of the processor (in its potentially updated form).
-            auto as = m_gs.create(addr, 0u, EMPTY_CODE_OBJ);
+            // IH: 5.2.23 - I am dropping the following line due to PARALLEL execution optimization - we do not write into external MP3 fragments here (and use a cache instead)
+            /// auto as = m_gs.create(addr, 0u, EMPTY_CODE_OBJ); 
+            SimpleAccountState as = SimpleAccountState();
+            as.acc.set_address(addr);
             auto it = m_cached_accnts.insert(std::make_pair(Address(addr), std::move(as)));  // hopefully, movable works here
-            return (*(it.first)).second;
-            ;
+            return (*(it.first)).second;            
         }
 
+        // IH: It creates the AS object only in the cache, not touching MP3 
         AccountState<_A, _S>& create(const Address& newAddress, const uint256_t& contractValue)
         {
-            assert(m_cached_accnts.end() == m_cached_accnts.find(newAddress));  // TODO: maybe exception handler should be called instead
-            assert(!m_gs.exists(newAddress));
+            if(m_cached_accnts.end() != m_cached_accnts.find(newAddress))
+                throw std::logic_error("create() of new AS not successfull => already exists in cached accounts created in this execution!");
+            if(m_gs.exists(newAddress))
+                throw std::logic_error("create() of new AS not successfull => already exists in GS");
 
-            auto as = m_gs.create(newAddress, contractValue, EMPTY_CODE_OBJ);
+            // assert(m_cached_accnts.end() == m_cached_accnts.find(newAddress));  // TODO: maybe exception handler should be called instead
+            // assert(!m_gs.exists(newAddress));
+
+            SimpleAccountState as = SimpleAccountState();
+            as.acc.set_address(newAddress);
+            as.acc.set_balance(contractValue);
+
+            // auto as = m_gs.create(newAddress, contractValue, EMPTY_CODE_OBJ); // MODIFYING the MP3 directly
             auto it = m_cached_accnts.insert(std::make_pair(Address(newAddress), std::move(as)));  // hopefully, movable works here
             return (*(it.first)).second;
             ;
@@ -132,7 +144,7 @@ namespace eevm
                 m_cached_accnts.erase(addr);
             }
             if (m_gs.exists(addr)) {  // do direct modification in GS
-                m_gs.remove(addr);
+                m_gs.remove(addr); // IH: TODO - do we need any lock here? (or handle it higher with access control lists)
             }
         }
     };

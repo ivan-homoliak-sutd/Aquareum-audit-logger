@@ -13,80 +13,141 @@
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
 
+#include "merkle-tree.h"
+
 using namespace dev;
 
 namespace eevm
 {
-/**
+    /**
    * MP3 from Aleth is used as a state preserving object
    */
-    template <uint CNT_FRAGMENTS>
     class FragmentedGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
     public:
         using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
-
+        const static uint16_t DEFAULT_FRAGS_CNT = 256;
 
     private:
-        Block * m_currentBlock;  // not used so far
+        Block* m_currentBlock;  // not used so far
 
-        // the full global state fragmented into 'CNT_FRAGMENTS' MP3 structures: containing all accounts splitted according to the 1st Byte of their addresses for simplifiing the concurrent access (except storages)
-        SecureTrieDB<h256, OverlayDB> m_frag_accounts[];  
+        const uint16_t m_cnt_frags = 0;  // the number of fragmented MP3s
 
-        std::unordered_map<Address, SimpleStorage> m_storages;  // storages of all accounts        
+        // the full global state fragmented into 'cntFrags' MP3 structures: containing all accounts splitted according to the 1st Byte of their addresses for simplifiing the concurrent access (except storages)
+        std::vector<SecureTrieDB<h256, OverlayDB>> m_frag_accounts;
 
-        void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size) const;
+        std::vector<std::unordered_map<Address, SimpleStorage>> m_frag_storages;  // storages of all accounts (fragmented)
 
-        // Logging of DB entries in MP3        
-        bool m_db_logging = false;  // indicates whether adresses of new accounts should be logged
-        unsigned m_db_logged_entries_cnt = 0; // counter of DB lookups that are logged in MP3 during the capture
+        void _dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx) const;
 
-        // Logging of new/updated ASes in MP3 (it is enough to log addrs since one AS can be modified many times)       
-        std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs = NULL; // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)       
+        // Logging of DB entries in MP3
+        bool m_db_logging[DEFAULT_FRAGS_CNT] = {false};             // indicates whether adresses of new accounts should be logged
+        unsigned m_db_logged_entries_cnt[DEFAULT_FRAGS_CNT] = {0};  // counter of DB lookups that are logged in MP3 during the capture
+
+        // Logging of new/updated ASes in MP3 (it is enough to log addrs since one AS can be modified many times)
+        std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs[DEFAULT_FRAGS_CNT];  // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)
+
 
     public:
-        FragmentedGlobalState(bool init = true)
-          : m_frag_accounts[CNT_FRAGMENTS], m_accounts(
-                new OverlayDB(std::move(
-                    std::unique_ptr<db::DatabaseFace>(
-                        new db::MemoryDB()))))  // MemoryDB is (currently) just a surrogate for the real persistant DB  (LevelDB)
+        FragmentedGlobalState(const uint16_t cntFrags, bool init = true)
+          : m_cnt_frags(cntFrags)
         {
-            if (init)
-                m_accounts.init();  // create empty node and insert it into MP3
+            if (cntFrags != FragmentedGlobalState::DEFAULT_FRAGS_CNT) {
+                throw std::logic_error("Only default number of fragments is currently supported.");
+            }
+
+            for (auto i = 0; i < cntFrags; i++) {
+                auto db =
+                    new OverlayDB(std::move(
+                        std::unique_ptr<db::DatabaseFace>(
+                            new db::MemoryDB())));  // MemoryDB is (currently) just a surrogate for the real persistant DB  (LevelDB)
+
+                m_frag_accounts.push_back(std::move(db));
+                m_frag_accounts.back().setFragIdx(i);
+
+                m_as_updatedAndNewAddrs[i] = NULL;
+
+                if (init)
+                    m_frag_accounts[i].init();  // create empty node and insert it into MP3 of each fragment
+            }
         };
 
-        ~NormalGlobalState() = default;
+        ~FragmentedGlobalState() = default;
 
         virtual void remove(const Address& addr) override;
 
+
         // state & storage getters
-        inline SecureTrieDB<h256, OverlayDB>& getAccounts() { return m_accounts; }
-        inline std::unordered_map<Address, SimpleStorage>& getStorages() { return m_storages; }
-        inline size_t getStoragesDataSize() {
+        inline const uint16_t cntFrags()
+        {
+            return m_cnt_frags;
+        }
+        inline std::vector<SecureTrieDB<h256, OverlayDB>>& getFrags()
+        {
+            return m_frag_accounts;
+        }
+        inline SecureTrieDB<h256, OverlayDB>& getAccounts(uint16_t fragIdx)
+        {
+            return m_frag_accounts[fragIdx];
+        }
+        inline std::unordered_map<Address, SimpleStorage>& getStorages(uint16_t fragIdx)
+        {
+            return m_frag_storages[fragIdx];
+        }
+        inline SimpleStorage& getStorage(const Address& addr)
+        {
+            auto addrAsHash = h256(addr);
+            uint16_t fragIdx = addrAsHash[0];
+            return m_frag_storages[fragIdx].at(addr);
+        }
+        inline size_t getStoragesDataSize(uint16_t fragIdx)
+        {
             size_t sumSize = 0;
-            for(auto& p: m_storages){
+            for (auto& p : m_frag_storages[fragIdx]) {
                 sumSize += p.second.sizeB();
             }
             return sumSize;
         }
 
-        inline db::MemoryDB* persDB() { return dynamic_cast<db::MemoryDB*>(m_accounts.db()->db().get()); }
-        inline OverlayDB* db() { return dynamic_cast<OverlayDB*>(m_accounts.db()); }
-        inline const h256& root() { return m_accounts.root(); }
+        inline db::MemoryDB* persDB(uint16_t fragIdx)
+        {
+            return dynamic_cast<db::MemoryDB*>(m_frag_accounts[fragIdx].db()->db().get());
+        }
+        inline OverlayDB* db(uint16_t fragIdx)
+        {
+            return dynamic_cast<OverlayDB*>(m_frag_accounts[fragIdx].db());
+        }
+        inline const h256& rootOfFragMP3(uint16_t fragIdx)
+        {
+            return m_frag_accounts[fragIdx].root();
+        }
+        inline const h256 root()
+        {
+            // build a temporary Merkle tree and return its root
 
-        inline void commitPersDB() { this->m_accounts.db()->commit(); }  // flushes state cache to persistant DB | should be called only in HOST, not enclave
+            auto merkleTree = MerkleTreeArray();
 
-        AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
-        AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;        
-        AccountState<SimpleAccount, SimpleStorage> update(const Address& addr, const StateEntry& p) override;
+            for (size_t i = 0; i < m_cnt_frags; i++) {
+                merkleTree.add(m_frag_accounts[i].root());
+            }
 
-        bool exists(const Address& addr) override;
-        size_t num_accounts();        
-        
-        void dump_full_db(std::vector<uint8_t>& mp3_keys,
-                          std::vector<uint8_t>& mp3_values,
-                          std::vector<size_t>& values_sizes,
-                          size_t& mp3_keys_size, size_t& values_sizes_size,
-                          std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
+            return std::move(merkleTree.computeRoot());
+        }
+
+        inline void commitPersDB()
+        {
+            // flushes state cache to persistant DB | should be called only in HOST, not enclave
+            for (size_t i = 0; i < m_cnt_frags; i++) {
+                this->m_frag_accounts[i].db()->commit();
+            }
+        }
+
+        size_t num_frag_accounts(const uint16_t fragIdx);
+
+        void dump_full_db_of_frag(std::vector<uint8_t>& mp3_keys,
+                                  std::vector<uint8_t>& mp3_values,
+                                  std::vector<size_t>& values_sizes,
+                                  size_t& mp3_keys_size, size_t& values_sizes_size,
+                                  std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx);
 
         void dump_partial_db(std::set<Address>& txs,
                              std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
@@ -100,56 +161,48 @@ namespace eevm
 
 
         /**
-         * @brief it starts/finishes logging of new and updated AS as well as storages
-         */
-        inline void startASLogging(std::unordered_set<eevm::Address>* newAndUpdatedAddrs)                                   
-        {
-            assert(NULL == m_as_updatedAndNewAddrs);
-            m_as_updatedAndNewAddrs = newAndUpdatedAddrs;            
-        }
-        
-        inline void finishASLogging()
-        {
-            assert(NULL != m_as_updatedAndNewAddrs);            
-            m_as_updatedAndNewAddrs = NULL;                        
-        }        
-
-        /**
          * @brief it starts/finish logging of DB entries of MP3
          */
-        inline void startDBLookupLogging(std::set<h256>* db_keys, std::vector<uint8_t>* db_data_aux)
+        inline void startDBLookupLogging(const std::set<h256>* db_keys_existing, std::set<h256>* db_keys_new, std::vector<uint8_t>* db_data_aux, const uint16_t fragIdx)
         {
-            assert(!m_db_logging);
-            m_db_logging = true;
-            m_accounts.startLookupLoggingMP3(db_keys, db_data_aux, &m_db_logged_entries_cnt);
-        }
-        
-        inline unsigned finishDBLookupLogging()
-        {
-            assert(m_db_logging);
-            m_db_logging = false;
-            m_accounts.finishLookupLoggingMP3();
-            return m_db_logged_entries_cnt;
+            assert(!m_db_logging[fragIdx]);
+            m_db_logging[fragIdx] = true;
+            m_frag_accounts[fragIdx].startLookupLoggingMP3(db_keys_existing, db_keys_new, db_data_aux, &m_db_logged_entries_cnt[fragIdx]);
         }
 
-        static int construct_full_state(NormalGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,
-                                        const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
-                                        const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size);
+        inline unsigned finishDBLookupLogging(const uint16_t fragIdx)
+        {
+            assert(m_db_logging[fragIdx]);
+            m_db_logging[fragIdx] = false;
+            m_frag_accounts[fragIdx].finishLookupLoggingMP3();
+            return m_db_logged_entries_cnt[fragIdx];
+        }
+
+        static int construct_full_state_of_frag(FragmentedGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,
+                                                const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
+                                                const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint16_t frag_Idx);
 
 
-        static int construct_partial_state(NormalGlobalState** out_gs, const uint8_t* gs_root_h,
+        static int construct_partial_state(FragmentedGlobalState** out_gs, const uint8_t* gs_root_h,
                                            const uint8_t* db_data, size_t db_data_size,
                                            const uint8_t* db_data_aux, size_t db_data_aux_size,
                                            const uint8_t* storages, const size_t* storages_sizes,
                                            size_t storages_sizes_size, const uint8_t* acnts_storages);
 
 
-        virtual const Block& get_current_block() override;
-        virtual uint256_t get_block_hash(uint8_t offset) override; 
-
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);
         // friend void from_json(const nlohmann::json&, NormalGlobalState&);
         friend void from_json(const nlohmann::json&, SimpleAccount&);
+
+        // Interface methods
+        AccountState<SimpleAccount, SimpleStorage> get(const Address& addr) override;
+        AccountState<SimpleAccount, SimpleStorage> create(const Address& addr, const uint256_t& balance, const Code& code) override;
+        AccountState<SimpleAccount, SimpleStorage> update(const Address& addr, const StateEntry& p) override;
+
+        bool exists(const Address& addr) override;
+
+        virtual const Block& get_current_block() override;
+        virtual uint256_t get_block_hash(uint8_t offset) override;
     };
 
     // void to_json(nlohmann::json&, const NormalGlobalState&);

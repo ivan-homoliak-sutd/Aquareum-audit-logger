@@ -55,7 +55,7 @@ int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 #ifdef TRACING_ENABLED
     const uint256_t output_result = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(output_result).c_str());
-#endif    
+#endif
 
     // Sync all (foreign) account states modified by the eEVM processor.
     for (auto& i : updated_accounts) {
@@ -71,10 +71,10 @@ int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
 
 /**
  * Considers the full MP3 global state transferred from the host part here
- * but also works for partial state, unless some DB entries are missing.
+ * but also works for partial state if no DB entries required to execute tx are missing.
  */
-int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size, 
-                MerkleTreeArray* txs_hashes, uint8_t * output_result)
+int32_t AQLedger::execute_tx_mp3state_full(eevm::FragmentedGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+                                           MerkleTreeArray* txs_hashes, uint8_t* output_result)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
 
@@ -100,7 +100,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     // 2) Verify signature of TX
     auto inp4hash = etx.asDataForHash();
     eevm::KeccakHash txHash = eevm::keccak_256(inp4hash);
-    if (txs_hashes) // no return before this point (we save TX hash here)
+    if (txs_hashes)               // no return before this point (we save TX hash here)
         txs_hashes->add(txHash);  // save the hash of TX for later aggregation
     if (!this->ecc.verify_sig((const secp256k1_ecdsa_recoverable_signature*)etx.signature, txHash.data(), etx.origin)) {
         TRACE_ENCLAVE("Signature verifiation of a TX failed.");
@@ -138,14 +138,15 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     // 4) update the balance of sender before we execute the code (to avoid inflation bugs)
     auto senderBalBefore = senderAccnt.acc.get_balance();  // TODO: check whether EEVM is not doing it !!!
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
-    auto& senderStorage = gs->getStorages().at(etx.origin);
+    auto& senderStorage = gs->getStorage(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
-        auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), 
-                                    senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
+        auto senderAccntUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(),
+                                                                              senderAccnt.acc.get_nonce(), senderStorage),
+                                                          senderStorage});
         assert(senderAccntUpdated.acc.get_balance() == senderBalBefore + senderDeducted);
     }
 
-    // 5) Create processor & Run code of TX  
+    // 5) Create processor & Run code of TX
     // TODO: it should not modify MP3 GS (make it const) - however, GSOverlay::getRef() in Processor needs to be fixed first
     TRACE_ENCLAVE("running processor.. (contr addr = %s)", eevm::address_to_hex_string(contrState->acc.get_address()).c_str());
     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // processor will fill this list if needed, and then we need to sync to MP3 gs
@@ -164,13 +165,13 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
         delete contrState;
         return ERR_EVM_WRONG_RET_CODE;
     }
-    if(NULL != output_result)
-        memcpy(output_result, e.output.data(), 32); // store output to the host memory                    
+    if (NULL != output_result)
+        memcpy(output_result, e.output.data(), 32);  // store output to the host memory
 
 #ifdef TRACING_ENABLED
     if (lh.logs.size())  // print LOG events emmitted in EVM
         TRACE_ENCLAVE("Emmited log events in EVM:\n %s", eevm::txlog_to_json_str(etx.log_handler).c_str());
-    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());        
+    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
     const uint256_t output_result_bi = eevm::from_big_endian(e.output.data(), 32);
     TRACE_ENCLAVE("output as str: %s", response.c_str());
     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_hex_string(output_result_bi).c_str());
@@ -186,6 +187,8 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::NormalGlobalState* gs, Persista
     gs->update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 9) (If any) sync all foreign account states modified by the eEVM processor (i.e., internal contract calls - by internal transactions)
+    // PARALLEL:  We should lock(mutex) all corresponding MP3 before calling executeTX() - use some access list?;
+    // So far all these were modified only in a cache of eEVM Processor.
     for (auto& i : updated_accounts) {
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
@@ -212,7 +215,7 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
 {
     TRACE_ENCLAVE("Simple transfer");
 
-    // allow account creation for operator (if it does not exist)    
+    // allow account creation for operator (if it does not exist)
     auto accnState = (etx.origin == this->operAddr && !gs->exists(etx.origin)) ? gs->create(etx.origin, 0u, EMPTY_CODE_OBJ) : gs->get(etx.origin);
 
     // 1) Increment the nonce and the balance of the sender
@@ -229,13 +232,13 @@ int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transactio
     // if TX was made by the operator then do not check his balance and just add the value to the sender
     auto senderBalBefore = accnState.acc.get_balance();
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
-    auto& senderStorage = gs->getStorages().at(etx.origin);
+    auto& senderStorage = gs->getStorage(etx.origin);
     auto accSndUpdated = gs->update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, code, accnState.acc.get_nonce(), senderStorage), senderStorage});  // update MP3 for sender
     assert(accSndUpdated.acc.get_balance() == senderBalBefore - senderDeducted);
 
     // 3) add value to the target account
     auto recvAcState = (!gs->exists(etx.to)) ? gs->create(etx.to, 0u, EMPTY_CODE_OBJ) : gs->get(etx.to);  // create target account if it does not exist
-    auto& storage = gs->getStorages().at(etx.to);                                                         // just copy the old storage
+    auto& storage = gs->getStorage(etx.to);                                                               // just copy the old storage
     auto recvBalanceBefore = recvAcState.acc.get_balance();
     code = recvAcState.acc.get_code_ref();
     auto recvAcStateAfter = gs->update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});

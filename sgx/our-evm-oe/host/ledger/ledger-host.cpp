@@ -267,7 +267,7 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
             TRACE_HOST("Contract address does not match the sender's address and his nonce");
             return ERR_EVM_WRONG_CONTR_ADDR;
         }
-        TRACE_HOST("Creating a new state for a contract %s", eevm::to_hex_string(etx.to).c_str());
+        TRACE_HOST("Creating a new contract %s with its state.", eevm::to_hex_string(etx.to).c_str());
         auto cs = m_gs.create(etx.to, etx.value, etx.code);  // insert account state of contract
         contrState = new eevm::SimpleAccountState(cs);
         contrDeployed = true;
@@ -280,7 +280,7 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     // 3) update the balance before we execute the code
     auto senderBalBefore = senderAccnt.acc.get_balance();  // TODO: check whether EEVM is not doing it !!!
     auto senderDeducted = (etx.origin == this->operAddr) ? intx::uint256(0u) : intx::uint256(etx.value);
-    auto& senderStorage = m_gs.getStorages().at(etx.origin);
+    auto& senderStorage = m_gs.getStorage(etx.origin);
     if (intx::uint256(0u) != senderDeducted) {  // skip update when zero value call is present
         auto senderAccntAfter = m_gs.update(etx.origin, {eevm::SimpleAccount(etx.origin, senderBalBefore - senderDeducted, senderAccnt.acc.get_code_ref(), senderAccnt.acc.get_nonce(), senderStorage), senderStorage});
         assert(senderAccntAfter.acc.get_balance() == senderBalBefore + senderDeducted);
@@ -320,6 +320,8 @@ int AQLedger::executeTX(eevm::PersistantTransaction* tx, uint256_t& result_u256)
     m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, etx.value, contrState->acc.get_code_ref(), contrState->acc.get_nonce(), contrState->st), contrState->st});
 
     // 8) Sync all (foreign) account states modified by the eEVM processor.
+    // PARALLEL:  We should lock(mutex) all corresponding MP3 before calling executeTX() - use some access list?; 
+    // So far all these were modified only in a cache of eEVM Processor.
     for (auto& i : updated_accounts) {
         auto& as = i.second;
         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
@@ -357,6 +359,13 @@ int AQLedger::_execute_transfer_tx(eevm::Transaction& etx)
         return ERROR_SIGNATURE_VERIFY_FAIL;
     }
 
+    // DROP
+    // // PARALLEL: get Idx of MP3 fragment from the  sender & receiver addresses
+    // auto senderAddrAsHash = h256(etx.origin);
+    // uint16_t senderFragIdx = senderAddrAsHash[0];
+    // auto recvAddrAsHash = h256(etx.to);
+    // uint16_t recvFragIdx = recvAddrAsHash[0];
+
     // allow new account creation for operator
     auto snderAcState = (etx.origin == this->operAddr && !m_gs.exists(etx.origin)) ? m_gs.create(etx.origin, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.origin);
 
@@ -365,7 +374,7 @@ int AQLedger::_execute_transfer_tx(eevm::Transaction& etx)
     if (EMPTY_CODE_OBJ == snderAcState.acc.get_code_ref()) {  // according to ETH Yellow paper, increment only if code of sender is empty (i.e., normal account)
         snderAcState.acc.set_nonce(snderAcState.acc.get_nonce() + 1);
     }
-    auto& storage = m_gs.getStorages().at(etx.origin);  // just copy the old storage
+    auto& storage = m_gs.getStorage(etx.origin);  // just copy the old storage
     auto& code = snderAcState.acc.get_code_ref();
     if (etx.origin != this->operAddr && (etx.value > snderAcState.acc.get_balance())) {
         error_print(fmt::format("The account {} does not have enough balance.", address_to_hex_string(etx.origin)));
@@ -379,7 +388,7 @@ int AQLedger::_execute_transfer_tx(eevm::Transaction& etx)
 
     // 3) add value to the target account
     auto recvAcState = (!m_gs.exists(etx.to)) ? m_gs.create(etx.to, 0u, EMPTY_CODE_OBJ) : m_gs.get(etx.to);  // cretate target account if it does not exist
-    storage = m_gs.getStorages().at(etx.to);                                                                 // just copy the old storage
+    storage = m_gs.getStorage(etx.to);                                                          // just copy the old storage
     code = recvAcState.acc.get_code_ref();
     auto recvBalanceBefore = recvAcState.acc.get_balance();
     auto recvAcStateAfter = m_gs.update(etx.to, {eevm::SimpleAccount(etx.to, recvBalanceBefore + intx::uint256(etx.value), code, recvAcState.acc.get_nonce(), storage), storage});

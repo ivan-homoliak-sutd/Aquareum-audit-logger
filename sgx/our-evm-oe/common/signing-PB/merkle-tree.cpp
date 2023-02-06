@@ -22,5 +22,6 @@ dev::h256 MerkleTreeArray::computeRoot()
         }
         tmpHashes.m_size /= 2;  // the second half of the hashes in the layer are not needed anymore
     }
-    return dev::h256(tmpHashes.data(), dev::h256::ConstructFromPointer);
+    /// The only valid element in tmpHashes is the root hash - others are just a trash
+    return std::move(dev::h256(tmpHashes.data(), dev::h256::ConstructFromPointer));
 }

@@ -37,14 +37,14 @@ namespace eevm
         // {}
 
         AccountState()
-          : acc(), st(*(new _Storage())) // IH: should be resolved nicer
+          : acc(), st(*(new _Storage()))  // IH: should be resolved nicer
         {
             // this should never happen, but template generation engine for unordered_map<.., AccountState<>> requires DEFINITION of defaut constructor
             throw std::logic_error("AccountState must not be constructed by default constructor.");
         }
 
         AccountState(const _Account&& a, _Storage& s)  // move ctor
-          : acc(a), st(s) // TODO: is std::move OK here??
+          : acc(a), st(s)                              // TODO: is std::move OK here??
         {}
 
         AccountState(const _Account& a, _Storage& s)  // copy ctor
@@ -87,9 +87,9 @@ namespace eevm
         virtual AccountState<_A, _S> update(const Address& addr, const GenericStateEntry& p) = 0;
 
         virtual bool exists(const Address& addr) = 0;
-      
+
         virtual const Block& get_current_block() = 0;
-        
+
         virtual uint256_t get_block_hash(uint8_t offset) = 0;
     };
 
