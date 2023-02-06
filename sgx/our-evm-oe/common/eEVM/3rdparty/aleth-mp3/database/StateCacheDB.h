@@ -20,7 +20,7 @@ public:
             unsigned size_aux_data;      
             unsigned size_main_keys;      
             unsigned size_aux_keys;         
-            unsigned size_main_stale; // stale data that can be purged (the purge was delayed due to performance)     
+            unsigned size_main_stale; // stale data that can be purged (the purge was delayed due to performance)                             
     } StorageStatsMP3DB;
     
     StateCacheDB() :m_stats({0, 0, 0, 0, 0}) {}

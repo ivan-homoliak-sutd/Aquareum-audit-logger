@@ -13,67 +13,67 @@
 /**
  * This is only tmp method since it fully maintains global state within the enclave.
  */
-int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
-                                              const uint8_t* code,
-                                              size_t code_size)
-{
-    TRACE_ENCLAVE("execute_tx_simplestate_internal invoked");
+// int AQLedger::execute_tx_simplestate_internal(PersistantTxProxy_T* tx,
+//                                               const uint8_t* code,
+//                                               size_t code_size)
+// {
+//     TRACE_ENCLAVE("execute_tx_simplestate_internal invoked");
 
-    // create eevm::Tx object from the proxy and code
-    auto c = std::vector<uint8_t>(std::move(code), code + code_size);
-    auto lh = eevm::NullLogHandler();
+//     // create eevm::Tx object from the proxy and code
+//     auto c = std::vector<uint8_t>(std::move(code), code + code_size);
+//     auto lh = eevm::NullLogHandler();
 
-    auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
-                                 reinterpret_cast<eevm::Address*>(tx->to),
-                                 lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
+//     auto etx = eevm::Transaction(reinterpret_cast<eevm::Address*>(tx->origin),
+//                                  reinterpret_cast<eevm::Address*>(tx->to),
+//                                  lh, c, tx->value, tx->nonce, tx->gas_price, tx->gas_limit, (uint8_t*)tx->signature);
 
-    // Deploy contract to simple global state (internal to enclave)
-    auto contract = this->simple_gs.create(etx.to, 0, c);
+//     // Deploy contract to simple global state (internal to enclave)
+//     auto contract = this->simple_gs.create(etx.to, 0, c);
 
-    TRACE_ENCLAVE("running processor...");
+//     TRACE_ENCLAVE("running processor...");
 
-    // Create processor
-    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;
-    eevm::T_Processor p(this->simple_gs, updated_accounts);
+//     // Create processor
+//     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;
+//     eevm::T_Processor p(this->simple_gs, updated_accounts);
 
-    // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
-    // with empty input
-    eevm::Trace tr;
-    const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, &tr);
+//     // Execute code. All executions are associated with a TX. This TX is called by sender, executing the code in contract,
+//     // with empty input
+//     eevm::Trace tr;
+//     const eevm::ExecResult e = p.run(etx, etx.origin, contract, {}, 0, &tr);
 
-    // Check the response
-    if (e.er != eevm::ExitReason::returned) {
-        tr.print_last_n(std::cout, 10);
-        std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
-        return ERR_EVM_WRONG_RET_CODE;
-    }
-    // tr.print_last_n(std::cout, 10);
+//     // Check the response
+//     if (e.er != eevm::ExitReason::returned) {
+//         tr.print_last_n(std::cout, 10);
+//         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+//         return ERR_EVM_WRONG_RET_CODE;
+//     }
+//     // tr.print_last_n(std::cout, 10);
 
-    const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
-    TRACE_ENCLAVE("output as str: %s", response.c_str());
+//     const std::string response(reinterpret_cast<const char*>(e.output.data()), e.output.size());
+//     TRACE_ENCLAVE("output as str: %s", response.c_str());
 
-#ifdef TRACING_ENABLED
-    const uint256_t output_result = eevm::from_big_endian(e.output.data(), 32);
-    TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(output_result).c_str());
-#endif
+// #ifdef TRACING_ENABLED
+//     const uint256_t output_result = eevm::from_big_endian(e.output.data(), 32);
+//     TRACE_ENCLAVE("output as 32B hex: %s", eevm::to_lower_hex_string(output_result).c_str());
+// #endif
 
-    // Sync all (foreign) account states modified by the eEVM processor.
-    for (auto& i : updated_accounts) {
-        auto& as = i.second;
-        TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
-        // throw std::logic_error("Not tested yet!");
-        as.acc.set_stHash(as.st.hash());
-        simple_gs.update(i.first, {as.acc, as.st});
-    }
+//     // Sync all (foreign) account states modified by the eEVM processor.
+//     for (auto& i : updated_accounts) {
+//         auto& as = i.second;
+//         TRACE_ENCLAVE("Updating (FOREIGN) account: %s", eevm::address_to_hex_string(as.acc.get_address()).c_str());
+//         // throw std::logic_error("Not tested yet!");
+//         as.acc.set_stHash(as.st.hash());
+//         simple_gs.update(i.first, {as.acc, as.st});
+//     }
 
-    return RET_SUCCESS;
-}
+//     return RET_SUCCESS;
+// }
 
 /**
  * Considers the full MP3 global state transferred from the host part here
  * but also works for partial state if no DB entries required to execute tx are missing.
  */
-int32_t AQLedger::execute_tx_mp3state_full(eevm::FragmentedGlobalState* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
+int32_t AQLedger::execute_tx_mp3state_full(eevm::GlobalStateGeneric* gs, PersistantTxProxy_T* tx, const uint8_t* code, size_t code_size,
                                            MerkleTreeArray* txs_hashes, uint8_t* output_result)
 {
     TRACE_ENCLAVE("execute_tx_mp3state_full invoked");
@@ -211,7 +211,7 @@ int32_t AQLedger::execute_tx_mp3state_full(eevm::FragmentedGlobalState* gs, Pers
     return RET_SUCCESS;
 }
 
-int AQLedger::_execute_transfer_tx(eevm::NormalGlobalState* gs, eevm::Transaction& etx)
+int AQLedger::_execute_transfer_tx(eevm::GlobalStateGeneric* gs, eevm::Transaction& etx)
 {
     TRACE_ENCLAVE("Simple transfer");
 
@@ -275,63 +275,63 @@ std::vector<uint8_t> create_bytecode(const std::string& s)
     return code;
 }
 
-int AQLedger::execute_hello_world()
-{
-    // Create random addresses for sender and contract
-    std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
-    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+// int AQLedger::execute_hello_world()
+// {
+//     // Create random addresses for sender and contract
+//     std::vector<uint8_t> raw_address(20);  // addrress has 20 Bytes
+//     std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
 
-    const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
+//     const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-    std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
-    const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
+//     std::generate(raw_address.begin(), raw_address.end(), []() { return std::rand(); });
+//     const eevm::Address to = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-    // Create global state
-    eevm::SimpleGlobalState gs;
+//     // Create global state
+//     eevm::SimpleGlobalState gs;
 
-    // Create code
-    std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
-    const eevm::Code code = create_bytecode(hello_world);
+//     // Create code
+//     std::string hello_world("[ENCLAVE]: Executed smart contract that prints this msg!");
+//     const eevm::Code code = create_bytecode(hello_world);
 
-    // Deploy contract to global state
-    eevm::SimpleAccountState contract = gs.create(to, 0, code);
+//     // Deploy contract to global state
+//     eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
-    // Create transaction
-    // eevm::NullLogHandler ignore;
-    auto lh = eevm::VectorLogHandler();
-    eevm::Transaction tx(sender, to, lh);
+//     // Create transaction
+//     // eevm::NullLogHandler ignore;
+//     auto lh = eevm::VectorLogHandler();
+//     eevm::Transaction tx(sender, to, lh);
 
-    // Create processor
-    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
+//     // Create processor
+//     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
+//     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
 
-    // Execute code. All executions are associated with a transaction. This
-    // transaction is called by sender, executing the code in contract, with empty
-    // input (and no trace collection)
-    eevm::Trace tr;
-    const eevm::ExecResult e = p.run(tx, sender, contract, {}, 0, &tr);
+//     // Execute code. All executions are associated with a transaction. This
+//     // transaction is called by sender, executing the code in contract, with empty
+//     // input (and no trace collection)
+//     eevm::Trace tr;
+//     const eevm::ExecResult e = p.run(tx, sender, contract, {}, 0, &tr);
 
-    // Check the response
-    if (e.er != eevm::ExitReason::returned) {
-        tr.print_last_n(std::cout, 10);
-        std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
-        return 2;
-    }
-    // tr.print_last_n(std::cout, 10);
-    TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(tx.log_handler).c_str());
+//     // Check the response
+//     if (e.er != eevm::ExitReason::returned) {
+//         tr.print_last_n(std::cout, 10);
+//         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+//         return 2;
+//     }
+//     // tr.print_last_n(std::cout, 10);
+//     TRACE_ENCLAVE("Log handler of TX:\n %s", eevm::txlog_to_json_str(tx.log_handler).c_str());
 
-    // Create string from response data, and print it
-    const std::string response(reinterpret_cast<const char*>(e.output.data()));
-    if (response != hello_world) {
-        throw std::runtime_error(fmt::format(
-            "[ENCLAVE:]  Incorrect result.\n Expected: {}\n Actual: {}", hello_world, response));
-        return 3;
-    }
+//     // Create string from response data, and print it
+//     const std::string response(reinterpret_cast<const char*>(e.output.data()));
+//     if (response != hello_world) {
+//         throw std::runtime_error(fmt::format(
+//             "[ENCLAVE:]  Incorrect result.\n Expected: {}\n Actual: {}", hello_world, response));
+//         return 3;
+//     }
 
-    std::cout << response << std::endl;
+//     std::cout << response << std::endl;
 
-    return 0;
-}
+//     return 0;
+// }
 
 //////////////////////////// Hardcoded summing contract execution  ////////////////////////////////
 
@@ -373,87 +373,87 @@ std::vector<uint8_t> create_a_plus_b_bytecode(const uint256_t& a, const uint256_
     return code;
 }
 
-int AQLedger::execute_sum_a_b(int a, int b)
-{
-    // Validate args, read verbose option
-    bool verbose = true;
-    srand(time(nullptr));
+// int AQLedger::execute_sum_a_b(int a, int b)
+// {
+//     // Validate args, read verbose option
+//     bool verbose = true;
+//     srand(time(nullptr));
 
-    // Parse args
-    const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
-    const uint256_t arg_b = eevm::to_uint256(std::to_string(b));
+//     // Parse args
+//     const uint256_t arg_a = eevm::to_uint256(std::to_string(a));
+//     const uint256_t arg_b = eevm::to_uint256(std::to_string(b));
 
-    if (verbose)
-        std::cout << fmt::format("[ENCLAVE:] Calculating {} + {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)) << std::endl;
+//     if (verbose)
+//         std::cout << fmt::format("[ENCLAVE:] Calculating {} + {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b)) << std::endl;
 
-    std::cout << "[ENCLAVE]: Starting summing smart contract..." << std::endl;
+//     std::cout << "[ENCLAVE]: Starting summing smart contract..." << std::endl;
 
-    // Invent a random address to use as sender
-    std::vector<uint8_t> raw_address(20);
-    std::generate(raw_address.begin(), raw_address.end(), []() { return rand(); });
-    const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
+//     // Invent a random address to use as sender
+//     std::vector<uint8_t> raw_address(20);
+//     std::generate(raw_address.begin(), raw_address.end(), []() { return rand(); });
+//     const eevm::Address sender = eevm::from_big_endian(raw_address.data(), raw_address.size());
 
-    // Generate a target address for the summing contract (this COULD be random,
-    // but here we use the scheme for Contract Creation specified in the Yellow Paper)
-    const eevm::Address to = eevm::generate_address(sender, 0);
+//     // Generate a target address for the summing contract (this COULD be random,
+//     // but here we use the scheme for Contract Creation specified in the Yellow Paper)
+//     const eevm::Address to = eevm::generate_address(sender, 0);
 
-    // Create summing bytecode
-    const eevm::Code code = create_a_plus_b_bytecode(arg_a, arg_b);
+//     // Create summing bytecode
+//     const eevm::Code code = create_a_plus_b_bytecode(arg_a, arg_b);
 
-    // Construct global state
-    eevm::SimpleGlobalState gs;
+//     // Construct global state
+//     eevm::SimpleGlobalState gs;
 
-    // Populate the global state with the constructed contract
-    eevm::SimpleAccountState contract = gs.create(to, 0, code);
+//     // Populate the global state with the constructed contract
+//     eevm::SimpleAccountState contract = gs.create(to, 0, code);
 
-    if (verbose) {
-        std::cout << fmt::format(
-                         "[ENCLAVE:] Target address {} contains the following bytecode:\n {}",
-                         eevm::to_checksum_address(to),
-                         eevm::to_hex_string(contract.acc.get_code()))
-                  << std::endl;
-    }
+//     if (verbose) {
+//         std::cout << fmt::format(
+//                          "[ENCLAVE:] Target address {} contains the following bytecode:\n {}",
+//                          eevm::to_checksum_address(to),
+//                          eevm::to_hex_string(contract.acc.get_code()))
+//                   << std::endl;
+//     }
 
-    // Construct a transaction object
-    eevm::NullLogHandler ignore;  //< Ignore any logs produced by this transaction
-    std::cout << "[ENCLAVE]: Creating Transaction" << std::endl;
-    eevm::Transaction tx(sender, to, ignore);
+//     // Construct a transaction object
+//     eevm::NullLogHandler ignore;  //< Ignore any logs produced by this transaction
+//     std::cout << "[ENCLAVE]: Creating Transaction" << std::endl;
+//     eevm::Transaction tx(sender, to, ignore);
 
-    std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
+//     std::cout << "[ENCLAVE]: Creating eEVM Processor" << std::endl;
 
-    // Construct processor
-    std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
-    eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
+//     // Construct processor
+//     std::unordered_map<eevm::Address, eevm::SimpleAccountState> updated_accounts;  // we will ignore it after
+//     eevm::Processor<eevm::SimpleAccount, eevm::SimpleStorage> p(gs, updated_accounts);
 
-    if (verbose)
-        std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender), eevm::to_checksum_address(to))
-                  << std::endl;
+//     if (verbose)
+//         std::cout << fmt::format("[ENCLAVE:] Executing a transaction from {} to {}", eevm::to_checksum_address(sender), eevm::to_checksum_address(to))
+//                   << std::endl;
 
-    // Run transaction
-    eevm::Trace tr;
-    const eevm::ExecResult e = p.run(
-        tx,
-        sender,
-        contract,
-        {},  //< No input - the arguments are hard-coded in the contract
-        0,   //< No gas value
-        &tr  //< Record execution trace
-    );
+//     // Run transaction
+//     eevm::Trace tr;
+//     const eevm::ExecResult e = p.run(
+//         tx,
+//         sender,
+//         contract,
+//         {},  //< No input - the arguments are hard-coded in the contract
+//         0,   //< No gas value
+//         &tr  //< Record execution trace
+//     );
 
-    if (e.er != eevm::ExitReason::returned) {
-        std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
-        return 2;
-    }
+//     if (e.er != eevm::ExitReason::returned) {
+//         std::cout << fmt::format("[ENCLAVE:] Unexpected return code: {}", (size_t)e.er) << std::endl;
+//         return 2;
+//     }
 
-    if (verbose)
-        std::cout << fmt::format("[ENCLAVE:] Execution completed, and returned a result of {} bytes", e.output.size()) << std::endl;
+//     if (verbose)
+//         std::cout << fmt::format("[ENCLAVE:] Execution completed, and returned a result of {} bytes", e.output.size()) << std::endl;
 
-    const uint256_t result = eevm::from_big_endian(e.output.data(), e.output.size());
+//     const uint256_t result = eevm::from_big_endian(e.output.data(), e.output.size());
 
-    std::cout << "[ENCLAVE:]" << fmt::format("{} + {} = {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b), eevm::to_lower_hex_string(result)) << std::endl;
+//     std::cout << "[ENCLAVE:]" << fmt::format("{} + {} = {}", eevm::to_lower_hex_string(arg_a), eevm::to_lower_hex_string(arg_b), eevm::to_lower_hex_string(result)) << std::endl;
 
-    return 0;
-}
+//     return 0;
+// }
 
 
 ////////////////////////////// Static Methods //////////////////////////////

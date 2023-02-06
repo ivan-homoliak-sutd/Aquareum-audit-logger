@@ -24,7 +24,7 @@ namespace eevm
    */
     class FragmentedGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
     public:
-        using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
+        // using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std::map
         const static uint16_t DEFAULT_FRAGS_CNT = 256;
 
     private:
@@ -44,7 +44,7 @@ namespace eevm
         unsigned m_db_logged_entries_cnt[DEFAULT_FRAGS_CNT] = {0};  // counter of DB lookups that are logged in MP3 during the capture
 
         // Logging of new/updated ASes in MP3 (it is enough to log addrs since one AS can be modified many times)
-        std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs[DEFAULT_FRAGS_CNT];  // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)
+        std::unordered_set<eevm::Address>* m_as_updatedAndNewAddrs;  // NULL indicates whether the logging of new AS is in place or not (should be used only in enclave)
 
 
     public:
@@ -64,11 +64,10 @@ namespace eevm
                 m_frag_accounts.push_back(std::move(db));
                 m_frag_accounts.back().setFragIdx(i);
 
-                m_as_updatedAndNewAddrs[i] = NULL;
-
                 if (init)
                     m_frag_accounts[i].init();  // create empty node and insert it into MP3 of each fragment
             }
+            m_as_updatedAndNewAddrs = NULL;
         };
 
         ~FragmentedGlobalState() = default;
@@ -99,6 +98,22 @@ namespace eevm
             uint16_t fragIdx = addrAsHash[0];
             return m_frag_storages[fragIdx].at(addr);
         }
+        inline unsigned getDbStorageItems()
+        {
+            unsigned sum = 0;
+            for (size_t i = 0; i < DEFAULT_FRAGS_CNT; i++) {
+                sum += m_frag_storages[i].size();
+            }
+            return sum;
+        }
+        inline size_t getStoragesDataSize()
+        {
+            unsigned sum = 0;
+            for (size_t i = 0; i < DEFAULT_FRAGS_CNT; i++) {
+                sum += getStoragesDataSize(i);
+            }
+            return sum;
+        }
         inline size_t getStoragesDataSize(uint16_t fragIdx)
         {
             size_t sumSize = 0;
@@ -106,6 +121,29 @@ namespace eevm
                 sumSize += p.second.sizeB();
             }
             return sumSize;
+        }
+
+        inline StateCacheDB::StorageStatsMP3DB getDbStorageStats()
+        {
+            auto fullstats = StateCacheDB::StorageStatsMP3DB();
+
+            for (size_t i = 0; i < DEFAULT_FRAGS_CNT; i++) {
+                auto& sti = m_frag_accounts[i].db()->m_stats;
+                fullstats.size_main_data += sti.size_main_data;
+                fullstats.size_aux_data += sti.size_aux_data;
+                fullstats.size_main_keys += sti.size_main_keys;
+                fullstats.size_aux_keys += sti.size_aux_keys;
+                fullstats.size_main_stale += sti.size_main_stale;
+            }
+
+            return fullstats;  // hope RVO works here
+        }
+
+        inline void purgeStaleEntriesInDB()
+        {
+            for (size_t i = 0; i < DEFAULT_FRAGS_CNT; i++) {
+                m_frag_accounts[i].db()->purge();
+            }
         }
 
         inline db::MemoryDB* persDB(uint16_t fragIdx)
@@ -143,11 +181,17 @@ namespace eevm
 
         size_t num_frag_accounts(const uint16_t fragIdx);
 
-        void dump_full_db_of_frag(std::vector<uint8_t>& mp3_keys,
-                                  std::vector<uint8_t>& mp3_values,
-                                  std::vector<size_t>& values_sizes,
-                                  size_t& mp3_keys_size, size_t& values_sizes_size,
-                                  std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx);
+        // void dump_full_db_of_frag(std::vector<uint8_t>& mp3_keys,
+        //   std::vector<uint8_t>& mp3_values,
+        //   std::vector<size_t>& values_sizes,
+        //   size_t& mp3_keys_size, size_t& values_sizes_size,
+        //   std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx);
+
+        void dump_full_db(std::vector<uint8_t>& mp3_keys,
+                          std::vector<uint8_t>& mp3_values,
+                          std::vector<size_t>& values_sizes,
+                          size_t& mp3_keys_size, size_t& values_sizes_size,
+                          std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size);
 
         void dump_partial_db(std::set<Address>& txs,
                              std::vector<uint8_t>& db_data, std::set<h256>& db_keys,
@@ -159,6 +203,20 @@ namespace eevm
          */
         void insert(const StateEntry& e);
 
+        /**
+         * @brief it starts/finishes logging of new and updated AS as well as storages during the execution of eEVM processor in E (so the host can update its MP3 w/o re-execution of txs)
+         */
+        inline void startASLogging(std::unordered_set<eevm::Address>* newAndUpdatedAddrs)
+        {
+            assert(NULL == m_as_updatedAndNewAddrs);
+            m_as_updatedAndNewAddrs = newAndUpdatedAddrs;
+        }
+
+        inline void finishASLogging()
+        {
+            assert(NULL != m_as_updatedAndNewAddrs);
+            m_as_updatedAndNewAddrs = NULL;
+        }
 
         /**
          * @brief it starts/finish logging of DB entries of MP3
@@ -182,9 +240,13 @@ namespace eevm
                                                 const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint16_t frag_Idx);
 
+        static int construct_full_state(FragmentedGlobalState** out_gs, const uint8_t* mp3_keys, size_t mp3_keys_size,
+                                        const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
+                                        const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size);
+
 
         static int construct_partial_state(FragmentedGlobalState** out_gs,
-                                           const uint8_t* gs_root_frag_h, const size_t roots_size,
+                                           const uint8_t* gs_root_frag_h,
                                            const uint8_t* db_data, const size_t db_data_size,
                                            const uint8_t* db_data_aux, const size_t db_data_aux_size,
                                            const uint8_t* storages, const size_t* storages_sizes,

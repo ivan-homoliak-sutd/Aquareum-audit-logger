@@ -4,6 +4,7 @@
 #pragma once
 
 #include "account.h"
+#include "aleth-mp3/database/StateCacheDB.h"
 #include "block.h"
 #include "simple/simpleaccount.h"
 #include "simple/simplestorage.h"
@@ -70,6 +71,9 @@ namespace eevm
    */
     template <class _A, class _S>
     struct GlobalState {
+    public:
+        using StateEntry = std::pair<_A, _S>;  // SimpleStorage is just std::map
+
         virtual void remove(const Address& addr) = 0;
 
         virtual ~GlobalState() {}
@@ -91,6 +95,30 @@ namespace eevm
         virtual const Block& get_current_block() = 0;
 
         virtual uint256_t get_block_hash(uint8_t offset) = 0;
+
+        virtual const h256 root() = 0;
+
+        virtual _S& getStorage(const Address& addr) = 0;
+
+        virtual void purgeStaleEntriesInDB() = 0;
+
+        virtual StateCacheDB::StorageStatsMP3DB getDbStorageStats() = 0;
+
+        virtual unsigned getDbStorageItems() = 0;
+
+        virtual size_t getStoragesDataSize() = 0;
+
+        virtual void startASLogging(std::unordered_set<eevm::Address>* newAndUpdatedAddrs) = 0;
+
+        virtual void startDBLookupLogging(const std::set<h256>* db_keys_existing, std::set<h256>* db_keys_new, std::vector<uint8_t>* db_data_aux, const uint16_t fragIdx = 0) = 0;
+
+        virtual unsigned finishDBLookupLogging(const uint16_t fragIdx = 0) = 0;
+
+        virtual void finishASLogging() = 0;
+
+        virtual const uint16_t cntFrags() = 0;
     };
+
+    using GlobalStateGeneric = GlobalState<SimpleAccount, SimpleStorage>;
 
 }  // namespace eevm

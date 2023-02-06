@@ -172,7 +172,7 @@ void Operator::_printGlobalState(unsigned maxPerFrag = 20)
     uint16_t idxFrag = 0;
     uint16_t cntFrags = this->m_ledger.m_gs.cntFrags();  // The number of fragmented MP3 structures in global state
     for (const auto& fragAccnts : this->m_ledger.m_gs.getFrags()) {
-        std::cout << fmt::format("Fragmented MP3 with ID = {}.\n", idxFrag++);
+        std::cout << fmt::format("Fragmented MP3 with ID = {} / {}.\n", idxFrag++, cntFrags);
 
         unsigned i = 1;
         for (const auto& a : fragAccnts) {
@@ -205,7 +205,10 @@ void Operator::_printGlobalState(unsigned maxPerFrag = 20)
 void Operator::_printTrailOfMP3Leaf(Address& key)
 {
     std::cout << "\n MP3 Printing trail of address: " << to_hex_string(key) << "\n";
-    auto& accounts = this->m_ledger.m_gs.getAccounts();
+
+    auto addrAsHash = h256(key);
+    uint16_t fragIdx = addrAsHash[0];
+    auto& accounts = this->m_ledger.m_gs.getAccounts(fragIdx);
     auto it = accounts.lower_bound(h256(key));
 
     // print trail of iterator
@@ -251,7 +254,9 @@ void Operator::_printTrailOfMP3Leaf(Address& key)
 
 void Operator::_iterExps(Address& key)
 {
-    auto& accounts = this->m_ledger.m_gs.getAccounts();
+    auto addrAsHash = h256(key);
+    uint16_t fragIdx = addrAsHash[0];
+    auto& accounts = this->m_ledger.m_gs.getAccounts(fragIdx);
 
     // normal iterator - passes only leafs
     std::cout << "\n MP3 Normal iterator starting from node: " << to_hex_string(key) << "\n";
@@ -415,18 +420,18 @@ int Operator::_autoPurgeMP3DB(oe_enclave_t* enclave, const std::string& encMaxMB
     }
 
     // 2) clean up Host (if needed)
-    auto db_stats = m_ledger.m_gs.db()->m_stats;
+    auto db_stats = m_ledger.m_gs.getDbStorageStats();
     if (db_stats.size_main_stale >= hostMaxStaleB) {
         std::cout << fmt::format("\t Auto-Purging MP3 stale data in host (stale size = {:n} | max allowed = {:n})", db_stats.size_main_stale, hostMaxStaleB) << "\n";
-        m_ledger.m_gs.db()->purge();
+        m_ledger.m_gs.purgeStaleEntriesInDB();
     }
     return 0;
 }
 
 void Operator::_forcePurgeStaleMP3(oe_enclave_t* enclave)
 {
-    m_ledger.m_gs.db()->purge();  // purge stale entries of database in the host
-    _purgeStaleMP3Enc(enclave);   // purge stale entries of database in the enclave
+    m_ledger.m_gs.purgeStaleEntriesInDB();  // purge stale entries of database in the host
+    _purgeStaleMP3Enc(enclave);             // purge stale entries of database in the enclave
 }
 
 ////////////////////////////////////////
@@ -528,10 +533,10 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
                       << "\n"
                       << "Hardcoded testing:\n"
-                      << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
+                    //   << "\t test"         << "\t\t create some TX in enclave and run it there.\n"
                       << "\t test erc [a][b]" << "\t execute 'a' token transfer TXs (among 5 random accounts) through selected ERC contract, proceessed in batches of size 'b' [default a=10, b=10].\n"
                       << "\t test pay [a][b]" << "\t execute 'a' native payment transfer TXs (among 5 random accounts), proceessed in batches of size 'b' [default a=10, b=10].\n"
-                      << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
+                    //   << "\t tx"           << "\t\t create TX that returns hello word string and send it to enclave.\n"
                       << "\t tx add a b"   << "\t create TX that sums 'a' and 'b' in host and send it to enclave.\n"
                       << "\t iter [a]"     << "\t experimennts with MP3 iterator.\n"
                       << "\t trail [a]"    << "\t print trail of MP3 related to account with address a [default=1st address]. .\n"
@@ -549,7 +554,7 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
         } else if (0 == strcmp(command, "mem")) {
             // dump memory stats about global state stored within the enclave (i.e., database size)
             std::cout << "Host memory used for MP3 DB:\n";
-            auto db_stats = m_ledger.m_gs.db()->m_stats;
+            auto db_stats = m_ledger.m_gs.getDbStorageStats();
             unsigned total = db_stats.size_main_data + db_stats.size_aux_data + db_stats.size_main_keys + db_stats.size_aux_keys;
             std::cout << fmt::format("\t main data = {:n}\n \t main keys = {:n}\n ", db_stats.size_main_data, db_stats.size_main_keys);
             std::cout << fmt::format("\t aux data  = {:n}\n \t aux keys  = {:n}\n ", db_stats.size_aux_data, db_stats.size_aux_keys);
@@ -568,8 +573,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             std::cout << fmt::format("\t stale     = {:n}\n ", enc_stats.size_main_stale);
 
             std::cout << "\nEnclave memory used for storages DB:\n";
-            std::cout << fmt::format("\t #cnt = {:n}\n", m_ledger.m_gs.getStorages().size());
-            std::cout << fmt::format("\t data = {:n}\n \t keys  = {:n}\n ", m_ledger.m_gs.getStoragesDataSize(), sizeof(eevm::Address) * m_ledger.m_gs.getStorages().size());
+            std::cout << fmt::format("\t #cnt = {:n}\n", m_ledger.m_gs.getDbStorageItems());
+            std::cout << fmt::format("\t data = {:n} B\n \t keys  = {:n} B\n ", m_ledger.m_gs.getStoragesDataSize(), sizeof(eevm::Address) * m_ledger.m_gs.getDbStorageItems() * sizeof(uint256_t));
             // TODO: do not store storage for simple accounts!
 
         } else if (0 == strcmp(command, "purge")) {
@@ -667,7 +672,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             eevm::Address addr;
             if (1 == tokenCnt) {
-                addr = (*this->m_ledger.m_gs.getAccounts().begin()).first;
+                std::cout << "No address specified... so taking implicitly the 1st address of the 1st MP3 fragment\n";
+                addr = (*this->m_ledger.m_gs.getAccounts(0).begin()).first;
             } else {
                 auto it = tokens->begin();
                 std::advance(it, 1);
@@ -687,7 +693,8 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
 
             eevm::Address addr;
             if (1 == tokenCnt) {
-                addr = (*this->m_ledger.m_gs.getAccounts().begin()).first;
+                std::cout << "No address specified... so taking implicitly the 1st address of the 1st MP3 fragment\n";
+                addr = (*this->m_ledger.m_gs.getAccounts(0).begin()).first;
             } else {
                 auto it = tokens->begin();
                 std::advance(it, 1);
@@ -920,13 +927,13 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             this->_testBulkNativePayments_batched_repeated(enclave, n, accntsCount, b, repetitions);
 
 
-        } else if (0 == strcmp(command, "test")) {
-            info_print("Invoking internally generated TXs in enclave...");
+            // } else if (0 == strcmp(command, "test")) {
+            //     info_print("Invoking internally generated TXs in enclave...");
 
-            ecall_ret = ecall_enclave_aqledger(enclave);
-            if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when invoking internal TX generation.");
-            }
+            //     ecall_ret = ecall_enclave_aqledger(enclave);
+            //     if (ecall_ret != OE_OK || is_error(ret)) {
+            //         error_print("Error when invoking internal TX generation.");
+            //     }
         } else if (0 == strncmp(command, "call ", 5)) {
             uint tokenCnt;
             if (!correct_token_cnt(command_s, {2, 3, 4, 5, 6, 7, 8, 9, 10}, &tokens, &tokenCnt))  // MAX is 10 params so far
@@ -1036,18 +1043,18 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             // if (ecall_ret != OE_OK || is_error(ret)) {
             //     error_print("Error when processing sum TX in Enclave.");
             // }
-        } else if (0 == strcmp(command, "tx inc")) {
-            info_print("Creating increment counter TX ...");
+            // } else if (0 == strcmp(command, "tx inc")) {
+            //     info_print("Creating increment counter TX ...");
 
-            // create and sign TX
-            tx = this->m_ledger.createIncCounterTX(this->PK_O, this->SK_O);
+            //     // create and sign TX
+            //     tx = this->m_ledger.createIncCounterTX(this->PK_O, this->SK_O);
 
-            ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
-                                                        (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-                                                        (const uint8_t*)tx->code.data(), tx->code.size());
-            if (ecall_ret != OE_OK || is_error(ret)) {
-                error_print("Error when processing increment counter TX in Enclave.");
-            }
+            //     ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            //                                                 (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            //                                                 (const uint8_t*)tx->code.data(), tx->code.size());
+            //     if (ecall_ret != OE_OK || is_error(ret)) {
+            //         error_print("Error when processing increment counter TX in Enclave.");
+            //     }
         } else if (0 == strncmp(command, "deploy", 6)) {
             info_print("Creating contract ...");
             if (!correct_token_cnt(command_s, {2}, &tokens))
@@ -1077,19 +1084,19 @@ void Operator::operatorLoop(oe_enclave_t* enclave)
             sh_vars["$?"] = address_to_hex_string(tx->to);
             def.owner = sh_origin;
             m_contracts[tx->to] = def;  // store binding of contract address to its definition
-        } else if (0 == strcmp(command, "tx")) {
-            info_print("Creating hello world TX ...");
-            auto selAccnt = m_ledger.m_gs.get(sh_origin).acc;  // get O's account state
+            // } else if (0 == strcmp(command, "tx")) {
+            //     info_print("Creating hello world TX ...");
+            //     auto selAccnt = m_ledger.m_gs.get(sh_origin).acc;  // get O's account state
 
-            // create and sign TX
-            tx = this->m_ledger.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
-            if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
-                continue;
+            //     // create and sign TX
+            //     tx = this->m_ledger.createHelloWorldTX(m_accounts[sh_origin], selAccnt.get_nonce());
+            //     if (RET_SUCCESS != this->_dispatchTX(enclave, tx, output_u256))
+            //         continue;
 
-            // [Alternative] executing TX in E while using E's full state
-            // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
-            // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
-            // (const uint8_t*)tx->code.data(), tx->code.size());
+            //     // [Alternative] executing TX in E while using E's full state
+            //     // ecall_ret = ecall_run_single_tx_simplestate(enclave, &ret,
+            //     // (PersistantTxProxy_T*)tx, sizeof(PersistantTxProxy_T),
+            //     // (const uint8_t*)tx->code.data(), tx->code.size());
         } else if (0 == strcmp(command, "q") || 0 == strcmp(command, "quit")) {
             info_print("Syncing sealed state of enclave to disk...");
             ecall_ret = ecall_sync_evm_sealed_state_to_disk(enclave, &ret);
@@ -1543,7 +1550,7 @@ Address Operator::_createNRandomAccounts(unsigned N, unsigned initBalance, oe_en
             // clean up allocated heap memory for persitant txs
             std::for_each(txs_in_batch.begin(), txs_in_batch.end(), [](eevm::PersistantTransaction* t) { delete t; });
             txs_in_batch.clear();
-            m_ledger.m_gs.db()->purge();  // purge stale entries of database in the host
+            m_ledger.m_gs.purgeStaleEntriesInDB();  // purge stale entries of database in the host
         }
     }
 
@@ -1613,7 +1620,7 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
     switch (this->m_ledger.m_mode) {
         case MODE::PartialStateTransfer:
             // ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch); // this is single-thread execution
-            ret = _dispatchManyTXs_PartialState_paralel(enclave, txs_in_batch); // this is paralel execution
+            ret = _dispatchManyTXs_PartialState_parallel(enclave, txs_in_batch);  // this is paralel execution
             break;
         case MODE::FullStateMaintained:
             ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);
@@ -1669,13 +1676,13 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
     }
     assert(accnts_sizes_size == strgs_sizes_size);
 
-    // 3) Process buffer of accounts and storages outputed by Enlave - insert them to the host MP3
+    // 3) Process buffer of accounts and storages outputed by Enclave - insert them to the host MP3
     size_t ptr_accnts = 0, ptr_strgs = 0;
     for (size_t i = 0; i < accnts_sizes_size; i++) {
         SimpleAccount* ac = SimpleAccount::fromBytes(&(m_buf.accnts.data()[ptr_accnts]), m_buf.accnts_sizes[i]);
         SimpleStorage* st = SimpleStorage::fromBytes(&(m_buf.strgs.data()[ptr_strgs]), m_buf.strgs_sizes[i]);
 
-        eevm::NormalGlobalState::StateEntry e = std::make_pair(std::move(*ac), std::move(*st));
+        eevm::GlobalState<SimpleAccount, SimpleStorage>::StateEntry e = std::make_pair(std::move(*ac), std::move(*st));
         TRACE_HOST("\t new account = %s", e.first.toString(true).c_str());
         this->m_ledger.m_gs.insert(e);
 
@@ -1705,7 +1712,7 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
 /**
  * Executes many TXs in Enclave, while it transfers only a partial MP3 state to Enclave. [fast]
  */
-int Operator::_dispatchManyTXs_PartialState_paralel(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+int Operator::_dispatchManyTXs_PartialState_parallel(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
 {
     int ret;
 
@@ -1751,8 +1758,13 @@ int Operator::_dispatchManyTXs_PartialState_paralel(oe_enclave_t* enclave, std::
     m_ledger.m_gs.dump_partial_db(addrs, db_data, db_keys, storages, storages_sizes, storages_sizes_size, acnts_storages);
     assert(txs_persistant.size() == txs_persistant_size);
 
-    // store root
-    h256 root_orig = m_ledger.m_gs.root();
+    // store roots of fragments (required for MP3 construciton from DB data)
+    std::vector<uint8_t> roots_frags_orig;
+    for (uint16_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {
+        h256 root_orig = m_ledger.m_gs.root();
+        roots_frags_orig.insert(roots_frags_orig.end(), root_orig.data(), root_orig.data() + HASH_SIZE);
+    }
+
     std::vector<uint8_t> db_data_aux;
 
     // 2a) start lookup logging in fragments of MP3s
@@ -1791,14 +1803,14 @@ int Operator::_dispatchManyTXs_PartialState_paralel(oe_enclave_t* enclave, std::
 
 
     // 3) Execute all TXs from batch in Enclave
-    oe_result_t ecall_ret = ecall_run_paralel_many_txs_mp3state_partial(enclave, &ret,
-                                                                (const uint8_t*)txs_persistant.data(), txs_persistant_size,
-                                                                (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
-                                                                (const uint8_t*)root_orig.data(), 32u,
-                                                                (const uint8_t*)db_data.data(), db_data.size(),
-                                                                (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
-                                                                (const uint8_t*)storages.data(), storages_sizes.data(),
-                                                                storages_sizes_size, (const uint8_t*)acnts_storages.data());
+    oe_result_t ecall_ret = ecall_run_parallel_many_txs_mp3state_partial(enclave, &ret,
+                                                                         (const uint8_t*)txs_persistant.data(), txs_persistant_size,
+                                                                         (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
+                                                                         (const uint8_t*)roots_frags_orig.data(), HASH_SIZE * FragmentedGlobalState::DEFAULT_FRAGS_CNT,
+                                                                         (const uint8_t*)db_data.data(), db_data.size(),
+                                                                         (const uint8_t*)db_data_aux.data(), db_data_aux.size(),
+                                                                         (const uint8_t*)storages.data(), storages_sizes.data(),
+                                                                         storages_sizes_size, (const uint8_t*)acnts_storages.data());
 
     if (ecall_ret != OE_OK || is_error(ret)) {
         error_print("Error when executing batch of TXs in ENCLAVE.");
@@ -1852,14 +1864,35 @@ int Operator::_dispatchTX_PartialState(oe_enclave_t* enclave, eevm::PersistantTr
 
     // 2) Execute TX in Host    (and log all newly created accounts and their trails)
     std::vector<uint8_t> db_data_aux;  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts
-    m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_data_aux);
-    ret = this->m_ledger.executeTX(tx, output_u256);
-    unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging();
-    info_print(fmt::format("The number of auxiliary entries fetched from DB is {}.", cntLookups));
-    if (ret != RET_SUCCESS) {  // this updates global account state in the host
-        error_print("Error when executing TX in HOST.");
-        return ret;
+
+    // store roots of fragments (required for MP3 construciton from DB data)
+    std::vector<uint8_t> roots_frags_orig;
+    for (uint16_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {
+        h256 root_orig = m_ledger.m_gs.root();
+        roots_frags_orig.insert(roots_frags_orig.end(), root_orig.data(), root_orig.data() + HASH_SIZE);
     }
+
+    // 2a) start lookup logging in fragments of MP3s
+    std::vector<uint8_t> db_data_aux_frag[m_ledger.m_gs.cntFrags()];  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts (thread-safe per frag MP3)
+    std::set<h256> db_keys_aux[m_ledger.m_gs.cntFrags()];             // corresponding auxialiry keys (thread-safe per frag MP3)
+    for (size_t i = 0; i < m_ledger.m_gs.cntFrags(); i++) {
+        m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_keys_aux[i], &db_data_aux_frag[i], i);  // IH TODO: this is per fragment MP3, so it needs some mutex or split keys + merge later !!!
+    }
+
+    // 2b Execute TX in Host
+    ret = this->m_ledger.executeTX(tx, output_u256);
+
+    // 2c) Finish lookup logging of all fragments in MP3s
+    unsigned sumCntLookups = 0;
+    for (size_t i = 0; i < m_ledger.m_gs.cntFrags(); i++) {
+        unsigned cntLookups = m_ledger.m_gs.finishDBLookupLogging(i);
+        info_print(fmt::format("[frag = {}] The number of auxiliary entries fetched from DB is {}.", i, cntLookups));
+        sumCntLookups += cntLookups;
+
+        // 2d) consolidate logged entries across multiple MP3s into a single container
+        db_data_aux.insert(db_data_aux.end(), db_data_aux_frag[i].begin(), db_data_aux_frag[i].end());
+    }
+    info_print(fmt::format("The number of all auxiliary entries fetched from DB is {}.", sumCntLookups));
 
     info_print(fmt::format("Size of state passed to E: (accounts = {}B + {}B Aux | storages = {}B); SUM = {}B",
                            db_data.size(), db_data_aux.size(), sumVectST(storages_sizes), db_data.size() + db_data_aux.size() + sumVectST(storages_sizes)));

@@ -15,7 +15,7 @@ namespace eevm
 
     class SimpleGlobalState : public GlobalState<SimpleAccount, SimpleStorage> {
     public:
-        using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std:map
+        // using StateEntry = std::pair<SimpleAccount, SimpleStorage>;  // SimpleStorage is just std:map
 
     private:
         Block currentBlock;

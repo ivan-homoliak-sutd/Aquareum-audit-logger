@@ -3,9 +3,11 @@
 #include "common.h"
 #include "eEVM/bigint.h"
 // #include "eEVM/bigint.h"
+#include "eEVM/globalstate.h"
 #include "eEVM/normal/fragmentedGlobalState.h"
 #include "eEVM/transaction.h"
 #include "eEVM/util.h"
+// #include "eEVM/normal/normalGlobalState.h"
 
 #include "secp256k1.h"
 #include "signing.h"
@@ -121,17 +123,16 @@ struct OperAccount {
 
 class AQLedger {
 public:
-
-    FragmentedGlobalState m_gs;  // the full global state of the ledger
-
-    ECC* m_ecc;  // ECC signing wrapper
+    eevm::FragmentedGlobalState m_gs;  // the full global state of the ledger
 
     MODE m_mode;
 
     eevm::Address operAddr;
 
+    ECC* m_ecc;  // ECC signing wrapper
+
     inline AQLedger(ECC* e)
-      : m_ecc(e), m_mode(MODE::FullStateMaintained){};
+      : m_gs(eevm::FragmentedGlobalState::DEFAULT_FRAGS_CNT), m_mode(MODE::FullStateMaintained), m_ecc(e){};
 
     PersistantTransaction* createHelloWorldTX(OperAccount& sender,
                                               size_t nonce);

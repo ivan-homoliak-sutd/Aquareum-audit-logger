@@ -70,8 +70,8 @@ namespace eevm
         }
 
         SimpleAccountState newAS = get(addr);
-        if (NULL != m_as_updatedAndNewAddrs[fragIdx]) {
-            m_as_updatedAndNewAddrs[fragIdx]->insert(addr);
+        if (NULL != m_as_updatedAndNewAddrs) {
+            m_as_updatedAndNewAddrs->insert(addr);
         }
         return newAS;
     }
@@ -112,8 +112,8 @@ namespace eevm
 
         // get new AC and log it (if AS logging enabled)
         SimpleAccountState newAS = get(addr);
-        if (NULL != m_as_updatedAndNewAddrs[fragIdx]) {
-            m_as_updatedAndNewAddrs[fragIdx]->insert(addr);
+        if (NULL != m_as_updatedAndNewAddrs) {
+            m_as_updatedAndNewAddrs->insert(addr);
         }
         return newAS;
     }
@@ -223,42 +223,77 @@ namespace eevm
         assert(sum_size_data == db_data.size() - size_data_before);
     }
 
-    /**
-     * It dumps the full MP3 state of accounts and their storages into several references.
-     * It iterates MP3 entries through MP3's iterator (thus only leaf nodes are considered)
-     */
-    void FragmentedGlobalState::dump_full_db_of_frag(std::vector<uint8_t>& mp3_keys,
-                                                     std::vector<uint8_t>& mp3_values,
-                                                     std::vector<size_t>& values_sizes,
-                                                     size_t& mp3_keys_size, size_t& values_sizes_size,
-                                                     std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx)
+    // Note that fragments can be identified by the 1st B of exported addr in 'mp3_keys'
+    void FragmentedGlobalState::dump_full_db(std::vector<uint8_t>& mp3_keys,
+                                             std::vector<uint8_t>& mp3_values,
+                                             std::vector<size_t>& values_sizes,
+                                             size_t& mp3_keys_size, size_t& values_sizes_size,
+                                             std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size)
     {
-        TRACE_ME("Dumping full DB of global state");
+        TRACE_ME("Dumping full DB of fragment");
+
         values_sizes_size = 0, storages_sizes_size = 0;
         size_t summed_keys_size = 0;
         unsigned cnt_entries = 0;
 
-        // int i = 0;
-        for (auto const& e : m_frag_accounts[fragIdx]) {  // std::pair<bytesConstRef, bytesConstRef>
-            auto addr = e.first;
-            auto val = e.second;
+        for (uint16_t fragIdx = 0; fragIdx < this->cntFrags(); fragIdx++) {
+            for (auto const& e : m_frag_accounts[fragIdx]) {  // std::pair<bytesConstRef, bytesConstRef>
+                auto addr = e.first;
+                auto val = e.second;
 
-            // std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
-            mp3_keys.insert(mp3_keys.end(), addr.begin(), addr.end());    // insert the full content of value
-            mp3_values.insert(mp3_values.end(), val.begin(), val.end());  // insert the full content of key
-            values_sizes.push_back(val.size());
+                // std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
+                mp3_keys.insert(mp3_keys.end(), addr.begin(), addr.end());    // insert the full content of value (fragments can be identified by the 1st B of addr)
+                mp3_values.insert(mp3_values.end(), val.begin(), val.end());  // insert the full content of key
+                values_sizes.push_back(val.size());
 
-            summed_keys_size += addr.size;
-            values_sizes_size += sizeof(size_t);
+                summed_keys_size += addr.size;
+                values_sizes_size += sizeof(size_t);
 
-            // dump also storage of each account
-            _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size, fragIdx);
-            cnt_entries++;
+                // dump also storage of each account
+                _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size, fragIdx);
+                cnt_entries++;
+            }
         }
         mp3_keys_size = cnt_entries * 32;
         assert(mp3_keys_size == summed_keys_size);
-        // print_sep();
     }
+
+    /**
+     * It dumps the full MP3 state of accounts and their storages into several references.
+     * It iterates MP3 entries through MP3's iterator (thus only leaf nodes are considered)
+     */
+    // void FragmentedGlobalState::dump_full_db_of_frag(std::vector<uint8_t>& mp3_keys,
+    //                                                  std::vector<uint8_t>& mp3_values,
+    //                                                  std::vector<size_t>& values_sizes,
+    //                                                  size_t& mp3_keys_size, size_t& values_sizes_size,
+    //                                                  std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx)
+    // {
+    //     TRACE_ME("Dumping full DB of fragment %d ", fragIdx);
+    //     values_sizes_size = 0, storages_sizes_size = 0;
+    //     size_t summed_keys_size = 0;
+    //     unsigned cnt_entries = 0;
+
+    //     // int i = 0;
+    //     for (auto const& e : m_frag_accounts[fragIdx]) {  // std::pair<bytesConstRef, bytesConstRef>
+    //         auto addr = e.first;
+    //         auto val = e.second;
+
+    //         // std::cout << "\t account[" << i++ << "] addr = " << addr << "value = " << escaped(val.toString(), false) << "\n";
+    //         mp3_keys.insert(mp3_keys.end(), addr.begin(), addr.end());    // insert the full content of value
+    //         mp3_values.insert(mp3_values.end(), val.begin(), val.end());  // insert the full content of key
+    //         values_sizes.push_back(val.size());
+
+    //         summed_keys_size += addr.size;
+    //         values_sizes_size += sizeof(size_t);
+
+    //         // dump also storage of each account
+    //         _dump_single_storage(addr, storages, storages_sizes, storages_sizes_size, fragIdx);
+    //         cnt_entries++;
+    //     }
+    //     mp3_keys_size = cnt_entries * 32;
+    //     assert(mp3_keys_size == summed_keys_size);
+    //     // print_sep();
+    // }
 
 
     void FragmentedGlobalState::_dump_single_storage(Address addr, std::vector<uint8_t>& storages, std::vector<size_t>& storages_sizes, size_t& storages_sizes_size, const uint16_t fragIdx) const
@@ -279,7 +314,7 @@ namespace eevm
      * Note that also integrity of copied storages is verified here, since they are passed to E as [user_check]
      */
     int FragmentedGlobalState::construct_partial_state(FragmentedGlobalState** gs,
-                                                       const uint8_t* gs_roots_frag_h, const size_t roots_size,
+                                                       const uint8_t* gs_roots_frag_h,
                                                        const uint8_t* db_data, const size_t db_data_size,
                                                        const uint8_t* db_data_aux, const size_t db_data_aux_size,
                                                        const uint8_t* storages, const size_t* storages_sizes,
@@ -404,7 +439,7 @@ namespace eevm
         }
 
         // 4) verify whether DB entry with the claimed fragmented root values exist after filling DB
-        for (uint16_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {            
+        for (uint16_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {
             h256 root = h256(gs_roots_frag_h + i * HASH_SIZE, h256::ConstructFromPointer);
             if (0 == (*gs)->db(i)->lookup(root).size()) {
                 TRACE_ME("[Fragment %d] Passed root %s does not exist in DB.", i, root.hex().c_str());
@@ -425,13 +460,10 @@ namespace eevm
                                                             const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
                                                             const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint16_t fragIdx)
     {
-        TRACE_ME("Constructing full state");
+        TRACE_ME("Constructing full state of fragment %d", fragIdx);
         assert(mp3_keys_size / ADDR_SIZE_B == mp3_values_sizes_size / sizeof(size_t));
 
-
-        assert(false);
         *gs = new FragmentedGlobalState(FragmentedGlobalState::DEFAULT_FRAGS_CNT);  // TODO IH: we need a construction of full GS, wrapping this !!!
-
 
         auto& acnts = (*gs)->getAccounts(fragIdx);
         auto& strgs = (*gs)->getStorages(fragIdx);
@@ -444,6 +476,48 @@ namespace eevm
             // TRACE_ME("[%ld]", i);
             auto* key = new h256(&(mp3_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
             uint8_t* val = new uint8_t[values_sizes[i]];                                     // manually allocating enclave memory since 'mp3_values' is in host memory
+            memcpy(val, &mp3_values[ptr_mp3_values], values_sizes[i]);
+            auto val_ref = bytesConstRef(val, values_sizes[i]);
+
+            // std::cerr << " inserting entry: " << key << " => " << escaped(val_ref.toString(), false) << "\n";
+            acnts.insert(*key, val_ref);
+            ptr_mp3_values += values_sizes[i];
+
+            // 2) insert storage of the current account state
+            SimpleStorage* s = SimpleStorage::fromBytes(&storages[ptr_storages], storages_sizes[i]);
+            strgs.insert(std::make_pair(std::move(*key), std::move(*s)));
+
+            ptr_storages += storages_sizes[i];
+            delete val;
+        }
+        // print_sep();
+        return 0;
+    }
+
+    int FragmentedGlobalState::construct_full_state(FragmentedGlobalState** gs,
+                                                    const uint8_t* mp3_keys, size_t mp3_keys_size,
+                                                    const uint8_t* mp3_values, const size_t* values_sizes, size_t mp3_values_sizes_size,
+                                                    const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size)
+    {
+        TRACE_ME("Constructing full state");
+        assert(mp3_keys_size / ADDR_SIZE_B == mp3_values_sizes_size / sizeof(size_t));
+
+        *gs = new FragmentedGlobalState(FragmentedGlobalState::DEFAULT_FRAGS_CNT);
+
+
+        size_t ptr_mp3_values = 0;  // indicates the current possition in mp3_values
+        size_t ptr_storages = 0;    // indicates the current possition in storages
+
+        // 1) insert account states one by one to global MP3
+        for (size_t i = 0; i < mp3_values_sizes_size / sizeof(size_t); i++) {
+            // TRACE_ME("[%ld]", i);
+            auto* key = new h256(&(mp3_keys[i * ADDR_SIZE_B]), h256::ConstructFromPointer);  // ctor of h256 allocates memory
+
+            uint16_t fragIdx = (*key)[0];
+            auto& acnts = (*gs)->getAccounts(fragIdx);
+            auto& strgs = (*gs)->getStorages(fragIdx);
+
+            uint8_t* val = new uint8_t[values_sizes[i]];  // manually allocating enclave memory since 'mp3_values' is in host memory
             memcpy(val, &mp3_values[ptr_mp3_values], values_sizes[i]);
             auto val_ref = bytesConstRef(val, values_sizes[i]);
 

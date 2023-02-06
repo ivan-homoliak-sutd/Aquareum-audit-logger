@@ -22,6 +22,7 @@
 #include "aleth-mp3/database/MemoryDB.h"
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
+#include "eEVM/globalstate.h"
 #include "eEVM/normal/fragmentedGlobalState.h"
 #include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/util.h"
@@ -31,7 +32,7 @@ bool _evm_initialized = false;
 
 Sealing m_sealer;
 AQLedger m_ledger;
-eevm::NormalGlobalState* m_gs = NULL;  // the partial global state of the ledger (maintained in memory of enclave)
+eevm::GlobalStateGeneric* m_gs = NULL;  // the partial global state of the ledger (maintained in memory of enclave)
 
 
 ///////////////////// AUX //////////////////
@@ -55,53 +56,53 @@ int generate_keypair_PB(KeyPairPB_T* keypair)
 ///////////////////////////////////////////
 
 // TODO: this is just temp function: drop it later
-void ecall_enclave_aqledger()
-{
-    try {
-        print_enc_sep(EncExec::START);
-        // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
-        std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
+// void ecall_enclave_aqledger()
+// {
+//     try {
+//         print_enc_sep(EncExec::START);
+//         // fprintf(stdout, "[ENCLAVE]: Hello world from the enclave\n");
+//         std::cout << "[ENCLAVE]: Hello world from the enclave" << std::endl;
 
-        // Call back into the host
-        oe_result_t result = ocall_host_aqledger();
-        if (result != OE_OK) {
-            fprintf(stderr, "[ENCLAVE]: Call to ocall_host_aqledger failed: result=%u (%s)\n", result, oe_result_str(result));
-        }
-        AQLedger l = AQLedger();
-        l.execute_hello_world();
-        l.execute_sum_a_b(2, 3);
+//         // Call back into the host
+//         oe_result_t result = ocall_host_aqledger();
+//         if (result != OE_OK) {
+//             fprintf(stderr, "[ENCLAVE]: Call to ocall_host_aqledger failed: result=%u (%s)\n", result, oe_result_str(result));
+//         }
+//         AQLedger l = AQLedger();
+//         l.execute_hello_world();
+//         l.execute_sum_a_b(2, 3);
 
 
-        // some tmp experiments with MP3 and DB
-        auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
-        dev::OverlayDB* m_db = new dev::OverlayDB(std::move(mem_db));
-        auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
-        assert(t->isNull());
+//         // some tmp experiments with MP3 and DB
+//         auto mem_db = std::unique_ptr<dev::db::DatabaseFace>(new dev::db::MemoryDB());
+//         dev::OverlayDB* m_db = new dev::OverlayDB(std::move(mem_db));
+//         auto t = new dev::SecureTrieDB<dev::h256, dev::OverlayDB>(m_db);
+//         assert(t->isNull());
 
-        t->init();
+//         t->init();
 
-        assert(!t->isNull());
-        assert(t->isEmpty());
+//         assert(!t->isNull());
+//         assert(t->isEmpty());
 
-        string inp4hash("some input text 4 hash");
-        eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
+//         string inp4hash("some input text 4 hash");
+//         eevm::KeccakHash tx_hash = eevm::keccak_256(inp4hash);
 
-        TRACE_ENCLAVE("1");
-        auto hash = dev::h256(tx_hash.data(), dev::h256::ConstructFromPointer);
-        TRACE_ENCLAVE("2");
-        t->insert(hash, inp4hash);
-        TRACE_ENCLAVE("3");
-        assert(t->at(hash) == inp4hash);
-        TRACE_ENCLAVE("4");
-        t->remove(hash);
-        TRACE_ENCLAVE("5");
-        assert(t->isEmpty());
+//         TRACE_ENCLAVE("1");
+//         auto hash = dev::h256(tx_hash.data(), dev::h256::ConstructFromPointer);
+//         TRACE_ENCLAVE("2");
+//         t->insert(hash, inp4hash);
+//         TRACE_ENCLAVE("3");
+//         assert(t->at(hash) == inp4hash);
+//         TRACE_ENCLAVE("4");
+//         t->remove(hash);
+//         TRACE_ENCLAVE("5");
+//         assert(t->isEmpty());
 
-        print_enc_sep(EncExec::END);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << '\n';
-    }
-}
+//         print_enc_sep(EncExec::END);
+//     } catch (const std::exception& e) {
+//         std::cerr << e.what() << '\n';
+//     }
+// }
 
 /*
 * This function is called only once - when sealed file does not exist.
@@ -276,7 +277,8 @@ int ecall_read_memory_stats(StorageStatsMP3DB* evm_mem_stats, size_t evm_mem_sta
         }
 
         assert(sizeof(StorageStatsMP3DB) == sizeof(dev::StateCacheDB::StorageStatsMP3DB));
-        (*evm_mem_stats) = *reinterpret_cast<StorageStatsMP3DB*>(&(m_gs->db()->m_stats));
+        auto fullStats = m_gs->getDbStorageStats();
+        memcpy(evm_mem_stats, reinterpret_cast<const char*>(&fullStats), sizeof(StorageStatsMP3DB));
 
         print_enc_sep(EncExec::END);
         return 0;
@@ -295,7 +297,7 @@ int ecall_purge_stale_mp3_entries()
             return ERR_NOT_FSMAINTAINED_MODE;
         }
 
-        m_gs->db()->purge();
+        m_gs->purgeStaleEntriesInDB();
 
         print_enc_sep(EncExec::END);
         return 0;
@@ -323,19 +325,19 @@ int ecall_set_operator_address(uint8_t* operator_PK, size_t pk_size)
 }
 
 
-int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
-{
-    try {
-        print_enc_sep(EncExec::START);
-        TRACE_ENCLAVE("running TX with internal simplestate.");
-        int ret = m_ledger.execute_tx_simplestate_internal(tx, code, code_size);
-        print_enc_sep(EncExec::END);
-        return ret;
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << '\n';
-        return ERR_EXCEPTION;
-    }
-}
+// int ecall_run_single_tx_simplestate(PersistantTxProxy_T* tx, size_t tx_size, const uint8_t* code, size_t code_size)
+// {
+//     try {
+//         print_enc_sep(EncExec::START);
+//         TRACE_ENCLAVE("running TX with internal simplestate.");
+//         int ret = m_ledger.execute_tx_simplestate_internal(tx, code, code_size);
+//         print_enc_sep(EncExec::END);
+//         return ret;
+//     } catch (const std::exception& e) {
+//         std::cerr << e.what() << '\n';
+//         return ERR_EXCEPTION;
+//     }
+// }
 
 
 int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
@@ -349,18 +351,25 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
         TRACE_ENCLAVE("running TX with full MP3 copied.");
 
         // 1) reconstruct the global MP3 state from host passed data
-        eevm::NormalGlobalState* gs;
-        int ret = eevm::NormalGlobalState::construct_full_state(&gs,
-                                                                mp3_keys, mp3_keys_size,
-                                                                mp3_values, mp3_values_sizes, mp3_values_sizes_size,
-                                                                storages, storages_sizes, storages_sizes_size);
+        // eevm::NormalGlobalState* gs;
+        // int ret = eevm::NormalGlobalState::construct_full_state(&gs,
+        //                                                         mp3_keys, mp3_keys_size,
+        //                                                         mp3_values, mp3_values_sizes, mp3_values_sizes_size,
+        //                                                         storages, storages_sizes, storages_sizes_size);
+
+        eevm::FragmentedGlobalState* gs;
+        int ret = eevm::FragmentedGlobalState::construct_full_state(&gs,
+                                                                    mp3_keys, mp3_keys_size,
+                                                                    mp3_values, mp3_values_sizes, mp3_values_sizes_size,
+                                                                    storages, storages_sizes, storages_sizes_size);
+
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_FULL_STATE;
 
         // 2) verify a consistency of the reconstructed global state with the last known value stored in E
         // std::cerr << "gs->getAccounts().root() = " << (gs->getAccounts().root()) << "\n";
         // std::cerr << "m_evm_state.pub.globStRoot = " << eevm::to_hex_string(eevm::from_big_endian(m_evm_state.pub.globStRoot)) << "\n";
-        if ((gs->getAccounts().root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
+        if ((gs->root()) != eevm::from_big_endian(m_evm_state.pub.globStRoot)) {  // operator (h256) converts to underlying object
             TRACE_ENCLAVE("Passed global state IS NOT consistent with the last known one.");
             delete gs;
             return ERR_EVM_INCONSISTANT_STATE;
@@ -371,7 +380,7 @@ int ecall_run_single_tx_mp3state_full(PersistantTxProxy_T* tx, size_t tx_size,
         ret = m_ledger.execute_tx_mp3state_full(gs, tx, code, code_size);
 
         // 4) update the current root hash of the global MP3 state in E
-        memcpy(&m_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+        memcpy(&m_evm_state.pub.globStRoot, gs->root().data(), HASH_SIZE);
 
         delete gs;  // clear global state allocated before
         print_enc_sep(EncExec::END);
@@ -395,11 +404,13 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         TRACE_ENCLAVE("executing TX with partial MP3 copied.");
 
         // 1) reconstruct the global MP3 state from host passed data
-        eevm::NormalGlobalState* gs;
-        int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
-                                                                   db_data, db_data_size,
-                                                                   db_data_aux, db_data_aux_size,
-                                                                   storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+        eevm::FragmentedGlobalState* gs;
+        int ret = eevm::FragmentedGlobalState::construct_partial_state(&gs,
+                                                                       gs_root_h,
+                                                                       db_data, db_data_size,
+                                                                       db_data_aux, db_data_aux_size,
+                                                                       storages, storages_sizes,
+                                                                       storages_sizes_size, accnts_of_storages);
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
@@ -412,7 +423,7 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
 
         // 3) Execute TX in E (while updating the protected global state)
-        ret = m_ledger.execute_tx_mp3state_full(gs, tx, code, code_size); // TODO
+        ret = m_ledger.execute_tx_mp3state_full(gs, tx, code, code_size);  // TODO
 
         // 4) update the current root hash of the global MP3 state in E
         memcpy(&m_evm_state.pub.globStRoot, gs->root().data(), HASH_SIZE);
@@ -532,7 +543,7 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         assert(codes_offset == codes_sum_size);
 
         // 2) Update the current root hash of the global MP3 state in E
-        memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
+        memcpy(&m_evm_state.pub.globStRoot, m_gs->root().data(), HASH_SIZE);
 
         // 3) Compute and store the Merkle root of TXs
         dev::h256 txsRoot = txs_hashes.computeRoot();
@@ -546,7 +557,7 @@ int ecall_run_many_txs_maintained_full_mp3state(const uint8_t* txs, size_t txs_s
         m_evm_state.pub.idCurrent++;
 
         // 6) Clean up unused entries in MP3 db - should be done manually from host
-        m_gs->db()->purge();
+        m_gs->purgeStaleEntriesInDB();
 
         print_enc_sep(EncExec::END);
         return ret;
@@ -580,7 +591,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         int32_t ret;
         size_t numberOfTxs = txs_size / sizeof(PersistantTxProxy_T);
 
-        // 0) perform memory location check - must be STRICTLY outside of the enlclave (i.e., not overlapping with E)
+        // 0) perform memory location check - must be STRICTLY outside of the enclave (i.e., not overlapping with E)
         if (!oe_is_outside_enclave(output_results, 32 * numberOfTxs))  // we know this size beforehand: 32B is the size per one output
             return ERR_POINTER_NOT_OUTSIDE_OF_ENC;
         if (!oe_is_outside_enclave(updated_and_new_accnts, MAX_SIZE_accnts))  // check the max size allocated in host
@@ -649,7 +660,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         *accnts_sizes_size = i;
 
         // 4) Update the current root hash of the global MP3 state in E
-        memcpy(&m_evm_state.pub.globStRoot, m_gs->getAccounts().root().data(), HASH_SIZE);
+        memcpy(&m_evm_state.pub.globStRoot, m_gs->root().data(), HASH_SIZE);
 
         // 5) Compute and store the Merkle root of TXs
         dev::h256 txsRoot = txs_hashes.computeRoot();
@@ -663,7 +674,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
         m_evm_state.pub.idCurrent++;
 
         // 8) Clean up unused entries in MP3 db (it is fastest when doing after each block)
-        m_gs->db()->purge();
+        m_gs->purgeStaleEntriesInDB();
 
         print_enc_sep(EncExec::END);
         return ret;
@@ -676,16 +687,15 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
 }
 
 
-
 /**
  * This function processes TXs of a single block in paralel. The paralelization requires synchronization to lock particular fragmented MP3 structrues. 
  */
 int ecall_run_parallel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
-                                        const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
-                                        const uint8_t* gs_root_h, size_t root_size,  // from here below is partial MP3 DB
-                                        const uint8_t* db_data, size_t db_data_size,
-                                        const uint8_t* db_data_aux, size_t db_data_aux_size,
-                                        const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
+                                                 const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
+                                                 const uint8_t* gs_roots_frag_h, size_t roots_size,  // from here below is partial MP3 DB
+                                                 const uint8_t* db_data, size_t db_data_size,
+                                                 const uint8_t* db_data_aux, size_t db_data_aux_size,
+                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint8_t* accnts_of_storages)
 {
     try {
         print_enc_sep(EncExec::START);
@@ -694,10 +704,11 @@ int ecall_run_parallel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_
         // 1) reconstruct the global MP3 state from host passed data
         eevm::FragmentedGlobalState* gs;
         // TODO: we need caching of the partial state in the enclave up to some depth - so we can transfer / process lesser data by ecall
-        int32_t ret = eevm::FragmentedGlobalState::construct_partial_state(&gs, gs_root_h,
-                                                                       db_data, db_data_size,
-                                                                       db_data_aux, db_data_aux_size,
-                                                                       storages, storages_sizes, storages_sizes_size, accnts_of_storages);
+        int32_t ret = eevm::FragmentedGlobalState::construct_partial_state(&gs,
+                                                                           gs_roots_frag_h,
+                                                                           db_data, db_data_size,
+                                                                           db_data_aux, db_data_aux_size,
+                                                                           storages, storages_sizes, storages_sizes_size, accnts_of_storages);
         if (ret != RET_SUCCESS)
             return ERR_EVM_WRONG_PARTIAL_STATE;
 
@@ -710,6 +721,7 @@ int ecall_run_parallel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_
         TRACE_ENCLAVE("Passed global state IS consistent with the one from E.");
 
         // 3) Execute TXs in E one by one (while updating the protected global state)
+        // PARALLEL
         size_t codes_offset = 0;
         MerkleTreeArray txs_hashes;
         MerkleTreeArray rcps_hashes;
@@ -727,7 +739,7 @@ int ecall_run_parallel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_
 
 
         // 4) Update the current root hash of the global MP3 state in E
-        memcpy(&m_evm_state.pub.globStRoot, gs->getAccounts().root().data(), HASH_SIZE);
+        memcpy(&m_evm_state.pub.globStRoot, gs->root().data(), HASH_SIZE);
 
         // 5) Compute and store the Merkle root of TXs
         dev::h256 txsRoot = txs_hashes.computeRoot();
