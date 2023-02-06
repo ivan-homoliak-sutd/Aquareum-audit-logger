@@ -1612,7 +1612,8 @@ int Operator::_dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::Persista
 
     switch (this->m_ledger.m_mode) {
         case MODE::PartialStateTransfer:
-            ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch);
+            // ret = _dispatchManyTXs_PartialState(enclave, txs_in_batch); // this is single-thread execution
+            ret = _dispatchManyTXs_PartialState_paralel(enclave, txs_in_batch); // this is paralel execution
             break;
         case MODE::FullStateMaintained:
             ret = _dispatchManyTXs_FullStateMaintained(enclave, txs_in_batch, output_results);
@@ -1704,7 +1705,7 @@ int Operator::_dispatchManyTXs_FullStateMaintained(oe_enclave_t* enclave, std::v
 /**
  * Executes many TXs in Enclave, while it transfers only a partial MP3 state to Enclave. [fast]
  */
-int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
+int Operator::_dispatchManyTXs_PartialState_paralel(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch)
 {
     int ret;
 
@@ -1754,14 +1755,14 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
     h256 root_orig = m_ledger.m_gs.root();
     std::vector<uint8_t> db_data_aux;
 
-    // 2a) start lookup logging of all fragments in MP3s
+    // 2a) start lookup logging in fragments of MP3s
     std::vector<uint8_t> db_data_aux_frag[m_ledger.m_gs.cntFrags()];  // these are auxiliary DB data that are needed (on top of account trails) when inserting new accounts (thread-safe per frag MP3)
-    std::set<h256> db_keys_aux[m_ledger.m_gs.cntFrags()];        // corresponding auxialiry keys (thread-safe per frag MP3)
+    std::set<h256> db_keys_aux[m_ledger.m_gs.cntFrags()];             // corresponding auxialiry keys (thread-safe per frag MP3)
     for (size_t i = 0; i < m_ledger.m_gs.cntFrags(); i++) {
         m_ledger.m_gs.startDBLookupLogging(&db_keys, &db_keys_aux[i], &db_data_aux_frag[i], i);  // IH TODO: this is per fragment MP3, so it needs some mutex or split keys + merge later !!!
     }
 
-    // 2b) Execute TXs in Host one by one (and log all newly created accounts and their trails)
+    // 2b) Execute TXs in Host(and log all newly created accounts and their trails)
     // IH: PARALLEL - this can be paralelized with locked MP3s (in pairs maybe?)
     for (auto& tx : txs_in_batch) {
         uint256_t output_u256;
@@ -1780,7 +1781,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
         sumCntLookups += cntLookups;
 
         // 2d) consolidate logged entries across multiple MP3s into a single container
-        db_data_aux.insert(db_data_aux.end(),  db_data_aux_frag[i].begin(),  db_data_aux_frag[i].end());
+        db_data_aux.insert(db_data_aux.end(), db_data_aux_frag[i].begin(), db_data_aux_frag[i].end());
     }
     info_print(fmt::format("The number of all auxiliary entries fetched from DB is {}.", sumCntLookups));
 
@@ -1790,7 +1791,7 @@ int Operator::_dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<e
 
 
     // 3) Execute all TXs from batch in Enclave
-    oe_result_t ecall_ret = ecall_run_many_txs_mp3state_partial(enclave, &ret,
+    oe_result_t ecall_ret = ecall_run_paralel_many_txs_mp3state_partial(enclave, &ret,
                                                                 (const uint8_t*)txs_persistant.data(), txs_persistant_size,
                                                                 (const uint8_t*)codes.data(), sumVectST(codes_sizes), codes_sizes.data(), codes_sizes_size,
                                                                 (const uint8_t*)root_orig.data(), 32u,

@@ -23,6 +23,7 @@
 #include "aleth-mp3/database/OverlayDB.h"
 #include "aleth-mp3/database/SecureTrieDB.h"
 #include "eEVM/normal/fragmentedGlobalState.h"
+#include "eEVM/normal/normalGlobalState.h"
 #include "eEVM/util.h"
 
 EvmState_T m_evm_state;
@@ -394,8 +395,8 @@ int ecall_run_single_tx_mp3state_partial(PersistantTxProxy_T* tx, size_t tx_size
         TRACE_ENCLAVE("executing TX with partial MP3 copied.");
 
         // 1) reconstruct the global MP3 state from host passed data
-        eevm::FragmentedGlobalState* gs;
-        int ret = eevm::FragmentedGlobalState::construct_partial_state(&gs, gs_root_h,
+        eevm::NormalGlobalState* gs;
+        int ret = eevm::NormalGlobalState::construct_partial_state(&gs, gs_root_h,
                                                                    db_data, db_data_size,
                                                                    db_data_aux, db_data_aux_size,
                                                                    storages, storages_sizes, storages_sizes_size, accnts_of_storages);
@@ -679,7 +680,7 @@ int ecall_run_many_txs_maintained_full_mp3state_singleExec(const uint8_t* txs, s
 /**
  * This function processes TXs of a single block in paralel. The paralelization requires synchronization to lock particular fragmented MP3 structrues. 
  */
-int ecall_run_paralel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
+int ecall_run_parallel_many_txs_mp3state_partial(const uint8_t* txs, size_t txs_size,
                                         const uint8_t* codes, size_t codes_sum_size, const size_t* codes_sizes, size_t codes_sizes_size,
                                         const uint8_t* gs_root_h, size_t root_size,  // from here below is partial MP3 DB
                                         const uint8_t* db_data, size_t db_data_size,

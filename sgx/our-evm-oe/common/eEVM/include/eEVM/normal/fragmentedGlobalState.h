@@ -183,11 +183,12 @@ namespace eevm
                                                 const uint8_t* storages, const size_t* storages_sizes, size_t storages_sizes_size, const uint16_t frag_Idx);
 
 
-        static int construct_partial_state(FragmentedGlobalState** out_gs, const uint8_t* gs_root_h,
-                                           const uint8_t* db_data, size_t db_data_size,
-                                           const uint8_t* db_data_aux, size_t db_data_aux_size,
+        static int construct_partial_state(FragmentedGlobalState** out_gs,
+                                           const uint8_t* gs_root_frag_h, const size_t roots_size,
+                                           const uint8_t* db_data, const size_t db_data_size,
+                                           const uint8_t* db_data_aux, const size_t db_data_aux_size,
                                            const uint8_t* storages, const size_t* storages_sizes,
-                                           size_t storages_sizes_size, const uint8_t* acnts_storages);
+                                           const size_t storages_sizes_size, const uint8_t* acnts_storages);
 
 
         // friend void to_json(nlohmann::json&, const NormalGlobalState&);

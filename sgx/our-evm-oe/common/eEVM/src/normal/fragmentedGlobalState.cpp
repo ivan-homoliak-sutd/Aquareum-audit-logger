@@ -278,23 +278,28 @@ namespace eevm
      * Constructs partial FragmentedGlobalState object from parameters passed. (called from enclave)
      * Note that also integrity of copied storages is verified here, since they are passed to E as [user_check]
      */
-    int FragmentedGlobalState::construct_partial_state(FragmentedGlobalState** gs, const uint8_t* gs_root_h,
-                                                       const uint8_t* db_data, size_t db_data_size,
-                                                       const uint8_t* db_data_aux, size_t db_data_aux_size,
+    int FragmentedGlobalState::construct_partial_state(FragmentedGlobalState** gs,
+                                                       const uint8_t* gs_roots_frag_h, const size_t roots_size,
+                                                       const uint8_t* db_data, const size_t db_data_size,
+                                                       const uint8_t* db_data_aux, const size_t db_data_aux_size,
                                                        const uint8_t* storages, const size_t* storages_sizes,
-                                                       size_t storages_sizes_size, const uint8_t* accnts_of_storages)
+                                                       const size_t storages_sizes_size, const uint8_t* accnts_of_storages)
     {
         TRACE_ME("Constructing partial state");
 
-        assert(false);
         *gs = new FragmentedGlobalState(FragmentedGlobalState::DEFAULT_FRAGS_CNT, false);  // TODO IH: we need a construction of full GS, wrapping this !!!
 
-        // auto addrAsHash = h256(addr);
-        // uint16_t fragIdx = addrAsHash[0];
+        uint16_t sizeOfFragIdx = sizeof(uint8_t);  // IH: TODO - this need to be increased if we go with more than 256 frarmgents
 
-        auto& acnts = (*gs)->getAccounts(fragIdx);  // IMPORTANT: in this function is not valid to access addresses that were not created yet! Only accounts from db_data are valid.
-        h256 root = h256(gs_root_h, h256::ConstructFromPointer);
-        acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
+        // IMPORTANT: in this function is not valid to access addresses that were not created yet! Only accounts from db_data are valid.
+
+        // set roots of all fragmented MP3s in partial GS object
+        for (size_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {
+            auto& acnts = (*gs)->getAccounts(i);
+            h256 root = h256(gs_roots_frag_h + i * HASH_SIZE, h256::ConstructFromPointer);
+            acnts.setRoot(root, Verification::Skip);  // set root of MP3 forcely (if it is different from the last known in E, then E exits)
+        }
+
 
         size_t sum_data_size = 0, sum_aux_size = 0;
         unsigned inserted_db_data_entries = 0;
@@ -304,6 +309,11 @@ namespace eevm
         TRACE_ME("Inserting db_data to DB");
         while (sum_data_size < db_data_size) {
             // TRACE_ME("[%d] Data account is:", i);
+
+            // parse fragment index (located at the 1st B of data)
+            uint16_t fragIdx = *(db_data + sum_data_size);
+            assert(fragIdx < FragmentedGlobalState::DEFAULT_FRAGS_CNT);
+            sum_data_size += sizeOfFragIdx;
 
             // construct the full RLP of DB entry by parsing its length first
             RLP rlp_oneB = RLP(db_data + sum_data_size, 1, RLP::LaissezFaire);
@@ -333,6 +343,12 @@ namespace eevm
         inserted_db_data_entries = 0, i = 0;
         while (sum_aux_size < db_data_aux_size) {
             TRACE_ME("[%d] AUX: node is:", i);
+
+            // parse fragment index (located at the 1st B of data)
+            uint16_t fragIdx = *(db_data_aux + sum_aux_size);
+            assert(fragIdx < FragmentedGlobalState::DEFAULT_FRAGS_CNT);
+            sum_aux_size += sizeOfFragIdx;
+
             // construct full RLP of DB entry by parsing its length first
             RLP rlp_oneB = RLP(db_data_aux + sum_aux_size, 1, RLP::LaissezFaire);
             TRACE_ME("1");
@@ -387,10 +403,13 @@ namespace eevm
             ptr_addrs += ADDR_SIZE_B;
         }
 
-        // 4) verify whether DB entry with the claimed root value exists after filling DB
-        if (0 == (*gs)->db(fragIdx)->lookup(root).size()) {
-            TRACE_ME("Passed root %s does not exist in DB.", root.hex().c_str());
-            return 2;
+        // 4) verify whether DB entry with the claimed fragmented root values exist after filling DB
+        for (uint16_t i = 0; i < FragmentedGlobalState::DEFAULT_FRAGS_CNT; i++) {            
+            h256 root = h256(gs_roots_frag_h + i * HASH_SIZE, h256::ConstructFromPointer);
+            if (0 == (*gs)->db(i)->lookup(root).size()) {
+                TRACE_ME("[Fragment %d] Passed root %s does not exist in DB.", i, root.hex().c_str());
+                return 2;
+            }
         }
 
         // TRACE_ME("Root of MP3 after importing DB is: %s", acnts.root().hex().c_str());

@@ -139,6 +139,7 @@ namespace aql
         
         int _dispatchManyTXs(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
         int _dispatchManyTXs_PartialState(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
+        int _dispatchManyTXs_PartialState_parallel(oe_enclave_t* enclave, std::vector<eevm::PersistantTransaction*>& txs_in_batch);
 
         void _iterExps(eevm::Address& key);
         void _printTrailOfMP3Leaf(Address& key);
