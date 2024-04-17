@@ -12,7 +12,7 @@ OBJS=$(subst .cpp,.o,$(SRCS))
 SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../eEVM/build-host/CMakeFiles/eevm.dir
 
-EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
+EEVM_OBJECTS=$(shell find $(EEVM_BUILD) -name '*.o' | sed  ':a;N;$!ba;s/\n/ /g')
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(CXX_LIB_DIR) -lstdc++ -lc \

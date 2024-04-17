@@ -63,7 +63,7 @@ Enclave_Include_Paths := \
 	-I../common/eEVM/3rdparty/aleth-mp3/database \
 	-I../common/eEVM/include
 
-EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
+EEVM_OBJECTS=$(shell find $(EEVM_BUILD) -name '*.o' | sed  ':a;N;$!ba;s/\n/ /g')
 
 # lcxxrt is for stacktrace.h
 Enclave_Link_Flags := $(LDFLAGS) \

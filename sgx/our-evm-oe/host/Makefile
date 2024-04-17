@@ -29,7 +29,7 @@ SECP256_LIB_DIR := ../common/secp256k1/.libs/
 EEVM_BUILD := ../common/eEVM/build-host/CMakeFiles/eevm.dir
 # INTX_LIB_DIR := ./libs/intx/build/lib/intx/
 
-EEVM_OBJECTS=$(shell find $(EEVM_BUILD) | grep "\.o" | sed  ':a;N;$!ba;s/\n/ /g')
+EEVM_OBJECTS=$(shell find $(EEVM_BUILD) -name '*.o' | sed  ':a;N;$!ba;s/\n/ /g')
 
 Host_Link_Flags := $(CXX_LDFLAGS) \
 	-L$(SECP256_LIB_DIR) -lsecp256k1 -lssl -lcrypto \
